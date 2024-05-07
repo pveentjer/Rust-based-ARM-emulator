@@ -1,54 +1,13 @@
-use crate::Opcode::LOAD;
+mod instructions;
 
-enum Opcode {
-    ADD,
-    SUB,
-    LOAD,
-    STORE,
-}
-
-struct Instr {
-    opcode: Opcode,
-    sink: Vec<Operand>,
-    source: Vec<Operand>,
-}
+use instructions::Opcode;
+use instructions::Instr;
+use crate::instructions::create_instr;
 
 struct Program {
     code: Vec<Instr>,
 }
 
-struct InstrQueue {
-    head: u64,
-    tail: u64,
-}
-
-enum OperandType {
-    REGISTER,
-    MEMORY,
-}
-
-struct Operand {
-    opType: OperandType,
-    union: OperandUnion,
-}
-
-
-enum OperandUnion {
-    Register(u16),
-    Memory(u64),
-    Code(u64),
-    Constant(i32),
-}
-
-fn create_instr(opcode: Opcode) -> Instr {
-    match opcode {
-        Opcode::ADD => Instr { opcode: Opcode::ADD, source: vec![], sink: vec![] },
-        Opcode::SUB => Instr { opcode: Opcode::SUB, source: vec![], sink: vec![] },
-        Opcode::LOAD => Instr { opcode: Opcode::LOAD, source: vec![], sink: vec![] },
-        Opcode::STORE => Instr { opcode: Opcode::STORE, source: vec![], sink: vec![] },
-        // Handle other opcodes if needed
-    }
-}
 
 fn main() {
     let mut code = Vec::<Instr>::new();
