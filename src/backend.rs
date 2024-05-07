@@ -2,28 +2,9 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
-use crate::cpu::CPUConfig;
+use crate::cpu::{ArgRegFile, CPUConfig};
 use crate::instructions::{InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, WordType};
 use crate::memory_subsystem::MemorySubsystem;
-
-struct ArgReg {
-    value: WordType,
-}
-
-struct ArgRegFile {
-    registers: Vec<ArgReg>,
-}
-
-impl ArgRegFile {
-    fn new(rs_count: u16) -> ArgRegFile {
-        let mut array = Vec::with_capacity(rs_count as usize);
-        for i in 0..rs_count {
-            array.push(ArgReg { value: 0 });
-        }
-
-        ArgRegFile { registers: array }
-    }
-}
 
 struct PhysReg {
     value: WordType,
@@ -213,20 +194,21 @@ pub(crate) struct Backend<'a> {
     instr_queue: Rc<RefCell<InstrQueue<'a>>>,
     rs_table: RSTable,
     phys_reg_file: PhysRegFile,
-    arch_reg_file: ArgRegFile,
+    arch_reg_file: Rc<RefCell<ArgRegFile>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
 }
 
 impl<'a> Backend<'a> {
     pub(crate) fn new(cpu_config: &'a CPUConfig,
                       instr_queue: Rc<RefCell<InstrQueue<'a>>>,
-                      memory_subsystem: Rc<RefCell<MemorySubsystem>>) -> Backend<'a> {
+                      memory_subsystem: Rc<RefCell<MemorySubsystem>>,
+                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Backend<'a> {
         Backend {
             instr_queue,
             memory_subsystem,
+            arch_reg_file,
             rs_table: RSTable::new(cpu_config.rs_count),
             phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
-            arch_reg_file: ArgRegFile::new(cpu_config.arch_reg_count),
         }
     }
 

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use crate::instructions::{InstrQueue, Program};
+use crate::instructions::{InstrQueue, Program, WordType};
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -20,6 +20,8 @@ pub(crate) struct CPUConfig {
 pub(crate) struct CPU<'a> {
     backend: Backend<'a>,
     frontend: Frontend<'a>,
+    memory_subsystem: Rc<RefCell<MemorySubsystem>>,
+    arch_reg_file: Rc<RefCell<ArgRegFile>>,
     cycle_cnt: u64,
     cycle_period: Duration,
 }
@@ -30,15 +32,22 @@ impl<'a> CPU<'a> {
 
         let memory_subsystem = Rc::new(RefCell::new(MemorySubsystem::new(cpu_config)));
 
+        let arch_reg_file = Rc::new(RefCell::new(ArgRegFile::new(cpu_config.arch_reg_count)));
+
         let backend = Backend::new(cpu_config,
                                    Rc::clone(&instr_queue),
-                                   Rc::clone(&memory_subsystem));
+                                   Rc::clone(&memory_subsystem),
+                                   Rc::clone(&arch_reg_file),
+        );
 
         let frontend = Frontend::new(cpu_config,
                                      Rc::clone(&instr_queue));
+
         CPU {
             backend,
             frontend,
+            memory_subsystem,
+            arch_reg_file,
             cycle_cnt: 0,
             cycle_period: Duration::from_micros(1_000_000 / cpu_config.frequency_hz),
         }
@@ -54,5 +63,24 @@ impl<'a> CPU<'a> {
             self.backend.cycle();
             thread::sleep(self.cycle_period);
         }
+    }
+}
+
+struct ArgReg {
+    value: WordType,
+}
+
+pub struct ArgRegFile {
+    registers: Vec<ArgReg>,
+}
+
+impl ArgRegFile {
+    fn new(rs_count: u16) -> ArgRegFile {
+        let mut array = Vec::with_capacity(rs_count as usize);
+        for i in 0..rs_count {
+            array.push(ArgReg { value: 0 });
+        }
+
+        ArgRegFile { registers: array }
     }
 }
