@@ -4,6 +4,14 @@ use std::fmt::Display;
 use crate::cpu::CPUConfig;
 use crate::instructions::{Instr, InstrQueue};
 
+struct RS{
+
+}
+
+struct RS_Table{
+
+}
+
 pub(crate) struct Backend<'a> {
     instr_queue: Rc<RefCell<InstrQueue<'a>>>,
 }

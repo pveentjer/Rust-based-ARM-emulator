@@ -72,23 +72,30 @@ impl<'a> InstrQueue<'a> {
 pub(crate) enum OpType {
     REGISTER,
     MEMORY,
+    UNUSED,
 }
+
+const MAX_SINK_COUNT: u8 = 1;
+const MAX_SOURCE_COUNT: u8 = 2;
 
 pub(crate) struct Instr {
     pub(crate) opcode: Opcode,
-    pub(crate) sink: Vec<Operand>,
-    pub(crate) source: Vec<Operand>,
+    pub(crate) sink_cnt: u8,
+    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
+    pub(crate) source_cnt: u8,
+    pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
 }
 
 impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", mnemonic(&self.opcode))?;
 
-        for source in &self.source {
-            write!(f, " {}", source)?;
+        for k in 0..self.source_cnt {
+            write!(f, " {}", self.source[k as usize])?;
         }
-        for sink in &self.sink {
-            write!(f, " {}", sink)?;
+
+        for k in 0..self.sink_cnt {
+            write!(f, " {}", self.sink[k as usize])?;
         }
 
         Ok(())
@@ -108,6 +115,7 @@ impl fmt::Display for Operand {
             OpUnion::Memory(mem) => write!(f, "[{}]", mem),
             OpUnion::Code(code) => write!(f, "[{}]", code),
             OpUnion::Constant(val) => write!(f, "{}", val),
+            OpUnion::Unused => write!(f, "unused"),
         }
     }
 }
@@ -117,6 +125,7 @@ pub(crate) enum OpUnion {
     Memory(MemoryType),
     Code(MemoryType),
     Constant(WordType),
+    Unused,
 }
 
 pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
@@ -135,33 +144,49 @@ pub(crate) struct Program {
 pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType) -> Instr {
     Instr {
         opcode: Opcode::ADD,
-        source: vec![Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-                     Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: vec![Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
+        sink_cnt: 1,
+        sink: [Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
     }
 }
 
 pub(crate) fn create_SUB(src_1: RegisterType, src_2: RegisterType, sink: RegisterType) -> Instr {
     Instr {
         opcode: Opcode::SUB,
-        source: vec![Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-                     Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: vec![Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
+        sink_cnt: 1,
+        sink: [Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
     }
 }
 
-pub(crate) fn create_LOAD(src: MemoryType, sink: RegisterType) -> Instr {
+pub(crate) fn create_LOAD(addr: MemoryType, sink: RegisterType) -> Instr {
     Instr {
         opcode: Opcode::LOAD,
-        source: vec![Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(src) }],
-        sink: vec![Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
+        source_cnt: 1,
+        source: [
+            Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink_cnt: 1,
+        sink: [Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
     }
 }
 
-pub(crate) fn create_STORE(src: RegisterType, sink: MemoryType) -> Instr {
+pub(crate) fn create_STORE(src: RegisterType, addr: MemoryType) -> Instr {
     Instr {
         opcode: Opcode::STORE,
-        source: vec![Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) }],
-        sink: vec![Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(sink) }],
+        source_cnt: 1,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink_cnt: 1,
+        sink: [Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) }],
     }
 }
