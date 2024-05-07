@@ -1,32 +1,24 @@
 mod instructions;
 mod cpu;
+mod loader;
+mod frontend;
+mod backend;
 
-use instructions::Opcode;
-use instructions::Instr;
 use crate::cpu::{CPU, CPUConfig};
-use crate::instructions::{create_ADD, create_LOAD, create_STORE};
-
-struct Program {
-    code: Vec<Instr>,
-}
+use crate::loader::load;
 
 
 fn main() {
-    let mut code = Vec::<Instr>::new();
-    code.push(create_LOAD(0, 0));
-    code.push(create_LOAD(1, 1));
-    code.push(create_ADD(0, 1, 2));
-    code.push(create_STORE(2, 2));
+    let program = load("bla.asm");
 
-    let program = Program { code };
-
-    for instr in &program.code {
-       println!("{}", instr);
-    }
-
-    let mut cpu_config = CPUConfig{
+    let cpu_config = CPUConfig {
         arch_reg_count: 16,
         phys_reg_count: 64,
+        frontend_n_wide: 1,
+        instr_queue_capacity: 8,
+        frequency_hz: 1
     };
-    let mut cpu = CPU{};
+
+    let mut cpu = CPU::new(&cpu_config);
+    cpu.run(program);
 }
