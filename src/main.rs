@@ -16,7 +16,8 @@ fn main() {
         phys_reg_count: 64,
         frontend_n_wide: 1,
         instr_queue_capacity: 8,
-        frequency_hz: 1
+        frequency_hz: 1,
+        rs_count: 16,
     };
 
     let mut cpu = CPU::new(&cpu_config);

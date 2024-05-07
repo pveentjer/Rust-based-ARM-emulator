@@ -34,7 +34,7 @@ impl<'a> Frontend<'a> {
                         break;
                     }
 
-                    if(program.code.len() == self.ip_next_fetch as usize){
+                    if program.code.len() == self.ip_next_fetch as usize{
                         // at the end of the program
                         return;
                     }

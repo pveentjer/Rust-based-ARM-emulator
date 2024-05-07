@@ -5,6 +5,7 @@ pub enum Opcode {
     SUB,
     LOAD,
     STORE,
+    NOP,
 }
 
 
@@ -75,8 +76,8 @@ pub(crate) enum OpType {
     UNUSED,
 }
 
-const MAX_SINK_COUNT: u8 = 1;
-const MAX_SOURCE_COUNT: u8 = 2;
+pub(crate) const MAX_SINK_COUNT: u8 = 1;
+pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
 
 pub(crate) struct Instr {
     pub(crate) opcode: Opcode,
@@ -101,7 +102,6 @@ impl fmt::Display for Instr {
         Ok(())
     }
 }
-
 
 pub(crate) struct Operand {
     pub(crate) op_type: OpType,
@@ -134,6 +134,7 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
         Opcode::SUB => "SUB",
         Opcode::LOAD => "LOAD",
         Opcode::STORE => "STORE",
+        Opcode::NOP => "NOP",
     }
 }
 
@@ -188,5 +189,18 @@ pub(crate) fn create_STORE(src: RegisterType, addr: MemoryType) -> Instr {
         ],
         sink_cnt: 1,
         sink: [Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) }],
+    }
+}
+
+pub(crate) fn create_NOP() -> Instr {
+    Instr {
+        opcode: Opcode::STORE,
+        source_cnt: 0,
+        source: [
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink_cnt: 0,
+        sink: [Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }],
     }
 }

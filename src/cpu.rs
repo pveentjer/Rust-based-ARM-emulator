@@ -12,6 +12,7 @@ pub(crate) struct CPUConfig {
     pub(crate) frontend_n_wide: u8,
     pub(crate) instr_queue_capacity: u16,
     pub(crate) frequency_hz: u64,
+    pub(crate) rs_count: u16,
 }
 
 pub(crate) struct CPU<'a> {
