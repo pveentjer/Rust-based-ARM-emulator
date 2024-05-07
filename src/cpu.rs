@@ -1,10 +1,11 @@
 use std::cell::RefCell;
-use crate::instructions::{InstrQueue, Program, RegisterType};
+use crate::instructions::{InstrQueue, Program};
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 use crate::backend::Backend;
 use crate::frontend::Frontend;
+use crate::memory_subsystem::MemorySubsystem;
 
 pub(crate) struct CPUConfig {
     pub(crate) arch_reg_count: u16,
@@ -13,6 +14,7 @@ pub(crate) struct CPUConfig {
     pub(crate) instr_queue_capacity: u16,
     pub(crate) frequency_hz: u64,
     pub(crate) rs_count: u16,
+    pub(crate) memory_size: u32,
 }
 
 pub(crate) struct CPU<'a> {
@@ -25,8 +27,15 @@ pub(crate) struct CPU<'a> {
 impl<'a> CPU<'a> {
     pub(crate) fn new(cpu_config: &'a CPUConfig) -> CPU<'a> {
         let instr_queue = Rc::new(RefCell::new(InstrQueue::new(cpu_config.instr_queue_capacity)));
-        let backend = Backend::new(cpu_config, Rc::clone(&instr_queue));
-        let frontend = Frontend::new(cpu_config, Rc::clone(&instr_queue));
+
+        let memory_subsystem = Rc::new(RefCell::new(MemorySubsystem::new(cpu_config)));
+
+        let backend = Backend::new(cpu_config,
+                                   Rc::clone(&instr_queue),
+                                   Rc::clone(&memory_subsystem));
+
+        let frontend = Frontend::new(cpu_config,
+                                     Rc::clone(&instr_queue));
         CPU {
             backend,
             frontend,

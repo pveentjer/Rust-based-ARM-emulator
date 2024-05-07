@@ -3,6 +3,7 @@ mod cpu;
 mod loader;
 mod frontend;
 mod backend;
+mod memory_subsystem;
 
 use crate::cpu::{CPU, CPUConfig};
 use crate::loader::load;
@@ -18,6 +19,7 @@ fn main() {
         instr_queue_capacity: 8,
         frequency_hz: 1,
         rs_count: 16,
+        memory_size: 32,
     };
 
     let mut cpu = CPU::new(&cpu_config);

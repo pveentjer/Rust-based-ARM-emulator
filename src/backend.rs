@@ -4,6 +4,26 @@ use std::fmt;
 use std::fmt::Display;
 use crate::cpu::CPUConfig;
 use crate::instructions::{InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, WordType};
+use crate::memory_subsystem::MemorySubsystem;
+
+struct ArgReg {
+    value: WordType,
+}
+
+struct ArgRegFile {
+    registers: Vec<ArgReg>,
+}
+
+impl ArgRegFile {
+    fn new(rs_count: u16) -> ArgRegFile {
+        let mut array = Vec::with_capacity(rs_count as usize);
+        for i in 0..rs_count {
+            array.push(ArgReg { value: 0 });
+        }
+
+        ArgRegFile { registers: array }
+    }
+}
 
 struct PhysReg {
     value: WordType,
@@ -14,7 +34,7 @@ struct PhysReg {
 struct PhysRegFile {
     free_stack: Vec<u16>,
     count: u16,
-    array: Vec<PhysReg>,
+    registers: Vec<PhysReg>,
 }
 
 impl PhysRegFile {
@@ -22,13 +42,13 @@ impl PhysRegFile {
         let mut free_stack = Vec::with_capacity(rs_count as usize);
         let mut array = Vec::with_capacity(rs_count as usize);
         for i in 0..rs_count {
-            array.push(PhysReg { value: 0, has_value: false,index:i });
+            array.push(PhysReg { value: 0, has_value: false, index: i });
             free_stack.push(i);
         }
 
         PhysRegFile {
             count: rs_count,
-            array,
+            registers: array,
             free_stack,
         }
     }
@@ -40,7 +60,7 @@ impl PhysRegFile {
     fn allocate(&mut self) -> &mut PhysReg {
         if let Some(last_element) = self.free_stack.pop() {
             unsafe {
-                let phys_reg_ptr = self.array.get_mut(last_element as usize).unwrap() as *mut PhysReg;
+                let phys_reg_ptr = self.registers.get_mut(last_element as usize).unwrap() as *mut PhysReg;
                 let phys_reg = &mut *phys_reg_ptr;
                 phys_reg.has_value = false;
                 return phys_reg;
@@ -152,9 +172,9 @@ impl RSTable {
     }
 
     fn deque_ready(&mut self) -> &mut RS {
-        if !self.has_ready() {
-            panic!();
-        }
+        // if !self.has_ready() {
+        //     panic!();
+        // }
 
         unsafe {
             let index = (self.ready_queue_head % self.count as u64) as usize;
@@ -193,15 +213,20 @@ pub(crate) struct Backend<'a> {
     instr_queue: Rc<RefCell<InstrQueue<'a>>>,
     rs_table: RSTable,
     phys_reg_file: PhysRegFile,
+    arch_reg_file: ArgRegFile,
+    memory_subsystem: Rc<RefCell<MemorySubsystem>>,
 }
 
 impl<'a> Backend<'a> {
     pub(crate) fn new(cpu_config: &'a CPUConfig,
-                      instr_queue: Rc<RefCell<InstrQueue<'a>>>) -> Backend<'a> {
+                      instr_queue: Rc<RefCell<InstrQueue<'a>>>,
+                      memory_subsystem: Rc<RefCell<MemorySubsystem>>) -> Backend<'a> {
         Backend {
             instr_queue,
+            memory_subsystem,
             rs_table: RSTable::new(cpu_config.rs_count),
             phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
+            arch_reg_file: ArgRegFile::new(cpu_config.arch_reg_count),
         }
     }
 
@@ -211,9 +236,12 @@ impl<'a> Backend<'a> {
 
     fn cycle_dispatch(&mut self) {
         while self.rs_table.has_ready() {
-            let rs = self.rs_table.deque_ready();
-            println!("dispatch {}", rs);
-            self.rs_table.deallocate(rs);
+            //
+            // let rs = self.rs_table.deque_ready();
+            //
+            // println!("dispatch {}", rs);
+            //
+            // self.rs_table.deallocate(rs);
         }
     }
 
@@ -238,7 +266,7 @@ impl<'a> Backend<'a> {
                     rs.opcode = Opcode::NOP;
                     rs.source_cnt = 0;
                     rs.sink_cnt = 0;
-                    self.rs_table.enqueue_ready(rs);
+                    //self.rs_table.enqueue_ready(rs);
                 }
             }
         }
