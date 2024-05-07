@@ -7,8 +7,8 @@ use crate::backend::Backend;
 use crate::frontend::Frontend;
 
 pub(crate) struct CPUConfig {
-    pub(crate) arch_reg_count: RegisterType,
-    pub(crate) phys_reg_count: RegisterType,
+    pub(crate) arch_reg_count: u16,
+    pub(crate) phys_reg_count: u16,
     pub(crate) frontend_n_wide: u8,
     pub(crate) instr_queue_capacity: u16,
     pub(crate) frequency_hz: u64,
