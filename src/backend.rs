@@ -58,7 +58,7 @@ impl PhysRegFile {
     //pub
 }
 
-enum RS_State {
+enum RSState {
     FREE,
     BUSY,
 }
@@ -66,7 +66,7 @@ enum RS_State {
 struct RS {
     index: u16,
     opcode: Opcode,
-    state: RS_State,
+    state: RSState,
     sink_cnt: u8,
     sink: [Operand; crate::instructions::MAX_SINK_COUNT as usize],
     source_cnt: u8,
@@ -78,7 +78,7 @@ impl RS {
         Self {
             index,
             opcode: Opcode::NOP,
-            state: RS_State::FREE,
+            state: RSState::FREE,
             source_cnt: 0,
             source: [
                 Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
@@ -174,7 +174,7 @@ impl RSTable {
             unsafe {
                 let rs_ptr = self.array.get_mut(last_element as usize).unwrap() as *mut RS;
                 let rs_ref = &mut *rs_ptr;
-                rs_ref.state = RS_State::BUSY;
+                rs_ref.state = RSState::BUSY;
                 return rs_ref;
             }
         } else {
@@ -183,7 +183,7 @@ impl RSTable {
     }
 
     fn deallocate(&mut self, rs: &mut RS) {
-        rs.state = RS_State::FREE;
+        rs.state = RSState::FREE;
         self.free_stack.push(rs.index);
     }
 

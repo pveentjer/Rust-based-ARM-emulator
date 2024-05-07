@@ -59,8 +59,9 @@ impl<'a> CPU<'a> {
         loop {
             self.cycle_cnt += 1;
             println!("At cycle {}", self.cycle_cnt);
-            self.frontend.cycle();
+            self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.cycle();
+            self.frontend.cycle();
             thread::sleep(self.cycle_period);
         }
     }
