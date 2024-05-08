@@ -61,7 +61,8 @@ impl CPU {
 
         loop {
             self.cycle_cnt += 1;
-            println!("At cycle {}", self.cycle_cnt);
+            println!("=======================================================================");
+            println!("Cycle {}", self.cycle_cnt);
             self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.do_cycle();
             self.frontend.do_cycle();

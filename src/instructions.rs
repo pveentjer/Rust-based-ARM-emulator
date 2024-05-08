@@ -1,6 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 
+#[derive(Clone, Copy, PartialEq)]
 pub enum Opcode {
     ADD,
     SUB,
@@ -74,13 +75,15 @@ impl<'a> InstrQueue {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum OpType {
     REGISTER,
     MEMORY,
     VALUE,
     UNUSED,
 }
+
+
 
 pub(crate) const MAX_SINK_COUNT: u8 = 1;
 pub(crate) const MAX_SOURCE_COUNT: u8 = 2;

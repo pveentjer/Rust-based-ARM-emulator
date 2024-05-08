@@ -294,9 +294,7 @@ impl ROB {
     fn has_space(&self) -> bool {
         return self.capacity > self.size();
     }
-
 }
-
 
 pub(crate) struct Backend {
     instr_queue: Rc<RefCell<InstrQueue>>,
@@ -308,11 +306,6 @@ pub(crate) struct Backend {
     rob: Rc<RefCell<ROB>>,
 }
 
-impl PartialEq for OpType {
-    fn eq(&self, other: &Self) -> bool {
-        return self.eq(other);
-    }
-}
 
 impl Backend {
     pub(crate) fn new(cpu_config: &CPUConfig,
@@ -371,36 +364,36 @@ impl Backend {
         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
         let mut rat = self.rat.borrow_mut();
         let arch_reg_file = self.arch_reg_file.borrow();
+        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
         // try to put as many instructions into the rob as possible.
         while !instr_queue.is_empty()  && rob.has_space() {
             let instr = instr_queue.peek();
 
-            let rb_slot = -1;
+            let mut rb_slot_index = Option::None;
 
-            // if instr.sink_available && instr.sink.op_type == OpType::MEMORY {
-            //     if !self.memory_subsystem.borrow().sb.has_space() {
-            //         return;
-            //     }
-            // }
+            if instr.sink_available && instr.sink.op_type == OpType::MEMORY {
+                if !memory_subsystem.sb.has_space() {
+                    return;
+                }
+                rb_slot_index = Some(memory_subsystem.sb.allocate());
+            }
 
             instr_queue.dequeue();
+
 
             let rob_slot_index = rob.allocate();
             let rob_slot = rob.get_mut(rob_slot_index);
 
             println!("Issued {}", instr);
 
+            rob_slot.rb_slot_index = rb_slot_index;
             rob_slot.state = ROBSlotState::DISPATCHED;
             rob_slot.instr = Some(instr);
         }
 
-        print!("rob.has_issued {}\n", rob.has_issued());
-        print!("rs_table.has_free {}\n", rs_table.has_free());
-
         // try to put as many instructions from the rob, into reservation stations as possible.
         while rob.has_issued() && rs_table.has_free() {
-            println!("=====================================================================");
 
             let rob_slot_index = rob.next_issued();
             let mut rob_slot = rob.get_mut(rob_slot_index);
@@ -433,7 +426,7 @@ impl Backend {
                         // sb in program order. And since sb will commit to the coherent cache
                         // (in this case directly to memory), the stores will become visible
                         // in program order.
-                        rs.sb_pos = self.memory_subsystem.borrow_mut().sb.allocate();
+                        rs.sb_pos = memory_subsystem.sb.allocate();
                     }
                     OpType::VALUE => {
                         panic!("Can't have a value as sink {}", op_rs)
