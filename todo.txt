@@ -1,6 +1,6 @@
 TODO
 
-- implement retire
+- retire isn't picked up
 
 - implement instruction execution
 
@@ -8,13 +8,18 @@ TODO
 
 - implement a proper loader
 
-- fix the backend compilation problem
+
+DONE
+
+- implement retire
+
+- instructions should have configurable latency
 
 - an instruction should have only 1 sink
 
-- deal with a full store buffer
+- fix the backend compilation problem
 
-DONE
+- deal with a full store buffer
 
 - instructions: use asserts instead of panics
 

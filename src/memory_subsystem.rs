@@ -54,8 +54,8 @@ impl StoreBuffer {
         return index as u16;
     }
 
-    pub fn store(&mut self, index: usize, addr: MemoryType, value: WordType) {
-        let sb_entry = &mut self.entries[index];
+    pub fn store(&mut self, index: u16, addr: MemoryType, value: WordType) {
+        let sb_entry = &mut self.entries[index as usize];
         sb_entry.addr = addr;
         sb_entry.value = value;
         sb_entry.completed = true;
@@ -84,7 +84,7 @@ impl StoreBuffer {
 }
 
 pub(crate) struct MemorySubsystem {
-    memory: Vec<WordType>,
+    pub(crate) memory: Vec<WordType>,
     pub(crate) sb: StoreBuffer,
 }
 

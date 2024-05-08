@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use crate::cpu::{ArgRegFile, CPUConfig};
 use crate::instructions::{Instr, InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
@@ -62,6 +62,7 @@ impl PhysRegFile {
     //pub
 }
 
+#[derive(Clone, Copy, PartialEq)]
 enum RSState {
     FREE,
     BUSY,
@@ -71,12 +72,12 @@ struct RS {
     index: u16,
     opcode: Opcode,
     state: RSState,
-    sink_available: bool,
     sink: Operand,
     source_cnt: u8,
     source: [Operand; crate::instructions::MAX_SOURCE_COUNT as usize],
     source_ready_cnt: u8,
     sb_pos: u16,
+    rob_slot_index: u16,
 }
 
 impl RS {
@@ -91,9 +92,9 @@ impl RS {
                 Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
             ],
             source_ready_cnt: 0,
-            sink_available: false,
             sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
             sb_pos: 0,
+            rob_slot_index: 0,
         }
     }
 }
@@ -107,7 +108,7 @@ impl Display for RS {
             write!(f, " {}", self.source[k as usize])?;
         }
 
-        if self.sink_available {
+        if self.sink.op_type != OpType::UNUSED {
             write!(f, " {}", self.sink)?;
         }
 
@@ -147,13 +148,13 @@ impl RSTable {
         }
     }
 
-    fn get_mut(&mut self, sb_index: u16) -> &mut RS {
-        return &mut self.array[sb_index as usize];
+    fn get_mut(&mut self, rs_index: u16) -> &mut RS {
+        return &mut self.array[rs_index as usize];
     }
 
-    fn enqueue_ready(&mut self, sb_index: u16) {
+    fn enqueue_ready(&mut self, rs_index: u16) {
         let index = (self.ready_queue_tail % self.count as u64) as usize;
-        self.ready_queue[index] = sb_index;
+        self.ready_queue[index] = rs_index;
         self.ready_queue_tail += 1;
     }
 
@@ -165,8 +166,10 @@ impl RSTable {
     fn deque_ready(&mut self) -> u16 {
         assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
         let index = (self.ready_queue_head % self.count as u64) as u16;
+        let rs_ready_index  = self.ready_queue[index as usize];
+
         self.ready_queue_head += 1;
-        return index;
+        return rs_ready_index;
     }
 
     fn has_free(&self) -> bool {
@@ -187,6 +190,62 @@ impl RSTable {
 
     //pub
 }
+
+struct EU {
+    index: u8,
+    rs_index: u16,
+    cycles_remaining: u8,
+}
+
+struct EUTable {
+    capacity: u8,
+    free_stack: Vec<u8>,
+    array: Vec<EU>,
+}
+
+impl EUTable {
+    fn new(capacity: u8) -> EUTable {
+        let mut free_stack = Vec::with_capacity(capacity as usize);
+        let mut array = Vec::with_capacity(capacity as usize);
+        for i in 0..capacity {
+            array.push(EU { index: i, cycles_remaining: 0, rs_index: 0 });
+            free_stack.push(i);
+        }
+
+        EUTable {
+            capacity,
+            array,
+            free_stack,
+        }
+    }
+
+    fn has_free(&self) -> bool {
+        return !self.free_stack.is_empty();
+    }
+
+    fn get(&self, reg: RegisterType) -> &EU {
+        return self.array.get(reg as usize).unwrap();
+    }
+
+    fn get_mut(&mut self, eu_index: u8) -> &mut EU {
+        return self.array.get_mut(eu_index as usize).unwrap();
+    }
+
+    fn allocate(&mut self) -> u8 {
+        if let Some(last_element) = self.free_stack.pop() {
+            return last_element;
+        } else {
+            panic!("No free PhysReg")
+        }
+    }
+
+    fn deallocate(&mut self, eu_index: u8) {
+        self.free_stack.push(eu_index);
+    }
+
+    //pub
+}
+
 
 struct RATEntry {
     phys_reg: RegisterType,
@@ -217,11 +276,19 @@ impl RAT {
 }
 
 
+#[derive(Clone, Copy, PartialEq)]
 enum ROBSlotState {
     UNUSED,
     ISSUED,
+
     DISPATCHED,
     EXECUTED,
+}
+
+impl Display for ROBSlotState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
 }
 
 struct ROBSlot {
@@ -229,14 +296,19 @@ struct ROBSlot {
     state: ROBSlotState,
     index: u16,
     rb_slot_index: Option<u16>,
+    result: WordType,
+    rs_index: u16,
 }
 
 struct ROB {
     capacity: u16,
     issued: u64,
+    // everything before this point is retired.
+    retired: u64,
     head: u64,
     tail: u64,
     slots: Vec<ROBSlot>,
+
 }
 
 impl ROB {
@@ -248,6 +320,8 @@ impl ROB {
                 instr: None,
                 state: ROBSlotState::UNUSED,
                 rb_slot_index: None,
+                result: 0,
+                rs_index: 0,
             });
         }
 
@@ -256,6 +330,7 @@ impl ROB {
             head: 0,
             issued: 0,
             tail: 0,
+            retired: 0,
             slots,
         }
     }
@@ -272,6 +347,7 @@ impl ROB {
         return index;
     }
 
+
     // Are there any rob entries that have been issued, but have not yet been dispatched.
     fn has_issued(&self) -> bool {
         return self.tail > self.issued;
@@ -284,6 +360,18 @@ impl ROB {
 
         let index = (self.issued % self.capacity as u64) as u16;
         self.issued += 1;
+        return index;
+    }
+
+    fn has_retired(&self) -> bool {
+        let index = (self.retired % self.capacity as u64) as u16;
+        let rob_slot = &self.slots[index as usize];
+        return rob_slot.state == ROBSlotState::EXECUTED;
+    }
+
+    fn next_retired(&mut self) -> u16 {
+        let index = (self.retired % self.capacity as u64) as u16;
+        self.retired += 1;
         return index;
     }
 
@@ -304,8 +392,9 @@ pub(crate) struct Backend {
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     rat: Rc<RefCell<RAT>>,
     rob: Rc<RefCell<ROB>>,
+    eu_table: Rc<RefCell<EUTable>>,
+    trace: bool,
 }
-
 
 impl Backend {
     pub(crate) fn new(cpu_config: &CPUConfig,
@@ -313,6 +402,7 @@ impl Backend {
                       memory_subsystem: Rc<RefCell<MemorySubsystem>>,
                       arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Backend {
         Backend {
+            trace: cpu_config.trace,
             instr_queue,
             memory_subsystem,
             arch_reg_file,
@@ -320,41 +410,192 @@ impl Backend {
             phys_reg_file: Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count))),
             rat: Rc::new(RefCell::new(RAT::new(cpu_config.phys_reg_count))),
             rob: Rc::new(RefCell::new(ROB::new(cpu_config.rob_capacity))),
+            eu_table: Rc::new(RefCell::new(EUTable::new(cpu_config.eu_count))),
         }
     }
 
     pub(crate) fn do_cycle(&mut self) {
-        //  self.cycle_retire();
-        //self.cycle_dispatch();
+        self.cycle_eu_table();
+        self.cycle_retire();
+        self.cycle_dispatch();
         self.cycle_issue();
     }
 
-    fn cycle_retire(&mut self) {}
+    fn cycle_eu_table(&mut self) {
+        let mut eu_table = self.eu_table.borrow_mut();
+        let mut rs_table = self.rs_table.borrow_mut();
+        let mut rob = self.rob.borrow_mut();
+        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
+        for eu_index in 0..eu_table.capacity {
+            let mut eu = eu_table.get_mut(eu_index);
+            if eu.cycles_remaining == 0 {
+                // eu is free, ignore it.
+                continue;
+            }
+            eu.cycles_remaining -= 1;
+            if eu.cycles_remaining > 0 {
+                // the execution unit isn't finished with its work
+                continue;
+            }
+
+            // it is the last cycle; so lets give this Eu some real work
+            let rs_index = eu.rs_index;
+            let mut rs = rs_table.get_mut(rs_index);
+
+            let rob_index = rs.rob_slot_index;
+            let mut rob_slot = rob.get_mut(rob_index);
+
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
+
+            if self.trace {
+                println!("Executing {}", instr);
+            }
+
+            let mut result: WordType = 0;
+            match rs.opcode {
+                Opcode::ADD => result = rs.source[0].union.get_constant() + rs.source[1].union.get_constant(),
+                Opcode::SUB => result = rs.source[0].union.get_constant() - rs.source[1].union.get_constant(),
+                Opcode::MUL => result = rs.source[0].union.get_constant() * rs.source[1].union.get_constant(),
+                Opcode::DIV => result = rs.source[0].union.get_constant() / rs.source[1].union.get_constant(),
+                Opcode::MOD => result = rs.source[0].union.get_constant() % rs.source[1].union.get_constant(),
+                Opcode::INC => result = rs.source[0].union.get_constant() + 1,
+                Opcode::DEC => result = rs.source[0].union.get_constant() - 1,
+                Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
+                Opcode::STORE => {}
+                Opcode::NOP => {}
+            }
+
+            let eu_index = eu.index;
+            eu_table.deallocate(eu_index);
+
+            match rs.sink.op_type {
+                OpType::REGISTER => {
+                    let phys_reg = rs.sink.union.get_register();
+                    let phys_reg_struct = phys_reg_file.get_mut(phys_reg);
+                    phys_reg_struct.has_value = true;
+                    phys_reg_struct.value = result;
+
+                    // // broad cast
+                    // for k in 0..rs_table.count {
+                    //     let rs = rs_table.get_mut(k);
+                    //     if rs.state == RSState::FREE {
+                    //         continue
+                    //     }
+                    //
+                    //     let rob_slot_index =  rs.rob_slot_index;
+                    //     let rob_slot = rob.get_mut(k);
+                    //     if (rob_slot.state != ROBSlotState::ISSUED) {
+                    //         continue;
+                    //     }
+                    //
+                    //     let rs = rs_table.get_mut(rob_slot.rs_index);
+                    //     for l in 0..rs.source_cnt {
+                    //         let sink_op = &mut rs.source[l as usize];
+                    //         if (sink_op.op_type == OpType::REGISTER && sink_op.union.get_register() == phys_reg) {
+                    //             sink_op.op_type = OpType::VALUE;
+                    //             sink_op.union = OpUnion::Constant(result);
+                    //             rs.source_ready_cnt + 1;
+                    //         }
+                    //     }
+                    //
+                    //     if rs.source_cnt == rs.source_ready_cnt {
+                    //         rs_table.enqueue_ready(rob_slot.rs_index);
+                    //     }
+                    // }
+                }
+                OpType::MEMORY => {
+                    // a store to memory
+                    memory_subsystem.sb.store(rs.sb_pos, rs.sink.union.get_memory_addr(), result);
+                }
+                OpType::VALUE => {
+                    panic!();
+                }
+                OpType::UNUSED => {}
+            }
+
+            rs.state = RSState::FREE;
+            rs_table.deallocate(rs_index);
+
+            rob_slot.result = result;
+            rob_slot.state = ROBSlotState::EXECUTED;
+
+            // todo: broadcast
+        }
+    }
+
+    fn cycle_retire(&mut self) {
+        let mut rob = self.rob.borrow_mut();
+        let mut rat = self.rat.borrow_mut();
+        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+        let mut arch_reg_file = self.arch_reg_file.borrow_mut();
+
+        while rob.has_retired() {
+            let rob_slot_index = rob.next_retired();
+            let mut rob_slot = rob.get_mut(rob_slot_index);
+
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
+
+            println!("Retiring {}", instr);
+
+            match instr.sink.op_type {
+                OpType::REGISTER => {
+                    let arch_reg = instr.sink.union.get_register();
+                    let rat_entry = rat.get_mut(arch_reg);
+                    let phys_reg = rat_entry.phys_reg;
+                    rat_entry.valid = false;
+                    phys_reg_file.deallocate(phys_reg);
+                    arch_reg_file.set_value(arch_reg, rob_slot.result);
+                }
+                OpType::MEMORY => {}
+                OpType::VALUE => {}
+                OpType::UNUSED => {}
+            }
+        }
+    }
+
+    // the problem is with the dispatch
     fn cycle_dispatch(&mut self) {
         let mut rs_table = self.rs_table.borrow_mut();
         let mut rob = self.rob.borrow_mut();
-        while rob.has_issued() && rs_table.has_free() {
+        let mut eu_table = self.eu_table.borrow_mut();
+
+        //println!("---------cycle_dispatch start");
+
+
+        while rs_table.has_ready() && eu_table.has_free() {
             let rs_index = rs_table.deque_ready();
+            //println!("cycle_dispatch rs_index {}", rs_index);
             let rs = rs_table.get_mut(rs_index);
 
-            let instr = self.instr_queue.borrow().peek();
+            let rob_slot_index = rs.rob_slot_index;
+            // todo: This thing keeps being null
+            //println!("cycle_dispatch rob_slot_index {}", rob_slot_index);
 
-            let mut rs_table = self.rs_table.borrow_mut();
+            let rob_slot = rob.get_mut(rob_slot_index);
+            rob_slot.state = ROBSlotState::DISPATCHED;
 
+            let eu_index = eu_table.allocate();
+            //println!("cycle_dispatch eu_index {}", eu_index);
+
+            let mut eu = eu_table.get_mut(eu_index);
+
+            //println!("cycle_dispatch eu_index {}", eu_index);
+
+
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
+
+            eu.rs_index = rs_index;
+            eu.cycles_remaining = instr.cycles;
 
             println!("Dispatched {}", instr);
-
-            // if rs.source_ready_cnt == rs.source_cnt {
-            //     rs_table.enqueue_ready(rs.index);
-            // }
-
-            self.instr_queue.borrow_mut().dequeue();
-            // Process the dequeued RS
-            // println!("dispatch {}", rs);
-            //  let junk = &mut RS::new(1);
-            //  self.rs_table.borrow_mut().deallocate(junk);
         }
+
+        //println!("---------cycle_dispatch end");
     }
 
     fn cycle_issue(&mut self) {
@@ -365,14 +606,15 @@ impl Backend {
         let mut rat = self.rat.borrow_mut();
         let arch_reg_file = self.arch_reg_file.borrow();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        //println!("---------cycle_dispatch start");
 
         // try to put as many instructions into the rob as possible.
-        while !instr_queue.is_empty()  && rob.has_space() {
+        while !instr_queue.is_empty() && rob.has_space() {
             let instr = instr_queue.peek();
 
             let mut rb_slot_index = Option::None;
 
-            if instr.sink_available && instr.sink.op_type == OpType::MEMORY {
+            if instr.sink.op_type == OpType::MEMORY {
                 if !memory_subsystem.sb.has_space() {
                     return;
                 }
@@ -394,46 +636,55 @@ impl Backend {
 
         // try to put as many instructions from the rob, into reservation stations as possible.
         while rob.has_issued() && rs_table.has_free() {
-
             let rob_slot_index = rob.next_issued();
+            //println!("Next issued rob_slot_index {}", rob_slot_index);
+
+
             let mut rob_slot = rob.get_mut(rob_slot_index);
+
+
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
             let rs_index = rs_table.allocate();
+            //println!("Allocated rs_index {}", rs_index);
             let mut rs = rs_table.get_mut(rs_index);
-            println!("Dispatched {}", instr);
+            println!("Find RS {}", instr);
+
+            rob_slot.state = ROBSlotState::ISSUED;
+            rob_slot.result = 0;
+            rob_slot.rs_index = rs_index;
+
+            rs.rob_slot_index = rob_slot_index;
+            //println!("cycle_issue: rob_slot_index  {}", rs.rob_slot_index);
 
             rs.state = RSState::BUSY;
-            rs.sink_available = instr.sink_available;
-            if instr.sink_available {
-                let op_instr = &instr.sink;
-                let op_rs = &mut rs.sink;
 
-                match op_instr.op_type {
-                    OpType::REGISTER => {
-                        let arch_reg = op_instr.union.get_register();
-                        let phys_reg = phys_reg_file.allocate();
-                        let rat_entry = rat.get_mut(arch_reg);
-                        rat_entry.phys_reg = phys_reg;
-                        rat_entry.valid = true;
-                        op_rs.op_type = OpType::REGISTER;
-                        op_rs.union = OpUnion::Register(rat_entry.phys_reg);
-                    }
-                    OpType::MEMORY => {
-                        rs.sink = *op_instr;
-                        // todo: not handling a full sb.
-                        // since the instructions are issued in program order, a slot is allocated in the
-                        // sb in program order. And since sb will commit to the coherent cache
-                        // (in this case directly to memory), the stores will become visible
-                        // in program order.
-                        rs.sb_pos = memory_subsystem.sb.allocate();
-                    }
-                    OpType::VALUE => {
-                        panic!("Can't have a value as sink {}", op_rs)
-                    }
-                    OpType::UNUSED =>
-                        panic!("Unrecognized {}", op_rs)
+            let op_instr = &instr.sink;
+            let op_rs = &mut rs.sink;
+
+            match op_instr.op_type {
+                OpType::REGISTER => {
+                    let arch_reg = op_instr.union.get_register();
+                    let phys_reg = phys_reg_file.allocate();
+                    let rat_entry = rat.get_mut(arch_reg);
+                    rat_entry.phys_reg = phys_reg;
+                    rat_entry.valid = true;
+                    op_rs.op_type = OpType::REGISTER;
+                    op_rs.union = OpUnion::Register(rat_entry.phys_reg);
                 }
+                OpType::MEMORY => {
+                    rs.sink = *op_instr;
+                    // todo: not handling a full sb.
+                    // since the instructions are issued in program order, a slot is allocated in the
+                    // sb in program order. And since sb will commit to the coherent cache
+                    // (in this case directly to memory), the stores will become visible
+                    // in program order.
+                    rs.sb_pos = memory_subsystem.sb.allocate();
+                }
+                OpType::VALUE => {
+                    panic!("Can't have a value as sink {}", op_rs)
+                }
+                OpType::UNUSED => {}
             }
 
             rs.source_cnt = instr.source_cnt;
@@ -453,6 +704,7 @@ impl Backend {
                                 rs_op.union = OpUnion::Constant(value);
                                 rs.source_ready_cnt += 1;
                             } else {
+                                // cdb broadcast will update
                                 rs_op.op_type = OpType::REGISTER;
                                 rs_op.union = OpUnion::Register(rat_entry.phys_reg);
                             }
@@ -477,8 +729,11 @@ impl Backend {
             }
 
             if rs.source_ready_cnt == rs.source_cnt {
+                //println!("rs_table.enqueue_ready {}", rs_index);
                 rs_table.enqueue_ready(rs_index);
             }
+
         }
+       // println!("---------cycle_issue end");
     }
 }

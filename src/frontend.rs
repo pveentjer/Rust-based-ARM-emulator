@@ -44,7 +44,7 @@ impl Frontend {
                     }
 
                     let instr = program.get(self.ip_next_fetch as usize);
-                    println!("Frontend: decoded {}", instr);
+                    println!("Frontend: ip_next_fetch: {} decoded {}", self.ip_next_fetch, instr);
                     self.instr_queue.borrow_mut().enqueue(instr);
                     self.ip_next_fetch += 1;
                 }

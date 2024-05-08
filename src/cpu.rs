@@ -18,6 +18,8 @@ pub(crate) struct CPUConfig {
     pub(crate) sb_capacity: u16,
     pub(crate) lfb_count: u8,
     pub(crate) rob_capacity: u16,
+    pub(crate) eu_count: u8,
+    pub(crate) trace: bool,
 }
 
 pub(crate) struct CPU {

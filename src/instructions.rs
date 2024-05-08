@@ -5,12 +5,17 @@ use std::rc::Rc;
 pub enum Opcode {
     ADD,
     SUB,
+    MUL,
+    DIV,
+    MOD,
+    INC,
+    DEC,
     LOAD,
     STORE,
     NOP,
 }
 
-pub(crate) const NOP: Instr = create_NOP();
+pub(crate) const NOP: Instr = create_NOP(-1);
 
 pub(crate) type RegisterType = u16;
 pub(crate) type MemoryType = u64;
@@ -83,17 +88,16 @@ pub(crate) enum OpType {
     UNUSED,
 }
 
-
-
 pub(crate) const MAX_SINK_COUNT: u8 = 1;
 pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
 
 pub(crate) struct Instr {
+    pub(crate) cycles: u8,
     pub(crate) opcode: Opcode,
-    pub(crate) sink_available: bool,
     pub(crate) sink: Operand,
     pub(crate) source_cnt: u8,
     pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
+    pub(crate) line: i32,
 }
 
 impl fmt::Display for Instr {
@@ -104,8 +108,12 @@ impl fmt::Display for Instr {
             write!(f, " {}", self.source[k as usize])?;
         }
 
-        if self.sink_available {
+        if self.sink.op_type != OpType::UNUSED {
             write!(f, " {}", self.sink)?;
+        }
+
+        if self.line > 0 {
+            write!(f, " line={}", self.line)?;
         }
 
         Ok(())
@@ -147,6 +155,20 @@ impl OpUnion {
         }
     }
 
+    pub(crate) fn get_constant(&self) -> WordType {
+        match self {
+            OpUnion::Constant(constant) => *constant,
+            _ => panic!(),
+        }
+    }
+
+    pub(crate) fn get_memory_addr(&self) -> MemoryType {
+        match self {
+            OpUnion::Memory(addr) => *addr,
+            _ => panic!(),
+        }
+    }
+
     // Implement similar functions for other variants as needed
 }
 
@@ -154,9 +176,14 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
     match opcode {
         Opcode::ADD => "ADD",
         Opcode::SUB => "SUB",
+        Opcode::MUL => "MUL",
+        Opcode::DIV => "DIV",
+        Opcode::MOD => "MOD",
         Opcode::LOAD => "LOAD",
         Opcode::STORE => "STORE",
         Opcode::NOP => "NOP",
+        Opcode::INC => "INC",
+        Opcode::DEC => "DEC",
     }
 }
 
@@ -174,66 +201,137 @@ impl Program {
     }
 }
 
-
-pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType) -> Instr {
+pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType,line: i32) -> Instr {
     Instr {
+        cycles: 1,
         opcode: Opcode::ADD,
         source_cnt: 2,
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink_available: true,
         sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+       line,
     }
 }
 
-pub(crate) fn create_SUB(src_1: RegisterType, src_2: RegisterType, sink: RegisterType) -> Instr {
+pub(crate) fn create_SUB(src_1: RegisterType, src_2: RegisterType, sink: RegisterType,line: i32) -> Instr {
     Instr {
+        cycles: 1,
         opcode: Opcode::SUB,
         source_cnt: 2,
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink_available: true,
         sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+        line,
     }
 }
 
-pub(crate) fn create_LOAD(addr: MemoryType, sink: RegisterType) -> Instr {
+pub(crate) fn create_MUL(src_1: RegisterType, src_2: RegisterType, sink: RegisterType,line: i32) -> Instr {
     Instr {
+        cycles: 5,
+        opcode: Opcode::MUL,
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+       line,
+    }
+}
+
+pub(crate) fn create_DIV(src_1: RegisterType, src_2: RegisterType, sink: RegisterType,line: i32) -> Instr {
+    Instr {
+        cycles: 10,
+        opcode: Opcode::DIV,
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+        line,
+    }
+}
+
+pub(crate) fn create_MOD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType,line: i32) -> Instr {
+    Instr {
+        cycles: 10,
+        opcode: Opcode::MOD,
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+        line,
+    }
+}
+
+pub(crate) fn create_LOAD(addr: MemoryType, sink: RegisterType,line: i32) -> Instr {
+    Instr {
+        cycles: 1,
         opcode: Opcode::LOAD,
         source_cnt: 1,
         source: [
             Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink_available: true,
         sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+        line,
     }
 }
 
-pub(crate) fn create_STORE(src: RegisterType, addr: MemoryType) -> Instr {
+pub(crate) fn create_INC(reg: RegisterType,line: i32) -> Instr {
     Instr {
+        cycles: 1,
+        opcode: Opcode::INC,
+        source_cnt: 1,
+        source: [
+            Operand { op_type: OpType::MEMORY, union: OpUnion::Register(reg) },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
+        line,
+    }
+}
+
+pub(crate) fn create_DEC(reg: RegisterType,line: i32) -> Instr {
+    Instr {
+        cycles: 1,
+        opcode: Opcode::DEC,
+        source_cnt: 1,
+        source: [
+            Operand { op_type: OpType::MEMORY, union: OpUnion::Register(reg) },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
+       line,
+    }
+}
+
+pub(crate) fn create_STORE(src: RegisterType, addr: MemoryType,line: i32) -> Instr {
+    Instr {
+        cycles: 1,
         opcode: Opcode::STORE,
         source_cnt: 1,
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink_available: true,
         sink: Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
+     line,
     }
 }
 
-pub(crate) const fn create_NOP() -> Instr {
+pub(crate) const fn create_NOP(line: i32) -> Instr {
     Instr {
-        opcode: Opcode::STORE,
+        cycles: 1,
+        opcode: Opcode::NOP,
         source_cnt: 0,
         source: [
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink_available: false,
         sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+        line,
     }
 }
