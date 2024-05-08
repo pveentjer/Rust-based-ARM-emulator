@@ -1,0 +1,21 @@
+TODO
+
+- implement retire
+
+- implement instruction execution
+
+- implement print to memory
+
+- implement a proper loader
+
+- fix the backend compilation problem
+
+- an instruction should have only 1 sink
+
+- deal with a full store buffer
+
+DONE
+
+- instructions: use asserts instead of panics
+
+- allocate a slot in the store buffer

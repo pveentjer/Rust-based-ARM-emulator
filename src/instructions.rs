@@ -8,6 +8,7 @@ pub enum Opcode {
     NOP,
 }
 
+pub(crate) const NOP: Instr = create_NOP();
 
 pub(crate) type RegisterType = u16;
 pub(crate) type MemoryType = u64;
@@ -15,26 +16,31 @@ pub(crate) type WordType = i32;
 
 // The InstrQueue sits between frontend and backend
 // The 'a lifetime specifier tells that the instructions need to live as least as long
-// as the instructoin queue.
+// as the instruction queue.
 pub(crate) struct InstrQueue<'a> {
     capacity: u16,
-    head: u16,
-    tail: u16,
-    instructions: Vec<Option<&'a Instr>>,
+    head: u64,
+    tail: u64,
+    instructions: Vec<&'a Instr>,
 }
 
 impl<'a> InstrQueue<'a> {
     pub fn new(capacity: u16) -> Self {
+        let mut instructions = Vec::with_capacity(capacity as usize);
+        for _ in 0..capacity {
+            instructions.push(&NOP);
+        }
+
         InstrQueue {
             capacity,
             head: 0,
             tail: 0,
-            instructions: vec![None; capacity as usize],
+            instructions,
         }
     }
 
     pub fn size(&self) -> u16 {
-        self.tail.wrapping_sub(self.head)
+        (self.tail - self.head) as u16
     }
 
     pub fn is_empty(&self) -> bool {
@@ -46,33 +52,31 @@ impl<'a> InstrQueue<'a> {
     }
 
     pub fn enqueue(&mut self, instr: &'a Instr) {
-        if !self.is_full() {
-            let index = (self.tail % self.capacity) as usize;
-            self.instructions[index] = Some(instr);
-            self.tail = self.tail.wrapping_add(1);
-        } else {
-            // Handle queue full scenario
-            // For now, just print an error message
-            println!("Queue is full, cannot enqueue.");
-        }
+        assert!(!self.is_full(), "Can't enqueue when InstrQueue is empty.");
+
+        let index = (self.tail % self.capacity as u64) as usize;
+        self.instructions[index] = instr;
+        self.tail += 1;
     }
 
-    pub fn dequeue(&mut self) -> Option<&'a Instr> {
-        if !self.is_empty() {
-            let index = (self.head % self.capacity) as usize;
-            let instr = self.instructions[index].take();
-            self.head = self.head.wrapping_add(1);
-            instr
-        } else {
-            None
-        }
+    pub fn dequeue(&mut self) {
+        assert!(!self.is_empty(), "Can't dequeue when InstrQueue is empty.");
+        self.head += 1;
+    }
+
+    pub fn peek(&self) -> &'a Instr {
+        assert!(!self.is_empty(), "Can't peek when InstrQueue is empty.");
+
+        let index = (self.head % self.capacity as u64) as usize;
+        return self.instructions[index];
     }
 }
 
-
+#[derive(Clone, Copy)]
 pub(crate) enum OpType {
     REGISTER,
     MEMORY,
+    VALUE,
     UNUSED,
 }
 
@@ -81,8 +85,8 @@ pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
 
 pub(crate) struct Instr {
     pub(crate) opcode: Opcode,
-    pub(crate) sink_cnt: u8,
-    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
+    pub(crate) sink_available: bool,
+    pub(crate) sink: Operand,
     pub(crate) source_cnt: u8,
     pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
 }
@@ -95,14 +99,15 @@ impl fmt::Display for Instr {
             write!(f, " {}", self.source[k as usize])?;
         }
 
-        for k in 0..self.sink_cnt {
-            write!(f, " {}", self.sink[k as usize])?;
+        if self.sink_available {
+            write!(f, " {}", self.sink)?;
         }
 
         Ok(())
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct Operand {
     pub(crate) op_type: OpType,
     pub(crate) union: OpUnion,
@@ -120,12 +125,24 @@ impl fmt::Display for Operand {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) enum OpUnion {
     Register(RegisterType),
     Memory(MemoryType),
     Code(MemoryType),
     Constant(WordType),
     Unused,
+}
+
+impl OpUnion {
+    pub(crate) fn get_register(&self) -> RegisterType {
+        match self {
+            OpUnion::Register(reg) => *reg,
+            _ => panic!(),
+        }
+    }
+
+    // Implement similar functions for other variants as needed
 }
 
 pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
@@ -149,8 +166,8 @@ pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: Registe
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink_cnt: 1,
-        sink: [Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
+        sink_available: true,
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
     }
 }
 
@@ -161,8 +178,8 @@ pub(crate) fn create_SUB(src_1: RegisterType, src_2: RegisterType, sink: Registe
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink_cnt: 1,
-        sink: [Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
+        sink_available: true,
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
     }
 }
 
@@ -174,8 +191,8 @@ pub(crate) fn create_LOAD(addr: MemoryType, sink: RegisterType) -> Instr {
             Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink_cnt: 1,
-        sink: [Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) }],
+        sink_available: true,
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
     }
 }
 
@@ -187,12 +204,12 @@ pub(crate) fn create_STORE(src: RegisterType, addr: MemoryType) -> Instr {
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink_cnt: 1,
-        sink: [Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) }],
+        sink_available: true,
+        sink: Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
     }
 }
 
-pub(crate) fn create_NOP() -> Instr {
+pub(crate) const fn create_NOP() -> Instr {
     Instr {
         opcode: Opcode::STORE,
         source_cnt: 0,
@@ -200,7 +217,7 @@ pub(crate) fn create_NOP() -> Instr {
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink_cnt: 0,
-        sink: [Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }],
+        sink_available: false,
+        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
     }
 }

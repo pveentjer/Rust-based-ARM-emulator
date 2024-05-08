@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Display;
 use crate::cpu::{ArgRegFile, CPUConfig};
-use crate::instructions::{InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, WordType};
+use crate::instructions::{Instr, InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
 
 struct PhysReg {
@@ -19,16 +19,16 @@ struct PhysRegFile {
 }
 
 impl PhysRegFile {
-    fn new(rs_count: u16) -> PhysRegFile {
-        let mut free_stack = Vec::with_capacity(rs_count as usize);
-        let mut array = Vec::with_capacity(rs_count as usize);
-        for i in 0..rs_count {
+    fn new(phys_reg_count: u16) -> PhysRegFile {
+        let mut free_stack = Vec::with_capacity(phys_reg_count as usize);
+        let mut array = Vec::with_capacity(phys_reg_count as usize);
+        for i in 0..phys_reg_count {
             array.push(PhysReg { value: 0, has_value: false, index: i });
             free_stack.push(i);
         }
 
         PhysRegFile {
-            count: rs_count,
+            count: phys_reg_count,
             registers: array,
             free_stack,
         }
@@ -38,21 +38,24 @@ impl PhysRegFile {
         return !self.free_stack.is_empty();
     }
 
-    fn allocate(&mut self) -> &mut PhysReg {
+    fn get(&self, reg: RegisterType) -> &PhysReg {
+        return self.registers.get(reg as usize).unwrap();
+    }
+
+    fn get_mut(&mut self, reg: RegisterType) -> &mut PhysReg {
+        return self.registers.get_mut(reg as usize).unwrap();
+    }
+
+    fn allocate(&mut self) -> RegisterType {
         if let Some(last_element) = self.free_stack.pop() {
-            unsafe {
-                let phys_reg_ptr = self.registers.get_mut(last_element as usize).unwrap() as *mut PhysReg;
-                let phys_reg = &mut *phys_reg_ptr;
-                phys_reg.has_value = false;
-                return phys_reg;
-            }
+            return last_element;
         } else {
             panic!("No free PhysReg")
         }
     }
 
-    fn deallocate(&mut self, rs: &mut PhysReg) {
-        self.free_stack.push(rs.index);
+    fn deallocate(&mut self, reg: RegisterType) {
+        self.free_stack.push(reg);
     }
 
     //pub
@@ -67,10 +70,12 @@ struct RS {
     index: u16,
     opcode: Opcode,
     state: RSState,
-    sink_cnt: u8,
-    sink: [Operand; crate::instructions::MAX_SINK_COUNT as usize],
+    sink_available: bool,
+    sink: Operand,
     source_cnt: u8,
     source: [Operand; crate::instructions::MAX_SOURCE_COUNT as usize],
+    source_ready_cnt: u8,
+    sb_pos: u16,
 }
 
 impl RS {
@@ -84,10 +89,10 @@ impl RS {
                 Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
                 Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
             ],
-            sink_cnt: 0,
-            sink: [
-                Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-            ],
+            source_ready_cnt: 0,
+            sink_available: false,
+            sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+            sb_pos: 0,
         }
     }
 }
@@ -101,8 +106,8 @@ impl Display for RS {
             write!(f, " {}", self.source[k as usize])?;
         }
 
-        for k in 0..self.sink_cnt {
-            write!(f, " {}", self.sink[k as usize])?;
+        if self.sink_available {
+            write!(f, " {}", self.sink)?;
         }
 
         Ok(())
@@ -119,7 +124,7 @@ struct RSTable {
 }
 
 impl RSTable {
-    fn new(rs_count: u16) -> RSTable {
+    fn new(rs_count: u16) -> Self {
         let mut free_stack = Vec::with_capacity(rs_count as usize);
         let mut array = Vec::with_capacity(rs_count as usize);
         for i in 0..rs_count {
@@ -141,9 +146,17 @@ impl RSTable {
         }
     }
 
-    fn enqueue_ready(&mut self, rs: &RS) {
+    fn get(&self, sb_index: u16) -> & RS {
+        return &self.array[sb_index as usize];
+    }
+
+    fn get_mut(&mut self, sb_index: u16) -> & mut RS {
+        return self.array.get_mut(sb_index as usize).unwrap();
+    }
+
+    fn enqueue_ready(&mut self, sb_index: u16) {
         let index = (self.ready_queue_tail % self.count as u64) as usize;
-        self.ready_queue[index] = rs.index;
+        self.ready_queue[index] = sb_index;
         self.ready_queue_tail += 1;
     }
 
@@ -152,7 +165,7 @@ impl RSTable {
         return self.ready_queue_head != self.ready_queue_tail;
     }
 
-    fn deque_ready(&mut self) -> &mut RS {
+    fn deque_ready(&mut self) -> & mut RS {
         // if !self.has_ready() {
         //     panic!();
         // }
@@ -169,20 +182,15 @@ impl RSTable {
         return !self.free_stack.is_empty();
     }
 
-    fn allocate(&mut self) -> &mut RS {
+    fn allocate(&mut self) -> u16 {
         if let Some(last_element) = self.free_stack.pop() {
-            unsafe {
-                let rs_ptr = self.array.get_mut(last_element as usize).unwrap() as *mut RS;
-                let rs_ref = &mut *rs_ptr;
-                rs_ref.state = RSState::BUSY;
-                return rs_ref;
-            }
+            return last_element;
         } else {
             panic!("No free RS")
         }
     }
 
-    fn deallocate(&mut self, rs: &mut RS) {
+    fn deallocate(&mut self, rs: & mut RS) {
         rs.state = RSState::FREE;
         self.free_stack.push(rs.index);
     }
@@ -190,12 +198,41 @@ impl RSTable {
     //pub
 }
 
+struct RATEntry {
+    phys_reg: RegisterType,
+    // True of this entry is currently in use.
+    valid: bool,
+}
+
+struct RAT {
+    pub(crate) table: Vec<RATEntry>,
+}
+
+impl RAT {
+    pub fn new(phys_reg_count: u16) -> Self {
+        let mut table = Vec::with_capacity(phys_reg_count as usize);
+        for _ in 0..phys_reg_count {
+            table.push(RATEntry { phys_reg: 0, valid: false });
+        }
+        Self { table }
+    }
+
+    pub fn get(&self, arch_reg: RegisterType) -> &RATEntry {
+        return self.table.get(arch_reg as usize).unwrap();
+    }
+
+    pub fn get_mut(&mut self, arch_reg: RegisterType) -> &mut RATEntry {
+        return self.table.get_mut(arch_reg as usize).unwrap();
+    }
+}
+
 pub(crate) struct Backend<'a> {
     instr_queue: Rc<RefCell<InstrQueue<'a>>>,
-    rs_table: RSTable,
-    phys_reg_file: PhysRegFile,
+    rs_table: Rc<RefCell<RSTable>>,
+    phys_reg_file: Rc<RefCell<PhysRegFile>>,
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
+    rat: Rc<RefCell<RAT>>,
 }
 
 impl<'a> Backend<'a> {
@@ -207,50 +244,126 @@ impl<'a> Backend<'a> {
             instr_queue,
             memory_subsystem,
             arch_reg_file,
-            rs_table: RSTable::new(cpu_config.rs_count),
-            phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
+            rs_table: Rc::new(RefCell::new(RSTable::new(cpu_config.rs_count))),
+            phys_reg_file: Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count))),
+            rat: Rc::new(RefCell::new(RAT::new(cpu_config.phys_reg_count))),
         }
     }
 
-    pub(crate) fn cycle(&mut self) {
+    pub(crate) fn do_cycle(&mut self) {
+        self.cycle_retire();
+        self.cycle_dispatch();
         self.cycle_issue();
     }
 
+    fn cycle_retire(&mut self) {}
+
     fn cycle_dispatch(&mut self) {
-        while self.rs_table.has_ready() {
-            //
-            // let rs = self.rs_table.deque_ready();
-            //
+        while self.rs_table.borrow().has_ready() {
+            let rs;
+            {
+                let mut rs_table = self.rs_table.borrow_mut();
+                rs = rs_table.deque_ready();
+            }
+            // Process the dequeued RS
             // println!("dispatch {}", rs);
-            //
-            // self.rs_table.deallocate(rs);
+            //  let junk = &mut RS::new(1);
+            //  self.rs_table.borrow_mut().deallocate(junk);
         }
     }
 
     fn cycle_issue(&mut self) {
         loop {
-            if !self.rs_table.has_free() {
-                println!("Backend: No free RS");
-                // There are no free RS, we are done
+            if self.instr_queue.borrow().is_empty() {
+                // there is no instructon in the instruction queue
                 return;
             }
 
-            match self.instr_queue.borrow_mut().dequeue() {
-                None => {
-                    // there are no available instructions, so we aredone
-                    return;
-                }
-                Some(instr) => {
-                    let rs = self.rs_table.allocate();
-                    println!("Issued {}", instr);
+            if !self.rs_table.borrow().has_free() {
+                // there are no free reservation stations
+                return;
+            }
 
-                    // todo: use right opcode
-                    rs.opcode = Opcode::NOP;
-                    rs.source_cnt = 0;
-                    rs.sink_cnt = 0;
-                    //self.rs_table.enqueue_ready(rs);
+            let instr = self.instr_queue.borrow().peek();
+
+            let mut rs_table = self.rs_table.borrow_mut();
+            let rs_index = rs_table.allocate();
+            let rs = &mut rs_table.get_mut(rs_index);
+            println!("Issued {}", instr);
+
+            rs.state = RSState::BUSY;
+            rs.sink_available = instr.sink_available;
+            if instr.sink_available {
+                let op_instr = &instr.sink;
+                let op_rs = &mut rs.sink;
+
+                match op_instr.op_type {
+                    OpType::REGISTER => {
+                        let arch_reg = op_instr.union.get_register();
+                        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+                        let phys_reg = phys_reg_file.allocate();
+                        let mut rat = self.rat.borrow_mut();
+                        let rat_entry = rat.get_mut(arch_reg);
+                        rat_entry.phys_reg = phys_reg;
+                        rat_entry.valid = true;
+                        op_rs.op_type = OpType::REGISTER;
+                        op_rs.union = OpUnion::Register(rat_entry.phys_reg);
+                    }
+                    OpType::MEMORY => {
+                        rs.sink = *op_instr;
+                        // todo: not handling a full sb.
+                        // since the instructions are issued in program order, a slot is allocated in the
+                        // sb in program order. And since sb will commit to the coherent cache
+                        // (in this case directly to memory), the stores will become visible
+                        // in program order.
+                        rs.sb_pos = self.memory_subsystem.borrow_mut().sb.allocate();
+                    }
+                    OpType::VALUE => {
+                        panic!("Can't have a value as sink {}", op_rs)
+                    }
+                    OpType::UNUSED =>
+                        panic!("Unrecognized {}", op_rs)
                 }
             }
+
+            rs.source_cnt = instr.source_cnt;
+            rs.source_ready_cnt = 0;
+            for i in 0..instr.source_cnt {
+                let instr_op = &instr.source[i as usize];
+                let rs_op = &mut rs.source[i as usize];
+                match instr_op.op_type {
+                    OpType::REGISTER => {
+                        let arch_reg = instr_op.union.get_register();
+                        let rat = self.rat.borrow();
+                        let rat_entry = rat.get(arch_reg);
+                        if rat_entry.valid {
+                            rs_op.op_type = OpType::REGISTER;
+                            rs_op.union = OpUnion::Register(rat_entry.phys_reg);
+                        } else {
+                            let value = self.arch_reg_file.borrow().get_value(arch_reg);
+                            rs_op.op_type = OpType::VALUE;
+                            rs_op.union = OpUnion::Constant(value);
+                            rs.source_ready_cnt += 1;
+                        }
+                    }
+                    OpType::MEMORY => {
+                        rs.source[i as usize] = *instr_op;
+                        rs.source_ready_cnt += 1;
+                    }
+                    OpType::VALUE => {
+                        rs.source[i as usize] = *instr_op;
+                        rs.source_ready_cnt += 1;
+                    }
+                    OpType::UNUSED =>
+                        panic!("Unrecognized {}", rs_op)
+                }
+            }
+
+            if rs.source_ready_cnt == rs.source_cnt {
+                rs_table.enqueue_ready(rs.index);
+            }
+
+            self.instr_queue.borrow_mut().dequeue();
         }
     }
 }

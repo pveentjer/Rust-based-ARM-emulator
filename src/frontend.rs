@@ -25,7 +25,7 @@ impl<'a> Frontend<'a> {
         self.ip_next_fetch = 0;
     }
 
-    pub(crate) fn cycle(&mut self) {
+    pub(crate) fn do_cycle(&mut self) {
         match &self.program_option {
             None => return,
             Some(program) => {

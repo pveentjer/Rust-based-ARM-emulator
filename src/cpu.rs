@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use crate::instructions::{InstrQueue, Program, WordType};
+use crate::instructions::{InstrQueue, Program, RegisterType, WordType};
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -15,6 +15,8 @@ pub(crate) struct CPUConfig {
     pub(crate) frequency_hz: u64,
     pub(crate) rs_count: u16,
     pub(crate) memory_size: u32,
+    pub(crate) sb_capacity: u16,
+    pub(crate) lfb_count: u8,
 }
 
 pub(crate) struct CPU<'a> {
@@ -60,15 +62,15 @@ impl<'a> CPU<'a> {
             self.cycle_cnt += 1;
             println!("At cycle {}", self.cycle_cnt);
             self.memory_subsystem.borrow_mut().do_cycle();
-            self.backend.cycle();
-            self.frontend.cycle();
+            self.backend.do_cycle();
+            self.frontend.do_cycle();
             thread::sleep(self.cycle_period);
         }
     }
 }
 
 struct ArgReg {
-    value: WordType,
+    pub(crate) value: WordType,
 }
 
 pub struct ArgRegFile {
@@ -78,10 +80,19 @@ pub struct ArgRegFile {
 impl ArgRegFile {
     fn new(rs_count: u16) -> ArgRegFile {
         let mut array = Vec::with_capacity(rs_count as usize);
-        for i in 0..rs_count {
+        for _ in 0..rs_count {
             array.push(ArgReg { value: 0 });
         }
 
         ArgRegFile { registers: array }
+    }
+
+    pub fn get_value(&self, reg: RegisterType) -> WordType {
+        return self.registers.get(reg as usize).unwrap().value;
+    }
+
+    pub fn set_value(&mut self, reg: RegisterType, value: WordType) {
+        let arch_reg = self.registers.get_mut(reg as usize).unwrap();
+        arch_reg.value = value;
     }
 }
