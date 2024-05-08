@@ -165,7 +165,7 @@ impl RSTable {
     fn deque_ready(&mut self) -> u16 {
         assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
         let index = (self.ready_queue_head % self.count as u64) as u16;
-        self.ready_queue_head+=1;
+        self.ready_queue_head += 1;
         return index;
     }
 
@@ -228,6 +228,7 @@ struct ROBSlot {
     instr: Option<Rc<Instr>>,
     state: ROBSlotState,
     index: u16,
+    rb_slot_index: Option<u16>,
 }
 
 struct ROB {
@@ -246,6 +247,7 @@ impl ROB {
                 index: k,
                 instr: None,
                 state: ROBSlotState::UNUSED,
+                rb_slot_index: None,
             });
         }
 
@@ -270,12 +272,15 @@ impl ROB {
         return index;
     }
 
+    // Are there any rob entries that have been issued, but have not yet been dispatched.
     fn has_issued(&self) -> bool {
         return self.tail > self.issued;
     }
 
     fn next_issued(&mut self) -> u16 {
         assert!(self.has_issued(), "ROB: can't issue next since there are none");
+
+        println!("next issued with success");
 
         let index = (self.issued % self.capacity as u64) as u16;
         self.issued += 1;
@@ -290,10 +295,6 @@ impl ROB {
         return self.capacity > self.size();
     }
 
-    fn bump_issued(&mut self){
-        assert!(self.issued<self.tail,"ROB: Can't bump, issued is already at the tail");
-        self.issued+=1;
-    }
 }
 
 
@@ -330,7 +331,7 @@ impl Backend {
     }
 
     pub(crate) fn do_cycle(&mut self) {
-      //  self.cycle_retire();
+        //  self.cycle_retire();
         //self.cycle_dispatch();
         self.cycle_issue();
     }
@@ -338,20 +339,11 @@ impl Backend {
     fn cycle_retire(&mut self) {}
 
     fn cycle_dispatch(&mut self) {
-        while self.rs_table.borrow().has_ready() {
-
-            // todo: should move to dispatch
-            if !self.rs_table.borrow().has_free() {
-                // there are no free reservation stations
-                return;
-            }
-
-
-            let rs;
-            {
-                let mut rs_table = self.rs_table.borrow_mut();
-                rs = rs_table.deque_ready();
-            }
+        let mut rs_table = self.rs_table.borrow_mut();
+        let mut rob = self.rob.borrow_mut();
+        while rob.has_issued() && rs_table.has_free() {
+            let rs_index = rs_table.deque_ready();
+            let rs = rs_table.get_mut(rs_index);
 
             let instr = self.instr_queue.borrow().peek();
 
@@ -376,25 +368,15 @@ impl Backend {
         let mut rob = self.rob.borrow_mut();
         let mut rs_table = self.rs_table.borrow_mut();
         let mut instr_queue = self.instr_queue.borrow_mut();
-        let mut issued: bool = false;
+        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+        let mut rat = self.rat.borrow_mut();
+        let arch_reg_file = self.arch_reg_file.borrow();
 
         // try to put as many instructions into the rob as possible.
-        loop {
-            if instr_queue.is_empty() {
-                //if !issued {
-                    println!("Backend:cycle issue: instr queue empty");
-                //}
-                // there is no instructon in the instruction queue
-                break;
-            }
-
-            if !rob.has_space() {
-                println!("Backend:cycle issue: No space rob");
-                break;
-            }
-
-            issued = true;
+        while !instr_queue.is_empty()  && rob.has_space() {
             let instr = instr_queue.peek();
+
+            let rb_slot = -1;
 
             // if instr.sink_available && instr.sink.op_type == OpType::MEMORY {
             //     if !self.memory_subsystem.borrow().sb.has_space() {
@@ -409,13 +391,17 @@ impl Backend {
 
             println!("Issued {}", instr);
 
-            rob_slot.state = ROBSlotState::ISSUED;
+            rob_slot.state = ROBSlotState::DISPATCHED;
             rob_slot.instr = Some(instr);
-            rob.bump_issued();
         }
+
+        print!("rob.has_issued {}\n", rob.has_issued());
+        print!("rs_table.has_free {}\n", rs_table.has_free());
 
         // try to put as many instructions from the rob, into reservation stations as possible.
         while rob.has_issued() && rs_table.has_free() {
+            println!("=====================================================================");
+
             let rob_slot_index = rob.next_issued();
             let mut rob_slot = rob.get_mut(rob_slot_index);
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
@@ -433,9 +419,7 @@ impl Backend {
                 match op_instr.op_type {
                     OpType::REGISTER => {
                         let arch_reg = op_instr.union.get_register();
-                        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
                         let phys_reg = phys_reg_file.allocate();
-                        let mut rat = self.rat.borrow_mut();
                         let rat_entry = rat.get_mut(arch_reg);
                         rat_entry.phys_reg = phys_reg;
                         rat_entry.valid = true;
@@ -467,13 +451,20 @@ impl Backend {
                 match instr_op.op_type {
                     OpType::REGISTER => {
                         let arch_reg = instr_op.union.get_register();
-                        let rat = self.rat.borrow();
                         let rat_entry = rat.get(arch_reg);
                         if rat_entry.valid {
-                            rs_op.op_type = OpType::REGISTER;
-                            rs_op.union = OpUnion::Register(rat_entry.phys_reg);
+                            let phys_reg_struct = phys_reg_file.get(rat_entry.phys_reg);
+                            if phys_reg_struct.has_value {
+                                let value = phys_reg_struct.value;
+                                rs_op.op_type = OpType::VALUE;
+                                rs_op.union = OpUnion::Constant(value);
+                                rs.source_ready_cnt += 1;
+                            } else {
+                                rs_op.op_type = OpType::REGISTER;
+                                rs_op.union = OpUnion::Register(rat_entry.phys_reg);
+                            }
                         } else {
-                            let value = self.arch_reg_file.borrow().get_value(arch_reg);
+                            let value = arch_reg_file.get_value(arch_reg);
                             rs_op.op_type = OpType::VALUE;
                             rs_op.union = OpUnion::Constant(value);
                             rs.source_ready_cnt += 1;
@@ -491,12 +482,10 @@ impl Backend {
                         panic!("Unrecognized {}", rs_op)
                 }
             }
-            //
-            // if rs.source_ready_cnt == rs.source_cnt {
-            //     rs_table.enqueue_ready(rs.index);
-            // }
 
-
+            if rs.source_ready_cnt == rs.source_cnt {
+                rs_table.enqueue_ready(rs_index);
+            }
         }
     }
 }
