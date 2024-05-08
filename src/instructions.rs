@@ -1,4 +1,5 @@
 use std::fmt;
+use std::rc::Rc;
 
 pub enum Opcode {
     ADD,
@@ -12,23 +13,24 @@ pub(crate) const NOP: Instr = create_NOP();
 
 pub(crate) type RegisterType = u16;
 pub(crate) type MemoryType = u64;
+pub(crate) type CodeType = u64;
 pub(crate) type WordType = i32;
 
 // The InstrQueue sits between frontend and backend
 // The 'a lifetime specifier tells that the instructions need to live as least as long
 // as the instruction queue.
-pub(crate) struct InstrQueue<'a> {
+pub(crate) struct InstrQueue {
     capacity: u16,
     head: u64,
     tail: u64,
-    instructions: Vec<&'a Instr>,
+    instructions: Vec<Rc<Instr>>,
 }
 
-impl<'a> InstrQueue<'a> {
+impl<'a> InstrQueue {
     pub fn new(capacity: u16) -> Self {
         let mut instructions = Vec::with_capacity(capacity as usize);
         for _ in 0..capacity {
-            instructions.push(&NOP);
+            instructions.push(Rc::new(NOP));
         }
 
         InstrQueue {
@@ -51,7 +53,7 @@ impl<'a> InstrQueue<'a> {
         self.size() == self.capacity
     }
 
-    pub fn enqueue(&mut self, instr: &'a Instr) {
+    pub fn enqueue(&mut self, instr: Rc<Instr>) {
         assert!(!self.is_full(), "Can't enqueue when InstrQueue is empty.");
 
         let index = (self.tail % self.capacity as u64) as usize;
@@ -64,11 +66,11 @@ impl<'a> InstrQueue<'a> {
         self.head += 1;
     }
 
-    pub fn peek(&self) -> &'a Instr {
+    pub fn peek(&self) -> Rc<Instr> {
         assert!(!self.is_empty(), "Can't peek when InstrQueue is empty.");
 
         let index = (self.head % self.capacity as u64) as usize;
-        return self.instructions[index];
+        return Rc::clone(&self.instructions[index]);
     }
 }
 
@@ -156,8 +158,19 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
 }
 
 pub(crate) struct Program {
-    pub(crate) code: Vec<Instr>,
+    pub(crate) code: Vec<Rc<Instr>>,
 }
+
+impl Program {
+    pub fn new(code: Vec<Rc<Instr>>) -> Self {
+        Self { code }
+    }
+
+    pub fn get(&self, pos: usize) -> Rc<Instr> {
+        Rc::clone(&self.code[pos])
+    }
+}
+
 
 pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType) -> Instr {
     Instr {

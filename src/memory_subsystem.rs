@@ -36,11 +36,20 @@ impl StoreBuffer {
         }
     }
 
+    pub fn size(&self)->u16{
+        return (self.tail-self.head) as u16;
+    }
+
+    pub fn has_space(&self)->bool{
+        return self.size()<self.capacity;
+    }
+
     pub fn allocate(&mut self) -> u16 {
+        assert!(self.has_space(),"StoreBuffer: can't allocate because there is no space");
+
         let index = (self.tail % self.capacity as u64) as usize;
         let sb_entry = &mut self.entries[index];
         sb_entry.completed = false;
-        let res = self.tail;
         self.tail += 1;
         return index as u16;
     }

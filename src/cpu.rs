@@ -17,19 +17,20 @@ pub(crate) struct CPUConfig {
     pub(crate) memory_size: u32,
     pub(crate) sb_capacity: u16,
     pub(crate) lfb_count: u8,
+    pub(crate) rob_capacity: u16,
 }
 
-pub(crate) struct CPU<'a> {
-    backend: Backend<'a>,
-    frontend: Frontend<'a>,
+pub(crate) struct CPU {
+    backend: Backend,
+    frontend: Frontend,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     cycle_cnt: u64,
     cycle_period: Duration,
 }
 
-impl<'a> CPU<'a> {
-    pub(crate) fn new(cpu_config: &'a CPUConfig) -> CPU<'a> {
+impl CPU {
+    pub(crate) fn new(cpu_config: & CPUConfig) -> CPU {
         let instr_queue = Rc::new(RefCell::new(InstrQueue::new(cpu_config.instr_queue_capacity)));
 
         let memory_subsystem = Rc::new(RefCell::new(MemorySubsystem::new(cpu_config)));

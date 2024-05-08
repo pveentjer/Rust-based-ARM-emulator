@@ -1,17 +1,17 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::cpu::CPUConfig;
-use crate::instructions::{Instr, InstrQueue, Program};
+use crate::instructions::{InstrQueue, Program};
 
-pub(crate) struct Frontend<'a> {
-    instr_queue: Rc<RefCell<InstrQueue<'a>>>,
+pub(crate) struct Frontend {
+    instr_queue: Rc<RefCell<InstrQueue>>,
     n_wide: u8,
     ip_next_fetch: i64,
     program_option: Option<Program>,
 }
 
-impl<'a> Frontend<'a> {
-    pub(crate) fn new(cpu_config: & CPUConfig, instr_queue: Rc<RefCell<InstrQueue<'a>>>) -> Frontend<'a> {
+impl Frontend {
+    pub(crate) fn new(cpu_config: & CPUConfig, instr_queue: Rc<RefCell<InstrQueue>>) -> Frontend {
         Frontend {
             instr_queue,
             ip_next_fetch: -1,
@@ -43,9 +43,9 @@ impl<'a> Frontend<'a> {
                         break;
                     }
 
-                    // ugly raw pointers, but at least we are unstuck for now
-                    let instr_ptr = &program.code[self.ip_next_fetch as usize] as *const Instr;
-                    self.instr_queue.borrow_mut().enqueue(unsafe { &*instr_ptr });
+                    let instr = program.get(self.ip_next_fetch as usize);
+                    println!("Frontend: decoded {}", instr);
+                    self.instr_queue.borrow_mut().enqueue(instr);
                     self.ip_next_fetch += 1;
                 }
             }

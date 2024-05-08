@@ -21,7 +21,8 @@ fn main() {
         rs_count: 16,
         memory_size: 32,
         sb_capacity: 16,
-        lfb_count: 8
+        lfb_count: 8,
+        rob_capacity: 8
     };
 
     let mut cpu = CPU::new(&cpu_config);

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::Display;
 use crate::cpu::{ArgRegFile, CPUConfig};
@@ -146,12 +147,8 @@ impl RSTable {
         }
     }
 
-    fn get(&self, sb_index: u16) -> & RS {
-        return &self.array[sb_index as usize];
-    }
-
-    fn get_mut(&mut self, sb_index: u16) -> & mut RS {
-        return self.array.get_mut(sb_index as usize).unwrap();
+    fn get_mut(&mut self, sb_index: u16) -> &mut RS {
+        return &mut self.array[sb_index as usize];
     }
 
     fn enqueue_ready(&mut self, sb_index: u16) {
@@ -165,17 +162,11 @@ impl RSTable {
         return self.ready_queue_head != self.ready_queue_tail;
     }
 
-    fn deque_ready(&mut self) -> & mut RS {
-        // if !self.has_ready() {
-        //     panic!();
-        // }
-
-        unsafe {
-            let index = (self.ready_queue_head % self.count as u64) as usize;
-            let rs_ptr = self.array.get_mut(index as usize).unwrap() as *mut RS;
-            let rs_ref = &mut *rs_ptr;
-            return rs_ref;
-        }
+    fn deque_ready(&mut self) -> u16 {
+        assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
+        let index = (self.ready_queue_head % self.count as u64) as u16;
+        self.ready_queue_head+=1;
+        return index;
     }
 
     fn has_free(&self) -> bool {
@@ -190,9 +181,8 @@ impl RSTable {
         }
     }
 
-    fn deallocate(&mut self, rs: & mut RS) {
-        rs.state = RSState::FREE;
-        self.free_stack.push(rs.index);
+    fn deallocate(&mut self, rs_index: u16) {
+        self.free_stack.push(rs_index);
     }
 
     //pub
@@ -226,20 +216,108 @@ impl RAT {
     }
 }
 
-pub(crate) struct Backend<'a> {
-    instr_queue: Rc<RefCell<InstrQueue<'a>>>,
+
+enum ROBSlotState {
+    UNUSED,
+    ISSUED,
+    DISPATCHED,
+    EXECUTED,
+}
+
+struct ROBSlot {
+    instr: Option<Rc<Instr>>,
+    state: ROBSlotState,
+    index: u16,
+}
+
+struct ROB {
+    capacity: u16,
+    issued: u64,
+    head: u64,
+    tail: u64,
+    slots: Vec<ROBSlot>,
+}
+
+impl ROB {
+    pub fn new(capacity: u16) -> Self {
+        let mut slots = Vec::with_capacity(capacity as usize);
+        for k in 0..capacity {
+            slots.push(ROBSlot {
+                index: k,
+                instr: None,
+                state: ROBSlotState::UNUSED,
+            });
+        }
+
+        Self {
+            capacity,
+            head: 0,
+            issued: 0,
+            tail: 0,
+            slots,
+        }
+    }
+
+    fn get_mut(&mut self, slot_index: u16) -> &mut ROBSlot {
+        &mut self.slots[slot_index as usize]
+    }
+
+    fn allocate(&mut self) -> u16 {
+        assert!(self.has_space(), "ROB: Can't allocate if no space.");
+
+        let index = (self.tail % self.capacity as u64) as u16;
+        self.tail += 1;
+        return index;
+    }
+
+    fn has_issued(&self) -> bool {
+        return self.tail > self.issued;
+    }
+
+    fn next_issued(&mut self) -> u16 {
+        assert!(self.has_issued(), "ROB: can't issue next since there are none");
+
+        let index = (self.issued % self.capacity as u64) as u16;
+        self.issued += 1;
+        return index;
+    }
+
+    fn size(&self) -> u16 {
+        return (self.tail - self.head) as u16;
+    }
+
+    fn has_space(&self) -> bool {
+        return self.capacity > self.size();
+    }
+
+    fn bump_issued(&mut self){
+        assert!(self.issued<self.tail,"ROB: Can't bump, issued is already at the tail");
+        self.issued+=1;
+    }
+}
+
+
+pub(crate) struct Backend {
+    instr_queue: Rc<RefCell<InstrQueue>>,
     rs_table: Rc<RefCell<RSTable>>,
     phys_reg_file: Rc<RefCell<PhysRegFile>>,
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     rat: Rc<RefCell<RAT>>,
+    rob: Rc<RefCell<ROB>>,
 }
 
-impl<'a> Backend<'a> {
-    pub(crate) fn new(cpu_config: &'a CPUConfig,
-                      instr_queue: Rc<RefCell<InstrQueue<'a>>>,
+impl PartialEq for OpType {
+    fn eq(&self, other: &Self) -> bool {
+        return self.eq(other);
+    }
+}
+
+impl Backend {
+    pub(crate) fn new(cpu_config: &CPUConfig,
+                      instr_queue: Rc<RefCell<InstrQueue>>,
                       memory_subsystem: Rc<RefCell<MemorySubsystem>>,
-                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Backend<'a> {
+                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Backend {
         Backend {
             instr_queue,
             memory_subsystem,
@@ -247,12 +325,13 @@ impl<'a> Backend<'a> {
             rs_table: Rc::new(RefCell::new(RSTable::new(cpu_config.rs_count))),
             phys_reg_file: Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count))),
             rat: Rc::new(RefCell::new(RAT::new(cpu_config.phys_reg_count))),
+            rob: Rc::new(RefCell::new(ROB::new(cpu_config.rob_capacity))),
         }
     }
 
     pub(crate) fn do_cycle(&mut self) {
-        self.cycle_retire();
-        self.cycle_dispatch();
+      //  self.cycle_retire();
+        //self.cycle_dispatch();
         self.cycle_issue();
     }
 
@@ -260,11 +339,32 @@ impl<'a> Backend<'a> {
 
     fn cycle_dispatch(&mut self) {
         while self.rs_table.borrow().has_ready() {
+
+            // todo: should move to dispatch
+            if !self.rs_table.borrow().has_free() {
+                // there are no free reservation stations
+                return;
+            }
+
+
             let rs;
             {
                 let mut rs_table = self.rs_table.borrow_mut();
                 rs = rs_table.deque_ready();
             }
+
+            let instr = self.instr_queue.borrow().peek();
+
+            let mut rs_table = self.rs_table.borrow_mut();
+
+
+            println!("Dispatched {}", instr);
+
+            // if rs.source_ready_cnt == rs.source_cnt {
+            //     rs_table.enqueue_ready(rs.index);
+            // }
+
+            self.instr_queue.borrow_mut().dequeue();
             // Process the dequeued RS
             // println!("dispatch {}", rs);
             //  let junk = &mut RS::new(1);
@@ -273,23 +373,56 @@ impl<'a> Backend<'a> {
     }
 
     fn cycle_issue(&mut self) {
+        let mut rob = self.rob.borrow_mut();
+        let mut rs_table = self.rs_table.borrow_mut();
+        let mut instr_queue = self.instr_queue.borrow_mut();
+        let mut issued: bool = false;
+
+        // try to put as many instructions into the rob as possible.
         loop {
-            if self.instr_queue.borrow().is_empty() {
+            if instr_queue.is_empty() {
+                //if !issued {
+                    println!("Backend:cycle issue: instr queue empty");
+                //}
                 // there is no instructon in the instruction queue
-                return;
+                break;
             }
 
-            if !self.rs_table.borrow().has_free() {
-                // there are no free reservation stations
-                return;
+            if !rob.has_space() {
+                println!("Backend:cycle issue: No space rob");
+                break;
             }
 
-            let instr = self.instr_queue.borrow().peek();
+            issued = true;
+            let instr = instr_queue.peek();
 
-            let mut rs_table = self.rs_table.borrow_mut();
-            let rs_index = rs_table.allocate();
-            let rs = &mut rs_table.get_mut(rs_index);
+            // if instr.sink_available && instr.sink.op_type == OpType::MEMORY {
+            //     if !self.memory_subsystem.borrow().sb.has_space() {
+            //         return;
+            //     }
+            // }
+
+            instr_queue.dequeue();
+
+            let rob_slot_index = rob.allocate();
+            let rob_slot = rob.get_mut(rob_slot_index);
+
             println!("Issued {}", instr);
+
+            rob_slot.state = ROBSlotState::ISSUED;
+            rob_slot.instr = Some(instr);
+            rob.bump_issued();
+        }
+
+        // try to put as many instructions from the rob, into reservation stations as possible.
+        while rob.has_issued() && rs_table.has_free() {
+            let rob_slot_index = rob.next_issued();
+            let mut rob_slot = rob.get_mut(rob_slot_index);
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
+            let rs_index = rs_table.allocate();
+            let mut rs = rs_table.get_mut(rs_index);
+            println!("Dispatched {}", instr);
 
             rs.state = RSState::BUSY;
             rs.sink_available = instr.sink_available;
@@ -358,12 +491,12 @@ impl<'a> Backend<'a> {
                         panic!("Unrecognized {}", rs_op)
                 }
             }
+            //
+            // if rs.source_ready_cnt == rs.source_cnt {
+            //     rs_table.enqueue_ready(rs.index);
+            // }
 
-            if rs.source_ready_cnt == rs.source_cnt {
-                rs_table.enqueue_ready(rs.index);
-            }
 
-            self.instr_queue.borrow_mut().dequeue();
         }
     }
 }
