@@ -166,7 +166,7 @@ impl RSTable {
     fn deque_ready(&mut self) -> u16 {
         assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
         let index = (self.ready_queue_head % self.count as u64) as u16;
-        let rs_ready_index  = self.ready_queue[index as usize];
+        let rs_ready_index = self.ready_queue[index as usize];
 
         self.ready_queue_head += 1;
         return rs_ready_index;
@@ -280,7 +280,6 @@ impl RAT {
 enum ROBSlotState {
     UNUSED,
     ISSUED,
-
     DISPATCHED,
     EXECUTED,
 }
@@ -305,7 +304,6 @@ struct ROB {
     issued: u64,
     // everything before this point is retired.
     retired: u64,
-    head: u64,
     tail: u64,
     slots: Vec<ROBSlot>,
 
@@ -327,7 +325,6 @@ impl ROB {
 
         Self {
             capacity,
-            head: 0,
             issued: 0,
             tail: 0,
             retired: 0,
@@ -364,19 +361,26 @@ impl ROB {
     }
 
     fn has_retired(&self) -> bool {
+        if self.retired == self.tail {
+            return false;
+        }
+        // we should not pass the head
+
         let index = (self.retired % self.capacity as u64) as u16;
         let rob_slot = &self.slots[index as usize];
         return rob_slot.state == ROBSlotState::EXECUTED;
     }
 
     fn next_retired(&mut self) -> u16 {
+        assert!(self.has_retired(), "ROB: can't next_retire because there are no slots retired");
+
         let index = (self.retired % self.capacity as u64) as u16;
         self.retired += 1;
         return index;
     }
 
     fn size(&self) -> u16 {
-        return (self.tail - self.head) as u16;
+        return (self.tail - self.retired) as u16;
     }
 
     fn has_space(&self) -> bool {
@@ -394,6 +398,7 @@ pub(crate) struct Backend {
     rob: Rc<RefCell<ROB>>,
     eu_table: Rc<RefCell<EUTable>>,
     trace: bool,
+    retire_n_wide: u8,
 }
 
 impl Backend {
@@ -411,6 +416,7 @@ impl Backend {
             rat: Rc::new(RefCell::new(RAT::new(cpu_config.phys_reg_count))),
             rob: Rc::new(RefCell::new(ROB::new(cpu_config.rob_capacity))),
             eu_table: Rc::new(RefCell::new(EUTable::new(cpu_config.eu_count))),
+            retire_n_wide: cpu_config.retire_n_wide,
         }
     }
 
@@ -466,6 +472,7 @@ impl Backend {
                 Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
                 Opcode::STORE => {}
                 Opcode::NOP => {}
+                Opcode::PRINTR => println!("{}", rs.source[0].union.get_constant()),
             }
 
             let eu_index = eu.index;
@@ -521,8 +528,6 @@ impl Backend {
 
             rob_slot.result = result;
             rob_slot.state = ROBSlotState::EXECUTED;
-
-            // todo: broadcast
         }
     }
 
@@ -532,7 +537,11 @@ impl Backend {
         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
 
-        while rob.has_retired() {
+        for _ in 0..self.retire_n_wide {
+            if !rob.has_retired() {
+                return;
+            }
+
             let rob_slot_index = rob.next_retired();
             let mut rob_slot = rob.get_mut(rob_slot_index);
 
@@ -564,7 +573,6 @@ impl Backend {
         let mut eu_table = self.eu_table.borrow_mut();
 
         //println!("---------cycle_dispatch start");
-
 
         while rs_table.has_ready() && eu_table.has_free() {
             let rs_index = rs_table.deque_ready();
@@ -606,7 +614,10 @@ impl Backend {
         let mut rat = self.rat.borrow_mut();
         let arch_reg_file = self.arch_reg_file.borrow();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-        //println!("---------cycle_dispatch start");
+        println!("---------cycle_dispatch start");
+
+        println!("instr_queue.is_empty {}", instr_queue.is_empty());
+        println!("rob_has_space {}", rob.has_space());
 
         // try to put as many instructions into the rob as possible.
         while !instr_queue.is_empty() && rob.has_space() {
@@ -638,7 +649,6 @@ impl Backend {
         while rob.has_issued() && rs_table.has_free() {
             let rob_slot_index = rob.next_issued();
             //println!("Next issued rob_slot_index {}", rob_slot_index);
-
 
             let mut rob_slot = rob.get_mut(rob_slot_index);
 
@@ -732,8 +742,7 @@ impl Backend {
                 //println!("rs_table.enqueue_ready {}", rs_index);
                 rs_table.enqueue_ready(rs_index);
             }
-
         }
-       // println!("---------cycle_issue end");
+        println!("---------cycle_issue end");
     }
 }

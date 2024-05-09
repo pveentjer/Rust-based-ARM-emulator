@@ -13,6 +13,7 @@ pub enum Opcode {
     LOAD,
     STORE,
     NOP,
+    PRINTR,
 }
 
 pub(crate) const NOP: Instr = create_NOP(-1);
@@ -184,6 +185,7 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
         Opcode::NOP => "NOP",
         Opcode::INC => "INC",
         Opcode::DEC => "DEC",
+        Opcode::PRINTR => "PRINTR",
     }
 }
 
@@ -329,6 +331,21 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         source_cnt: 0,
         source: [
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+        line,
+    }
+}
+
+
+pub(crate) const fn create_PRINTR(reg: RegisterType, line: i32) -> Instr {
+    Instr {
+        cycles: 1,
+        opcode: Opcode::PRINTR,
+        source_cnt: 0,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
         sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },

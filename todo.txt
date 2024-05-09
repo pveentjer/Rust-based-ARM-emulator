@@ -1,15 +1,23 @@
 TODO
 
-- retire isn't picked up
+- verify that store works
 
-- implement instruction execution
+- cdb broadcast
 
-- implement print to memory
+- branches
+
+- program termination
+
+- implement print of memory
 
 - implement a proper loader
 
 
 DONE
+
+- retire isn't picked up
+
+- implement instruction execution
 
 - implement retire
 

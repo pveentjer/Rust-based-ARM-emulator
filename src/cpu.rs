@@ -20,6 +20,7 @@ pub(crate) struct CPUConfig {
     pub(crate) rob_capacity: u16,
     pub(crate) eu_count: u8,
     pub(crate) trace: bool,
+    pub(crate) retire_n_wide: u8,
 }
 
 pub(crate) struct CPU {

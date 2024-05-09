@@ -24,7 +24,8 @@ fn main() {
         lfb_count: 8,
         rob_capacity: 8,
         eu_count: 8,
-        trace: true
+        trace: true,
+        retire_n_wide: 4,
     };
 
     let mut cpu = CPU::new(&cpu_config);
