@@ -1,5 +1,26 @@
 TODO
 
+- metrics: instructions issued
+
+- metrics: cycles
+
+- metrics: instructions retired
+
+- metrics: overall ipc
+
+- metrics: ipc last cycle
+
+- printr isn't being run
+
+- retire isn't picked up
+
+- system runs out of rob-etries; so they are not properly returned.
+    - retiring isn't working
+
+- printr has no access to its arch reg
+
+- store to load forwarding
+
 - verify that store works
 
 - cdb broadcast
@@ -15,7 +36,9 @@ TODO
 
 DONE
 
-- retire isn't picked up
+- cpu_config issue_n_wide
+
+- cpu config dispatch_n_wide
 
 - implement instruction execution
 

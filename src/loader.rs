@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::instructions::{create_ADD, create_LOAD, create_NOP, create_STORE, Instr, Program};
+use crate::instructions::{create_ADD, create_LOAD, create_NOP, create_PRINTR, create_STORE, Instr, Program};
 
 // for the time being we always return the same program
 pub(crate) fn load(_: &str) -> Program {
@@ -19,6 +19,16 @@ pub(crate) fn load(_: &str) -> Program {
 
     line += 1;
     code.push(Rc::new(create_ADD(0, 1, 2, line)));
+
+    for _ in 0..20 {
+        line += 1;
+        code.push(Rc::new(create_NOP(line)));
+    }
+
+    line += 1;
+    code.push(Rc::new(create_PRINTR(2, line)));
+
+
     // line+=1;
     // code.push(Rc::new(create_NOP(line)));
     // line+=1;

@@ -8,19 +8,38 @@ use crate::frontend::Frontend;
 use crate::memory_subsystem::MemorySubsystem;
 
 pub(crate) struct CPUConfig {
+    // the number of architectural registers
     pub(crate) arch_reg_count: u16,
+    // the number of physical registers
     pub(crate) phys_reg_count: u16,
+    // the number of instructions the frontend can fetch/decode per clock cycle.
     pub(crate) frontend_n_wide: u8,
+    // the size of the instruction queue between frontend and backend
     pub(crate) instr_queue_capacity: u16,
+    // the frequence of the CPU in Hz.
     pub(crate) frequency_hz: u64,
+    // the number of reservation stations
     pub(crate) rs_count: u16,
+    // the size of the memory in machine words
     pub(crate) memory_size: u32,
+    // the capacity of the store buffer
     pub(crate) sb_capacity: u16,
+    // the number of line fill buffers; currently there are no line fill buffer
+    // it is just a limit of the number of stores that can commit to memory
+    // per clock cycle (there is also no cache)
     pub(crate) lfb_count: u8,
+    // the capacity of the reorder buffer
     pub(crate) rob_capacity: u16,
+    // the number of execution units
     pub(crate) eu_count: u8,
+    // if every executing instruction should be displayed.
     pub(crate) trace: bool,
+    // the number of instructions that can retire per clock cyclce
     pub(crate) retire_n_wide: u8,
+    // the number of instructions that can be dispatched (send to execution units) every clock cycle.
+    pub(crate) dispatch_n_wide: u8,
+    // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
+    pub(crate) issue_n_wide: u8,
 }
 
 pub(crate) struct CPU {

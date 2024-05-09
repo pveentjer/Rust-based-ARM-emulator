@@ -16,6 +16,21 @@ pub enum Opcode {
     PRINTR,
 }
 
+pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
+    match opcode {
+        Opcode::ADD => "ADD",
+        Opcode::SUB => "SUB",
+        Opcode::MUL => "MUL",
+        Opcode::DIV => "DIV",
+        Opcode::MOD => "MOD",
+        Opcode::LOAD => "LOAD",
+        Opcode::STORE => "STORE",
+        Opcode::NOP => "NOP",
+        Opcode::INC => "INC",
+        Opcode::DEC => "DEC",
+        Opcode::PRINTR => "PRINTR",
+    }
+}
 pub(crate) const NOP: Instr = create_NOP(-1);
 
 pub(crate) type RegisterType = u16;
@@ -173,21 +188,6 @@ impl OpUnion {
     // Implement similar functions for other variants as needed
 }
 
-pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
-    match opcode {
-        Opcode::ADD => "ADD",
-        Opcode::SUB => "SUB",
-        Opcode::MUL => "MUL",
-        Opcode::DIV => "DIV",
-        Opcode::MOD => "MOD",
-        Opcode::LOAD => "LOAD",
-        Opcode::STORE => "STORE",
-        Opcode::NOP => "NOP",
-        Opcode::INC => "INC",
-        Opcode::DEC => "DEC",
-        Opcode::PRINTR => "PRINTR",
-    }
-}
 
 pub(crate) struct Program {
     pub(crate) code: Vec<Rc<Instr>>,
@@ -337,7 +337,6 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         line,
     }
 }
-
 
 pub(crate) const fn create_PRINTR(reg: RegisterType, line: i32) -> Instr {
     Instr {

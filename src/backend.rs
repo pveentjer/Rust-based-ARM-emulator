@@ -303,7 +303,7 @@ struct ROB {
     capacity: u16,
     issued: u64,
     // everything before this point is retired.
-    retired: u64,
+    head: u64,
     tail: u64,
     slots: Vec<ROBSlot>,
 
@@ -327,7 +327,7 @@ impl ROB {
             capacity,
             issued: 0,
             tail: 0,
-            retired: 0,
+            head: 0,
             slots,
         }
     }
@@ -344,7 +344,6 @@ impl ROB {
         return index;
     }
 
-
     // Are there any rob entries that have been issued, but have not yet been dispatched.
     fn has_issued(&self) -> bool {
         return self.tail > self.issued;
@@ -353,34 +352,35 @@ impl ROB {
     fn next_issued(&mut self) -> u16 {
         assert!(self.has_issued(), "ROB: can't issue next since there are none");
 
-        println!("next issued with success");
+        //println!("next issued with success");
 
         let index = (self.issued % self.capacity as u64) as u16;
         self.issued += 1;
         return index;
     }
 
-    fn has_retired(&self) -> bool {
-        if self.retired == self.tail {
+    fn head_has_executed(&self) -> bool {
+        // todo: we should not passed issued
+        // we should not pass the head
+        if self.tail == self.head {
             return false;
         }
-        // we should not pass the head
 
-        let index = (self.retired % self.capacity as u64) as u16;
+        let index = (self.head % self.capacity as u64) as u16;
         let rob_slot = &self.slots[index as usize];
         return rob_slot.state == ROBSlotState::EXECUTED;
     }
 
-    fn next_retired(&mut self) -> u16 {
-        assert!(self.has_retired(), "ROB: can't next_retire because there are no slots retired");
+    fn next_executed(&mut self) -> u16 {
+        assert!(self.head_has_executed(), "ROB: can't next_retire because there are no slots retired");
 
-        let index = (self.retired % self.capacity as u64) as u16;
-        self.retired += 1;
+        let index = (self.head % self.capacity as u64) as u16;
+        self.head += 1;
         return index;
     }
 
     fn size(&self) -> u16 {
-        return (self.tail - self.retired) as u16;
+        return (self.tail - self.head) as u16;
     }
 
     fn has_space(&self) -> bool {
@@ -399,6 +399,8 @@ pub(crate) struct Backend {
     eu_table: Rc<RefCell<EUTable>>,
     trace: bool,
     retire_n_wide: u8,
+    dispatch_n_wide: u8,
+    issue_n_wide: u8,
 }
 
 impl Backend {
@@ -417,12 +419,14 @@ impl Backend {
             rob: Rc::new(RefCell::new(ROB::new(cpu_config.rob_capacity))),
             eu_table: Rc::new(RefCell::new(EUTable::new(cpu_config.eu_count))),
             retire_n_wide: cpu_config.retire_n_wide,
+            dispatch_n_wide: cpu_config.dispatch_n_wide,
+            issue_n_wide:cpu_config.issue_n_wide,
         }
     }
 
     pub(crate) fn do_cycle(&mut self) {
-        self.cycle_eu_table();
         self.cycle_retire();
+        self.cycle_eu_table();
         self.cycle_dispatch();
         self.cycle_issue();
     }
@@ -472,7 +476,9 @@ impl Backend {
                 Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
                 Opcode::STORE => {}
                 Opcode::NOP => {}
-                Opcode::PRINTR => println!("{}", rs.source[0].union.get_constant()),
+                Opcode::PRINTR => {
+                    println!("PRINTR {}", rs.source[0].union.get_constant());
+                }
             }
 
             let eu_index = eu.index;
@@ -538,11 +544,12 @@ impl Backend {
         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
 
         for _ in 0..self.retire_n_wide {
-            if !rob.has_retired() {
-                return;
+
+            if !rob.head_has_executed() {
+                break;
             }
 
-            let rob_slot_index = rob.next_retired();
+            let rob_slot_index = rob.next_executed();
             let mut rob_slot = rob.get_mut(rob_slot_index);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
@@ -550,18 +557,16 @@ impl Backend {
 
             println!("Retiring {}", instr);
 
-            match instr.sink.op_type {
-                OpType::REGISTER => {
-                    let arch_reg = instr.sink.union.get_register();
-                    let rat_entry = rat.get_mut(arch_reg);
-                    let phys_reg = rat_entry.phys_reg;
-                    rat_entry.valid = false;
-                    phys_reg_file.deallocate(phys_reg);
-                    arch_reg_file.set_value(arch_reg, rob_slot.result);
-                }
-                OpType::MEMORY => {}
-                OpType::VALUE => {}
-                OpType::UNUSED => {}
+            if instr.sink.op_type == OpType::REGISTER {
+                let arch_reg = instr.sink.union.get_register();
+                let rat_entry = rat.get_mut(arch_reg);
+                let phys_reg = rat_entry.phys_reg;
+
+                rat_entry.valid = false;
+
+                phys_reg_file.deallocate(phys_reg);
+
+                arch_reg_file.set_value(arch_reg, rob_slot.result);
             }
         }
     }
@@ -572,27 +577,22 @@ impl Backend {
         let mut rob = self.rob.borrow_mut();
         let mut eu_table = self.eu_table.borrow_mut();
 
-        //println!("---------cycle_dispatch start");
+        for _ in 0..self.dispatch_n_wide {
+            if !rs_table.has_ready() || !eu_table.has_free() {
+                break;
+            }
 
-        while rs_table.has_ready() && eu_table.has_free() {
             let rs_index = rs_table.deque_ready();
-            //println!("cycle_dispatch rs_index {}", rs_index);
             let rs = rs_table.get_mut(rs_index);
 
             let rob_slot_index = rs.rob_slot_index;
-            // todo: This thing keeps being null
-            //println!("cycle_dispatch rob_slot_index {}", rob_slot_index);
 
             let rob_slot = rob.get_mut(rob_slot_index);
             rob_slot.state = ROBSlotState::DISPATCHED;
 
             let eu_index = eu_table.allocate();
-            //println!("cycle_dispatch eu_index {}", eu_index);
 
             let mut eu = eu_table.get_mut(eu_index);
-
-            //println!("cycle_dispatch eu_index {}", eu_index);
-
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -600,10 +600,10 @@ impl Backend {
             eu.rs_index = rs_index;
             eu.cycles_remaining = instr.cycles;
 
-            println!("Dispatched {}", instr);
+            if self.trace {
+                println!("Dispatched {}", instr);
+            }
         }
-
-        //println!("---------cycle_dispatch end");
     }
 
     fn cycle_issue(&mut self) {
@@ -614,13 +614,13 @@ impl Backend {
         let mut rat = self.rat.borrow_mut();
         let arch_reg_file = self.arch_reg_file.borrow();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-        println!("---------cycle_dispatch start");
-
-        println!("instr_queue.is_empty {}", instr_queue.is_empty());
-        println!("rob_has_space {}", rob.has_space());
 
         // try to put as many instructions into the rob as possible.
-        while !instr_queue.is_empty() && rob.has_space() {
+        for _ in 0..self.issue_n_wide{
+            if instr_queue.is_empty() ||  !rob.has_space() {
+                break
+            }
+
             let instr = instr_queue.peek();
 
             let mut rb_slot_index = Option::None;
@@ -638,7 +638,9 @@ impl Backend {
             let rob_slot_index = rob.allocate();
             let rob_slot = rob.get_mut(rob_slot_index);
 
-            println!("Issued {}", instr);
+            if self.trace {
+                println!("Issued {}", instr);
+            }
 
             rob_slot.rb_slot_index = rb_slot_index;
             rob_slot.state = ROBSlotState::DISPATCHED;
@@ -646,9 +648,12 @@ impl Backend {
         }
 
         // try to put as many instructions from the rob, into reservation stations as possible.
-        while rob.has_issued() && rs_table.has_free() {
+        for _ in 0..self.issue_n_wide{
+            if !rob.has_issued() || !rs_table.has_free() {
+                break
+            }
+
             let rob_slot_index = rob.next_issued();
-            //println!("Next issued rob_slot_index {}", rob_slot_index);
 
             let mut rob_slot = rob.get_mut(rob_slot_index);
 
@@ -656,10 +661,11 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
             let rs_index = rs_table.allocate();
-            //println!("Allocated rs_index {}", rs_index);
             let mut rs = rs_table.get_mut(rs_index);
-            println!("Find RS {}", instr);
 
+            if self.trace {
+                println!("Issued found RS {}", instr);
+            }
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.result = 0;
             rob_slot.rs_index = rs_index;
@@ -725,11 +731,7 @@ impl Backend {
                             rs.source_ready_cnt += 1;
                         }
                     }
-                    OpType::MEMORY => {
-                        rs.source[i as usize] = *instr_op;
-                        rs.source_ready_cnt += 1;
-                    }
-                    OpType::VALUE => {
+                    OpType::MEMORY | OpType::VALUE => {
                         rs.source[i as usize] = *instr_op;
                         rs.source_ready_cnt += 1;
                     }
@@ -739,10 +741,8 @@ impl Backend {
             }
 
             if rs.source_ready_cnt == rs.source_cnt {
-                //println!("rs_table.enqueue_ready {}", rs_index);
                 rs_table.enqueue_ready(rs_index);
             }
         }
-        println!("---------cycle_issue end");
     }
 }
