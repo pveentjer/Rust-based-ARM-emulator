@@ -7,44 +7,39 @@ use crate::cpu::{ArgRegFile, CPUConfig};
 use crate::instructions::{Instr, InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
 
-struct PhysReg {
+struct PhysRegEntry {
     value: WordType,
     has_value: bool,
-    index: u16,
 }
 
 struct PhysRegFile {
     free_stack: Vec<u16>,
     count: u16,
-    registers: Vec<PhysReg>,
+    entries: Vec<PhysRegEntry>,
 }
 
 impl PhysRegFile {
-    fn new(phys_reg_count: u16) -> PhysRegFile {
-        let mut free_stack = Vec::with_capacity(phys_reg_count as usize);
-        let mut array = Vec::with_capacity(phys_reg_count as usize);
-        for i in 0..phys_reg_count {
-            array.push(PhysReg { value: 0, has_value: false, index: i });
+    fn new(count: u16) -> PhysRegFile {
+        let mut free_stack = Vec::with_capacity(count as usize);
+        let mut entries = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            entries.push(PhysRegEntry { value: 0, has_value: false});
             free_stack.push(i);
         }
 
-        PhysRegFile {
-            count: phys_reg_count,
-            registers: array,
-            free_stack,
-        }
+        PhysRegFile { count, entries, free_stack}
     }
 
     fn has_free(&self) -> bool {
         return !self.free_stack.is_empty();
     }
 
-    fn get(&self, reg: RegisterType) -> &PhysReg {
-        return self.registers.get(reg as usize).unwrap();
+    fn get(&self, reg: RegisterType) -> &PhysRegEntry {
+        return self.entries.get(reg as usize).unwrap();
     }
 
-    fn get_mut(&mut self, reg: RegisterType) -> &mut PhysReg {
-        return self.registers.get_mut(reg as usize).unwrap();
+    fn get_mut(&mut self, reg: RegisterType) -> &mut PhysRegEntry {
+        return self.entries.get_mut(reg as usize).unwrap();
     }
 
     fn allocate(&mut self) -> RegisterType {
@@ -282,11 +277,7 @@ enum ROBSlotState {
     EXECUTED,
 }
 
-impl Display for ROBSlotState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
-    }
-}
+
 
 struct ROBSlot {
     instr: Option<Rc<Instr>>,
@@ -485,9 +476,9 @@ impl Backend {
             match rs.sink.op_type {
                 OpType::REGISTER => {
                     let phys_reg = rs.sink.union.get_register();
-                    let phys_reg_struct = phys_reg_file.get_mut(phys_reg);
-                    phys_reg_struct.has_value = true;
-                    phys_reg_struct.value = result;
+                    let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
+                    phys_reg_entry.has_value = true;
+                    phys_reg_entry.value = result;
 
                     // // broad cast
                     // for k in 0..rs_table.count {
@@ -521,8 +512,8 @@ impl Backend {
                     // a store to memory
                     memory_subsystem.sb.store(rs.sb_pos, rs.sink.union.get_memory_addr(), result);
                 }
-                OpType::VALUE => {
-                    panic!();
+                OpType::CONSTANT => {
+                    panic!("Constants can't be sinks.");
                 }
                 OpType::UNUSED => {}
             }
@@ -612,7 +603,7 @@ impl Backend {
         let arch_reg_file = self.arch_reg_file.borrow();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
-        // try to put as many instructions into the rob as possible.
+        // try to put as many instructions into the rob
         for _ in 0..self.issue_n_wide {
             if instr_queue.is_empty() || !rob.has_space() {
                 break;
@@ -644,16 +635,14 @@ impl Backend {
             rob_slot.instr = Some(instr);
         }
 
-        // try to put as many instructions from the rob, into reservation stations as possible.
+        // try to put as many instructions from the rob, into reservation stations
         for _ in 0..self.issue_n_wide {
             if !rob.has_issued() || !rs_table.has_free() {
                 break;
             }
 
             let rob_slot_index = rob.next_issued();
-
             let mut rob_slot = rob.get_mut(rob_slot_index);
-
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -683,7 +672,7 @@ impl Backend {
                     rat_entry.phys_reg = phys_reg;
                     rat_entry.valid = true;
                     op_rs.op_type = OpType::REGISTER;
-                    op_rs.union = OpUnion::Register(rat_entry.phys_reg);
+                    op_rs.union = OpUnion::Register(phys_reg);
                 }
                 OpType::MEMORY => {
                     rs.sink = *op_instr;
@@ -694,7 +683,7 @@ impl Backend {
                     // in program order.
                     rs.sb_pos = memory_subsystem.sb.allocate();
                 }
-                OpType::VALUE => {
+                OpType::CONSTANT => {
                     panic!("Can't have a value as sink {}", op_rs)
                 }
                 OpType::UNUSED => {}
@@ -702,6 +691,7 @@ impl Backend {
 
             rs.source_cnt = instr.source_cnt;
             rs.source_ready_cnt = 0;
+
             for i in 0..instr.source_cnt {
                 let instr_op = &instr.source[i as usize];
                 let rs_op = &mut rs.source[i as usize];
@@ -710,10 +700,11 @@ impl Backend {
                         let arch_reg = instr_op.union.get_register();
                         let rat_entry = rat.get(arch_reg);
                         if rat_entry.valid {
-                            let phys_reg_struct = phys_reg_file.get(rat_entry.phys_reg);
-                            if phys_reg_struct.has_value {
-                                let value = phys_reg_struct.value;
-                                rs_op.op_type = OpType::VALUE;
+                            let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
+                            if phys_reg_entry.has_value {
+                                //we got lucky, there is a value in the physical register.
+                                let value = phys_reg_entry.value;
+                                rs_op.op_type = OpType::CONSTANT;
                                 rs_op.union = OpUnion::Constant(value);
                                 rs.source_ready_cnt += 1;
                             } else {
@@ -723,12 +714,12 @@ impl Backend {
                             }
                         } else {
                             let value = arch_reg_file.get_value(arch_reg);
-                            rs_op.op_type = OpType::VALUE;
+                            rs_op.op_type = OpType::CONSTANT;
                             rs_op.union = OpUnion::Constant(value);
                             rs.source_ready_cnt += 1;
                         }
                     }
-                    OpType::MEMORY | OpType::VALUE => {
+                    OpType::MEMORY | OpType::CONSTANT => {
                         rs.source[i as usize] = *instr_op;
                         rs.source_ready_cnt += 1;
                     }

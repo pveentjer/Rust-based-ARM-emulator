@@ -100,10 +100,11 @@ impl InstrQueue {
 pub(crate) enum OpType {
     REGISTER,
     MEMORY,
-    VALUE,
+    CONSTANT,
     UNUSED,
 }
 
+// The maximum number of source (input) operands for an instruction.
 pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
 
 pub(crate) struct Instr {

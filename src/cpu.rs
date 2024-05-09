@@ -93,30 +93,30 @@ impl CPU {
     }
 }
 
-struct ArgReg {
+struct ArgRegEntry {
     pub(crate) value: WordType,
 }
 
 pub struct ArgRegFile {
-    registers: Vec<ArgReg>,
+    entries: Vec<ArgRegEntry>,
 }
 
 impl ArgRegFile {
     fn new(rs_count: u16) -> ArgRegFile {
         let mut array = Vec::with_capacity(rs_count as usize);
         for _ in 0..rs_count {
-            array.push(ArgReg { value: 0 });
+            array.push(ArgRegEntry { value: 0 });
         }
 
-        ArgRegFile { registers: array }
+        ArgRegFile { entries: array }
     }
 
     pub fn get_value(&self, reg: RegisterType) -> WordType {
-        return self.registers.get(reg as usize).unwrap().value;
+        return self.entries.get(reg as usize).unwrap().value;
     }
 
     pub fn set_value(&mut self, reg: RegisterType, value: WordType) {
-        let arch_reg = self.registers.get_mut(reg as usize).unwrap();
+        let arch_reg = self.entries.get_mut(reg as usize).unwrap();
         arch_reg.value = value;
     }
 }
