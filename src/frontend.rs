@@ -8,15 +8,17 @@ pub(crate) struct Frontend {
     n_wide: u8,
     ip_next_fetch: i64,
     program_option: Option<Program>,
+    trace: bool,
 }
 
 impl Frontend {
-    pub(crate) fn new(cpu_config: & CPUConfig, instr_queue: Rc<RefCell<InstrQueue>>) -> Frontend {
+    pub(crate) fn new(cpu_config: &CPUConfig, instr_queue: Rc<RefCell<InstrQueue>>) -> Frontend {
         Frontend {
             instr_queue,
             ip_next_fetch: -1,
             n_wide: cpu_config.frontend_n_wide,
             program_option: None,
+            trace: cpu_config.trace,
         }
     }
 
@@ -34,7 +36,7 @@ impl Frontend {
                         break;
                     }
 
-                    if program.code.len() == self.ip_next_fetch as usize{
+                    if program.code.len() == self.ip_next_fetch as usize {
                         // at the end of the program
                         return;
                     }
@@ -44,7 +46,10 @@ impl Frontend {
                     }
 
                     let instr = program.get(self.ip_next_fetch as usize);
-                    println!("Frontend: ip_next_fetch: {} decoded {}", self.ip_next_fetch, instr);
+                    if self.trace {
+                        println!("Frontend: ip_next_fetch: {} decoded {}", self.ip_next_fetch, instr);
+                    }
+
                     self.instr_queue.borrow_mut().enqueue(instr);
                     self.ip_next_fetch += 1;
                 }

@@ -187,8 +187,6 @@ impl RSTable {
     fn deallocate(&mut self, rs_index: u16) {
         self.free_stack.push(rs_index);
     }
-
-    //pub
 }
 
 struct EU {
@@ -420,7 +418,7 @@ impl Backend {
             eu_table: Rc::new(RefCell::new(EUTable::new(cpu_config.eu_count))),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
-            issue_n_wide:cpu_config.issue_n_wide,
+            issue_n_wide: cpu_config.issue_n_wide,
         }
     }
 
@@ -544,7 +542,6 @@ impl Backend {
         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
 
         for _ in 0..self.retire_n_wide {
-
             if !rob.head_has_executed() {
                 break;
             }
@@ -616,9 +613,9 @@ impl Backend {
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
         // try to put as many instructions into the rob as possible.
-        for _ in 0..self.issue_n_wide{
-            if instr_queue.is_empty() ||  !rob.has_space() {
-                break
+        for _ in 0..self.issue_n_wide {
+            if instr_queue.is_empty() || !rob.has_space() {
+                break;
             }
 
             let instr = instr_queue.peek();
@@ -648,9 +645,9 @@ impl Backend {
         }
 
         // try to put as many instructions from the rob, into reservation stations as possible.
-        for _ in 0..self.issue_n_wide{
+        for _ in 0..self.issue_n_wide {
             if !rob.has_issued() || !rs_table.has_free() {
-                break
+                break;
             }
 
             let rob_slot_index = rob.next_issued();
@@ -672,7 +669,7 @@ impl Backend {
 
             rs.rob_slot_index = rob_slot_index;
             //println!("cycle_issue: rob_slot_index  {}", rs.rob_slot_index);
-
+            rs.opcode = instr.opcode;
             rs.state = RSState::BUSY;
 
             let op_instr = &instr.sink;

@@ -12,7 +12,7 @@ pub(crate) fn load(_: &str) -> Program {
     line += 1;
     code.push(Rc::new(create_LOAD(1, 1, line)));
 
-    for _ in 0..20 {
+    for _ in 0..10 {
         line += 1;
         code.push(Rc::new(create_NOP(line)));
     }
@@ -20,7 +20,7 @@ pub(crate) fn load(_: &str) -> Program {
     line += 1;
     code.push(Rc::new(create_ADD(0, 1, 2, line)));
 
-    for _ in 0..20 {
+    for _ in 0..10 {
         line += 1;
         code.push(Rc::new(create_NOP(line)));
     }

@@ -48,7 +48,7 @@ pub(crate) struct InstrQueue {
     instructions: Vec<Rc<Instr>>,
 }
 
-impl<'a> InstrQueue {
+impl InstrQueue {
     pub fn new(capacity: u16) -> Self {
         let mut instructions = Vec::with_capacity(capacity as usize);
         for _ in 0..capacity {
@@ -342,7 +342,7 @@ pub(crate) const fn create_PRINTR(reg: RegisterType, line: i32) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::PRINTR,
-        source_cnt: 0,
+        source_cnt: 1,
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }

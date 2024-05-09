@@ -1,5 +1,7 @@
 TODO
 
+- printr has no access to its arch reg
+
 - metrics: instructions issued
 
 - metrics: cycles
@@ -9,15 +11,6 @@ TODO
 - metrics: overall ipc
 
 - metrics: ipc last cycle
-
-- printr isn't being run
-
-- retire isn't picked up
-
-- system runs out of rob-etries; so they are not properly returned.
-    - retiring isn't working
-
-- printr has no access to its arch reg
 
 - store to load forwarding
 
@@ -33,8 +26,18 @@ TODO
 
 - implement a proper loader
 
-
 DONE
+
+- fixed problem in execution due to no proper rs.opcode.
+
+- printr isn't being run
+
+- frontend and trace
+
+- retire isn't picked up
+
+- system runs out of rob-etries; so they are not properly returned.
+    - retiring isn't working
 
 - cpu_config issue_n_wide
 

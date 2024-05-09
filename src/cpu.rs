@@ -32,9 +32,9 @@ pub(crate) struct CPUConfig {
     pub(crate) rob_capacity: u16,
     // the number of execution units
     pub(crate) eu_count: u8,
-    // if every executing instruction should be displayed.
+    // if processing of a single instruction should be traced (printed)
     pub(crate) trace: bool,
-    // the number of instructions that can retire per clock cyclce
+    // the number of instructions that can retire per clock cycle
     pub(crate) retire_n_wide: u8,
     // the number of instructions that can be dispatched (send to execution units) every clock cycle.
     pub(crate) dispatch_n_wide: u8,
