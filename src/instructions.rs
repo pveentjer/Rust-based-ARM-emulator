@@ -104,7 +104,6 @@ pub(crate) enum OpType {
     UNUSED,
 }
 
-pub(crate) const MAX_SINK_COUNT: u8 = 1;
 pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
 
 pub(crate) struct Instr {

@@ -121,25 +121,25 @@ struct RSTable {
     ready_queue_head: u64,
     ready_queue_tail: u64,
     ready_queue: Vec<u16>,
-    count: u16,
+    capacity: u16,
     array: Vec<RS>,
 }
 
 impl RSTable {
-    fn new(rs_count: u16) -> Self {
-        let mut free_stack = Vec::with_capacity(rs_count as usize);
-        let mut array = Vec::with_capacity(rs_count as usize);
-        for i in 0..rs_count {
+    fn new(capacity: u16) -> Self {
+        let mut free_stack = Vec::with_capacity(capacity as usize);
+        let mut array = Vec::with_capacity(capacity as usize);
+        for i in 0..capacity {
             array.push(RS::new(i));
             free_stack.push(i);
         }
-        let mut ready_queue = Vec::with_capacity(rs_count as usize);
-        for _ in 0..rs_count {
+        let mut ready_queue = Vec::with_capacity(capacity as usize);
+        for _ in 0..capacity {
             ready_queue.push(0);
         }
 
         RSTable {
-            count: rs_count,
+            capacity,
             array,
             free_stack,
             ready_queue,
@@ -153,7 +153,7 @@ impl RSTable {
     }
 
     fn enqueue_ready(&mut self, rs_index: u16) {
-        let index = (self.ready_queue_tail % self.count as u64) as usize;
+        let index = (self.ready_queue_tail % self.capacity as u64) as usize;
         self.ready_queue[index] = rs_index;
         self.ready_queue_tail += 1;
     }
@@ -165,7 +165,7 @@ impl RSTable {
 
     fn deque_ready(&mut self) -> u16 {
         assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
-        let index = (self.ready_queue_head % self.count as u64) as u16;
+        let index = (self.ready_queue_head % self.capacity as u64) as u16;
         let rs_ready_index = self.ready_queue[index as usize];
 
         self.ready_queue_head += 1;
