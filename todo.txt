@@ -1,5 +1,7 @@
 TODO
 
+- cdb broadcast
+
 - printr has no access to its arch reg
 
 - metrics: instructions issued
@@ -16,8 +18,6 @@ TODO
 
 - verify that store works
 
-- cdb broadcast
-
 - branches
 
 - program termination
@@ -27,6 +27,14 @@ TODO
 - implement a proper loader
 
 DONE
+
+- the value of the inc isn't visible when printing
+
+- reverse the ordering of the initial free stack for physical registers
+
+- inc is failing with panic
+
+- register rename of the sink should be done after register rename of the source
 
 - fixed problem in execution due to no proper rs.opcode.
 

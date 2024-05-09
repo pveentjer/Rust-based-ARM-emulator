@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display};
 use crate::cpu::{ArgRegFile, CPUConfig};
 use crate::instructions::{Instr, InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
@@ -23,11 +23,11 @@ impl PhysRegFile {
         let mut free_stack = Vec::with_capacity(count as usize);
         let mut entries = Vec::with_capacity(count as usize);
         for i in 0..count {
-            entries.push(PhysRegEntry { value: 0, has_value: false});
-            free_stack.push(i);
+            entries.push(PhysRegEntry { value: 0, has_value: false });
+            free_stack.push(count - 1 - i);
         }
 
-        PhysRegFile { count, entries, free_stack}
+        PhysRegFile { count, entries, free_stack }
     }
 
     fn has_free(&self) -> bool {
@@ -64,7 +64,6 @@ enum RSState {
 }
 
 struct RS {
-    index: u16,
     opcode: Opcode,
     state: RSState,
     sink: Operand,
@@ -76,9 +75,8 @@ struct RS {
 }
 
 impl RS {
-    fn new(index: u16) -> Self {
+    fn new() -> Self {
         Self {
-            index,
             opcode: Opcode::NOP,
             state: RSState::FREE,
             source_cnt: 0,
@@ -125,7 +123,7 @@ impl RSTable {
         let mut free_stack = Vec::with_capacity(capacity as usize);
         let mut array = Vec::with_capacity(capacity as usize);
         for i in 0..capacity {
-            array.push(RS::new(i));
+            array.push(RS::new());
             free_stack.push(i);
         }
         let mut ready_queue = Vec::with_capacity(capacity as usize);
@@ -242,8 +240,8 @@ impl EUTable {
 
 struct RATEntry {
     phys_reg: RegisterType,
-    // True of this entry is currently in use.
-    valid: bool,
+    // The number of pending writes; if 0, then the entry is not valid
+    pending_writes: u16,
 }
 
 struct RAT {
@@ -254,7 +252,7 @@ impl RAT {
     pub fn new(phys_reg_count: u16) -> Self {
         let mut table = Vec::with_capacity(phys_reg_count as usize);
         for _ in 0..phys_reg_count {
-            table.push(RATEntry { phys_reg: 0, valid: false });
+            table.push(RATEntry { phys_reg: 0, pending_writes: 0 });
         }
         Self { table }
     }
@@ -277,8 +275,6 @@ enum ROBSlotState {
     EXECUTED,
 }
 
-
-
 struct ROBSlot {
     instr: Option<Rc<Instr>>,
     state: ROBSlotState,
@@ -295,7 +291,6 @@ struct ROB {
     head: u64,
     tail: u64,
     slots: Vec<ROBSlot>,
-
 }
 
 impl ROB {
@@ -466,8 +461,12 @@ impl Backend {
                 Opcode::STORE => {}
                 Opcode::NOP => {}
                 Opcode::PRINTR => {
-                    println!("PRINTR {}", rs.source[0].union.get_constant());
+                    println!("                                                  PRINTR {}", rs.source[0].union.get_constant());
                 }
+            }
+
+            if (instr.opcode == Opcode::INC) {
+                println!("                      INC result {}", result);
             }
 
             let eu_index = eu.index;
@@ -479,6 +478,8 @@ impl Backend {
                     let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
                     phys_reg_entry.has_value = true;
                     phys_reg_entry.value = result;
+
+                    println!("Setting phys_reg {} value {}", phys_reg, result);
 
                     // // broad cast
                     // for k in 0..rs_table.count {
@@ -547,11 +548,14 @@ impl Backend {
 
             if instr.sink.op_type == OpType::REGISTER {
                 let arch_reg = instr.sink.union.get_register();
+
                 let rat_entry = rat.get_mut(arch_reg);
                 let phys_reg = rat_entry.phys_reg;
 
-                rat_entry.valid = false;
 
+                rat_entry.pending_writes -= 1;
+
+                phys_reg_file.get_mut(phys_reg).has_value = false;
                 phys_reg_file.deallocate(phys_reg);
 
                 arch_reg_file.set_value(arch_reg, rob_slot.result);
@@ -646,8 +650,16 @@ impl Backend {
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
+
+            let op_sink_instr = &instr.sink;
+            if op_sink_instr.op_type == OpType::MEMORY && !memory_subsystem.sb.has_space() {
+                // we can't allocate a slot in the store buffer, we are done
+                break;
+            }
+
             let rs_index = rs_table.allocate();
             let mut rs = rs_table.get_mut(rs_index);
+            let op_sink_rs = &mut rs.sink;
 
             if self.trace {
                 println!("Issued found RS {}", instr);
@@ -661,34 +673,6 @@ impl Backend {
             rs.opcode = instr.opcode;
             rs.state = RSState::BUSY;
 
-            let op_instr = &instr.sink;
-            let op_rs = &mut rs.sink;
-
-            match op_instr.op_type {
-                OpType::REGISTER => {
-                    let arch_reg = op_instr.union.get_register();
-                    let phys_reg = phys_reg_file.allocate();
-                    let rat_entry = rat.get_mut(arch_reg);
-                    rat_entry.phys_reg = phys_reg;
-                    rat_entry.valid = true;
-                    op_rs.op_type = OpType::REGISTER;
-                    op_rs.union = OpUnion::Register(phys_reg);
-                }
-                OpType::MEMORY => {
-                    rs.sink = *op_instr;
-                    // todo: not handling a full sb.
-                    // since the instructions are issued in program order, a slot is allocated in the
-                    // sb in program order. And since sb will commit to the coherent cache
-                    // (in this case directly to memory), the stores will become visible
-                    // in program order.
-                    rs.sb_pos = memory_subsystem.sb.allocate();
-                }
-                OpType::CONSTANT => {
-                    panic!("Can't have a value as sink {}", op_rs)
-                }
-                OpType::UNUSED => {}
-            }
-
             rs.source_cnt = instr.source_cnt;
             rs.source_ready_cnt = 0;
 
@@ -699,7 +683,7 @@ impl Backend {
                     OpType::REGISTER => {
                         let arch_reg = instr_op.union.get_register();
                         let rat_entry = rat.get(arch_reg);
-                        if rat_entry.valid {
+                        if rat_entry.pending_writes > 0 {
                             let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
                             if phys_reg_entry.has_value {
                                 //we got lucky, there is a value in the physical register.
@@ -707,16 +691,29 @@ impl Backend {
                                 rs_op.op_type = OpType::CONSTANT;
                                 rs_op.union = OpUnion::Constant(value);
                                 rs.source_ready_cnt += 1;
+
+                                if rs.opcode == Opcode::INC {
+                                    println!("                  Issue INC direct value {} from phys reg {}", value, rat_entry.phys_reg)
+                                }
                             } else {
                                 // cdb broadcast will update
                                 rs_op.op_type = OpType::REGISTER;
                                 rs_op.union = OpUnion::Register(rat_entry.phys_reg);
+
+
+                                if rs.opcode == Opcode::INC {
+                                    println!("                  Issue INC wait for phys reg {}", rat_entry.phys_reg)
+                                }
                             }
                         } else {
                             let value = arch_reg_file.get_value(arch_reg);
                             rs_op.op_type = OpType::CONSTANT;
                             rs_op.union = OpUnion::Constant(value);
                             rs.source_ready_cnt += 1;
+
+                            if rs.opcode == Opcode::INC {
+                                println!("                  Issue INC direct value from arc reg {}", arch_reg)
+                            }
                         }
                     }
                     OpType::MEMORY | OpType::CONSTANT => {
@@ -728,6 +725,33 @@ impl Backend {
                 }
             }
 
+            // todo:
+            match op_sink_instr.op_type {
+                OpType::REGISTER => {
+                    let arch_reg = op_sink_instr.union.get_register();
+                    let phys_reg = phys_reg_file.allocate();
+                    let rat_entry = rat.get_mut(arch_reg);
+                    rat_entry.phys_reg = phys_reg;
+                    rat_entry.pending_writes += 1;
+                    op_sink_rs.op_type = OpType::REGISTER;
+                    op_sink_rs.union = OpUnion::Register(phys_reg);
+                }
+                OpType::MEMORY => {
+                    rs.sink = *op_sink_instr;
+                    // since the instructions are issued in program order, a slot is allocated in the
+                    // sb in program order. And since sb will commit to the coherent cache
+                    // (in this case directly to memory), the stores will become visible
+                    // in program order.
+                    rs.sb_pos = memory_subsystem.sb.allocate();
+                    // todo: op_rs.op-type/union and also check unused. currently not set.
+                }
+                OpType::UNUSED => {
+                    rs.sink = *op_sink_instr;
+                }
+                OpType::CONSTANT => {
+                    panic!("Can't have a value as sink {}", op_sink_rs)
+                }
+            }
             if rs.source_ready_cnt == rs.source_cnt {
                 rs_table.enqueue_ready(rs_index);
             }

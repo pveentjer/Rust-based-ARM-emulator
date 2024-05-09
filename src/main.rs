@@ -15,7 +15,7 @@ fn main() {
     let cpu_config = CPUConfig {
         arch_reg_count: 16,
         phys_reg_count: 64,
-        frontend_n_wide: 4,
+        frontend_n_wide: 1,
         instr_queue_capacity: 8,
         frequency_hz: 1,
         rs_count: 16,
@@ -25,9 +25,9 @@ fn main() {
         rob_capacity: 32,
         eu_count: 8,
         trace: true,
-        retire_n_wide: 4,
-        dispatch_n_wide: 4,
-        issue_n_wide: 4
+        retire_n_wide: 1,
+        dispatch_n_wide: 1,
+        issue_n_wide: 1
     };
 
     let mut cpu = CPU::new(&cpu_config);
