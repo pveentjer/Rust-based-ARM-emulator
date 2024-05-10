@@ -347,9 +347,6 @@ impl ROB {
 
     fn next_issued(&mut self) -> u16 {
         assert!(self.has_issued(), "ROB: can't issue next since there are none");
-
-        //println!("next issued with success");
-
         let index = (self.issued % self.capacity as u64) as u16;
         self.issued += 1;
         return index;
@@ -486,10 +483,6 @@ impl Backend {
                 }
             }
 
-            if (instr.opcode == Opcode::INC) {
-                println!("                          execute: INC result {}", result);
-            }
-
             let eu_index = eu.index;
             eu_table.deallocate(eu_index);
 
@@ -499,9 +492,6 @@ impl Backend {
                     let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
                     phys_reg_entry.has_value = true;
                     phys_reg_entry.value = result;
-
-                    println!("                          execute: Setting phys_reg {} value {}", phys_reg, result);
-
                     cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
                 }
                 OpType::MEMORY => {
@@ -542,9 +532,6 @@ impl Backend {
                 for l in 0..rs.source_cnt {
                     let source_rs = &mut rs.source[l as usize];
                     if (source_rs.op_type == OpType::REGISTER && source_rs.union.get_register() == req.phys_reg) {
-                        println!("                          execute: cdb found target rs for phys_reg {} {} ", req.phys_reg, req.value);
-                        println!("                          execute: target instr {} ", instr);
-
                         source_rs.op_type = OpType::CONSTANT;
                         source_rs.union = OpUnion::Constant(req.value);
                         rs.source_ready_cnt += 1;
@@ -578,7 +565,7 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            println!("                                      Retiring {}", instr);
+            println!("Retiring {}", instr);
 
             if instr.sink.op_type == OpType::REGISTER {
                 let arch_reg = instr.sink.union.get_register();
@@ -586,23 +573,17 @@ impl Backend {
                 let rat_entry = rat.get_mut(arch_reg);
                 let rat_phys_reg = rat_entry.phys_reg;
                 let rs_phys_reg = rob_slot.sink.union.get_register();
-                if(rat_phys_reg == rs_phys_reg) {
-                    rat_entry.valid = false;
-                }
-
-                println!("                                      Retiring: Deallocating phys_reg {}", rs_phys_reg);
-
-                phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-
-                // println!("                                      Retiring: rat entry phys_reg {}, pending_writes {}", rat_entry.phys_reg, rat_entry.pending_writes);
-                //
 
                 // only when the physical register os the rat is the same as te physical register used for that
                 // instruction, the rat entry should be invalidated
+                if (rat_phys_reg == rs_phys_reg) {
+                    rat_entry.valid = false;
+                }
+
+                phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+
 
                 phys_reg_file.deallocate(rs_phys_reg);
-
-                println!("                                      Retiring: writing arg_reg {} = {}", arch_reg, rob_slot.result);
                 arch_reg_file.set_value(arch_reg, rob_slot.result);
             }
         }
@@ -736,28 +717,16 @@ impl Backend {
                                 rs_source.op_type = OpType::CONSTANT;
                                 rs_source.union = OpUnion::Constant(value);
                                 rs.source_ready_cnt += 1;
-
-                                if rs.opcode == Opcode::INC {
-                                    println!("issue: Issue INC direct value {} from phys reg {}", value, rat_entry.phys_reg)
-                                }
                             } else {
                                 // cdb broadcast will update
                                 rs_source.op_type = OpType::REGISTER;
                                 rs_source.union = OpUnion::Register(rat_entry.phys_reg);
-
-                                if rs.opcode == Opcode::INC {
-                                    println!("issue: Issue INC wait for phys reg {}", rat_entry.phys_reg)
-                                }
                             }
                         } else {
                             let value = arch_reg_file.get_value(arch_reg);
                             rs_source.op_type = OpType::CONSTANT;
                             rs_source.union = OpUnion::Constant(value);
                             rs.source_ready_cnt += 1;
-
-                            if rs.opcode == Opcode::INC {
-                                println!("issue: Issue INC direct value from arc reg {}", arch_reg)
-                            }
                         }
                     }
                     OpType::MEMORY | OpType::CONSTANT => {
@@ -773,11 +742,6 @@ impl Backend {
                 OpType::REGISTER => {
                     let arch_reg = instr_sink.union.get_register();
                     let phys_reg = phys_reg_file.allocate();
-
-                    if rs.opcode == Opcode::INC {
-                        println!("issue: Issue INC allocated phys_reg {}", phys_reg)
-                    }
-
                     // update the RAT entry to point to the newest phys_reg
                     let rat_entry = rat.get_mut(arch_reg);
                     rat_entry.phys_reg = phys_reg;

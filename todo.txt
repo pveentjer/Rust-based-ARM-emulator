@@ -1,23 +1,5 @@
 TODO
 
-- There is a problem with the reuse of the physical register.
-    without reuse, the chain of independent incs works fine, but with
-    reuse, a later inc gets a value from an reused physical register.
-
-    The following seems very weird because when issuing an INC, the same physical register is used
-    For the source and then for the sink. Since it can be read from, physical register should
-    Not have been deallocated. So it is possible to retire a physical register, even though the
-    mapping in the RAT is valid and points to that physical register.
-
-        issue: Issue INC direct value 3 from phys reg 2
-        issue: Issue INC allocated phys_reg 2
-
-    The key problem is that the physical register is released too early. This physical
-    register comes from the RAT. So that RAT entry is still valid, but the physical register the
-    RAT is pointing too, is not valid any longer.
-
-
-
 - printr has no access to its arch reg
 
 - metrics: instructions issued
@@ -43,6 +25,8 @@ TODO
 - implement a proper loader
 
 DONE
+
+- There is a problem with the reuse of the physical register.
 
 - cdb broadcast
 
