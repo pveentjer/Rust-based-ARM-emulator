@@ -1,0 +1,32 @@
+assembly = _{ data_section ~ code_section }
+
+data_section = _{ ".data" ~ new_line ~ data*}
+
+data = {variable ~ whitespace  ~ integer ~ new_line }
+
+code_section = _{ ".code" ~ new_line ~ code* }
+
+code = _{( instruction | label )}
+label = {label_name ~ ":" ~ new_line }
+
+instruction = _{ (load | dec | inc) ~ new_line}
+
+load = {"LOAD" ~ whitespace ~ memory_access ~ whitespace ~ register}
+inc = {"INC" ~ whitespace ~ register }
+dec = {"DEC" ~ whitespace ~ register }
+
+
+memory_access = {"[" ~ variable ~ "]"}
+register = {"R" ~ integer}
+
+label_name = { alpha ~ (alpha | digit | "_" )* }
+
+variable = { alpha ~ (alpha | digit| "_" )* }
+integer = { digit+ }
+
+whitespace = _{ " " | "\t" }
+new_line = _{ "\n" }
+alpha = { 'a'..'z' | 'A'..'Z' }
+digit = { '0'..'9' }
+
+

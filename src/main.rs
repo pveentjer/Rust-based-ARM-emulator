@@ -8,9 +8,13 @@ mod memory_subsystem;
 use crate::cpu::{CPU, CPUConfig};
 use crate::loader::load;
 
+use pest_derive::Parser;
+use pest::Parser;
+
+
 
 fn main() {
-    let program = load("bla.asm");
+    let program = load("program.asm");
 
     let cpu_config = CPUConfig {
         arch_reg_count: 16,
