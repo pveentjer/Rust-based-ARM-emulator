@@ -372,6 +372,11 @@ impl ROB {
     }
 }
 
+struct CDBBroadcastRequest {
+    phys_reg: RegisterType,
+    value: WordType,
+}
+
 pub(crate) struct Backend {
     instr_queue: Rc<RefCell<InstrQueue>>,
     rs_table: Rc<RefCell<RSTable>>,
@@ -385,6 +390,7 @@ pub(crate) struct Backend {
     retire_n_wide: u8,
     dispatch_n_wide: u8,
     issue_n_wide: u8,
+    cdb_broadcast_buffer: Vec<CDBBroadcastRequest>,
 }
 
 impl Backend {
@@ -405,6 +411,7 @@ impl Backend {
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
+            cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
         }
     }
 
@@ -418,9 +425,11 @@ impl Backend {
     fn cycle_eu_table(&mut self) {
         let mut eu_table = self.eu_table.borrow_mut();
         let mut rs_table = self.rs_table.borrow_mut();
+        let rs_table_capacity = rs_table.capacity;
         let mut rob = self.rob.borrow_mut();
         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        let mut cdb_broadcast_buffer = &mut self.cdb_broadcast_buffer;
 
         for eu_index in 0..eu_table.capacity {
             let mut eu = eu_table.get_mut(eu_index);
@@ -479,35 +488,9 @@ impl Backend {
                     phys_reg_entry.has_value = true;
                     phys_reg_entry.value = result;
 
-                    println!("Setting phys_reg {} value {}", phys_reg, result);
+                    println!("                          execute:Setting phys_reg {} value {}", phys_reg, result);
 
-                    // // broad cast
-                    // for k in 0..rs_table.count {
-                    //     let rs = rs_table.get_mut(k);
-                    //     if rs.state == RSState::FREE {
-                    //         continue
-                    //     }
-                    //
-                    //     let rob_slot_index =  rs.rob_slot_index;
-                    //     let rob_slot = rob.get_mut(k);
-                    //     if (rob_slot.state != ROBSlotState::ISSUED) {
-                    //         continue;
-                    //     }
-                    //
-                    //     let rs = rs_table.get_mut(rob_slot.rs_index);
-                    //     for l in 0..rs.source_cnt {
-                    //         let sink_op = &mut rs.source[l as usize];
-                    //         if (sink_op.op_type == OpType::REGISTER && sink_op.union.get_register() == phys_reg) {
-                    //             sink_op.op_type = OpType::VALUE;
-                    //             sink_op.union = OpUnion::Constant(result);
-                    //             rs.source_ready_cnt + 1;
-                    //         }
-                    //     }
-                    //
-                    //     if rs.source_cnt == rs.source_ready_cnt {
-                    //         rs_table.enqueue_ready(rob_slot.rs_index);
-                    //     }
-                    // }
+                    cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
                 }
                 OpType::MEMORY => {
                     // a store to memory
@@ -525,6 +508,47 @@ impl Backend {
             rob_slot.result = result;
             rob_slot.state = ROBSlotState::EXECUTED;
         }
+
+        // todo; should be pulled into its own method.
+        for req in &mut *cdb_broadcast_buffer {
+            // broad cast
+            for k in 0..rs_table_capacity {
+                let rs = rs_table.get_mut(k);
+                if rs.state == RSState::FREE {
+                    continue;
+                }
+
+                let rob_slot_index = rs.rob_slot_index;
+                let rob_slot = rob.get_mut(rob_slot_index);
+                if (rob_slot.state != ROBSlotState::ISSUED) {
+                    continue;
+                }
+
+                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+                let instr = Rc::clone(&rc);
+
+
+                let rs = rs_table.get_mut(rob_slot.rs_index);
+                for l in 0..rs.source_cnt {
+                    let sink_op = &mut rs.source[l as usize];
+                    if (sink_op.op_type == OpType::REGISTER && sink_op.union.get_register() == req.phys_reg) {
+                        println!("                          execute: cdb found target rs for phys_reg {} {} ", req.phys_reg, req.value);
+                        println!("                          execute: target instr {} ", instr);
+
+                        sink_op.op_type = OpType::CONSTANT;
+                        sink_op.union = OpUnion::Constant(req.value);
+                        rs.source_ready_cnt += 1;
+                    }
+                }
+
+                if rs.source_cnt == rs.source_ready_cnt {
+                    rob_slot.state = ROBSlotState::DISPATCHED;
+                    rs_table.enqueue_ready(rob_slot.rs_index);
+                }
+            }
+        }
+
+        cdb_broadcast_buffer.clear();
     }
 
     fn cycle_retire(&mut self) {
@@ -558,6 +582,7 @@ impl Backend {
                 phys_reg_file.get_mut(phys_reg).has_value = false;
                 phys_reg_file.deallocate(phys_reg);
 
+                println!("Retiring: writing arg_reg {} = {}", arch_reg, rob_slot.result);
                 arch_reg_file.set_value(arch_reg, rob_slot.result);
             }
         }
@@ -635,7 +660,7 @@ impl Backend {
             }
 
             rob_slot.rb_slot_index = rb_slot_index;
-            rob_slot.state = ROBSlotState::DISPATCHED;
+            rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
         }
 
@@ -753,6 +778,7 @@ impl Backend {
                 }
             }
             if rs.source_ready_cnt == rs.source_cnt {
+                rob_slot.state = ROBSlotState::DISPATCHED;
                 rs_table.enqueue_ready(rs_index);
             }
         }

@@ -23,7 +23,7 @@ fn main() {
         sb_capacity: 16,
         lfb_count: 8,
         rob_capacity: 32,
-        eu_count: 8,
+        eu_count: 16,
         trace: true,
         retire_n_wide: 1,
         dispatch_n_wide: 1,

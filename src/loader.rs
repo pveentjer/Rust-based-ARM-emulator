@@ -14,9 +14,9 @@ pub(crate) fn load(_: &str) -> Program {
     //     code.push(Rc::new(create_NOP(line)));
     // }
 
-    for _ in 0.. 10 {
-        line += 1;
+    for _ in 0.. 20 {
         code.push(Rc::new(create_INC(0, line)));
+        line += 1;
     }
 
     //

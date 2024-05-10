@@ -1,6 +1,8 @@
 TODO
 
-- cdb broadcast
+- There is a problem with the reuse of the physical register.
+    without reuse, the chain of independent incs works fine, but with
+    reuse, a later inc gets a value from an reused physical register.
 
 - printr has no access to its arch reg
 
@@ -27,6 +29,8 @@ TODO
 - implement a proper loader
 
 DONE
+
+- cdb broadcast
 
 - the value of the inc isn't visible when printing
 
