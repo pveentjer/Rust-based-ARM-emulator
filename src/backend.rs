@@ -43,14 +43,24 @@ impl PhysRegFile {
     }
 
     fn allocate(&mut self) -> RegisterType {
-        if let Some(last_element) = self.free_stack.pop() {
-            return last_element;
+        if let Some(reg) = self.free_stack.pop() {
+            let phys_reg_entry = self.get(reg);
+            assert!(!phys_reg_entry.has_value, " The allocated physical register {} should not have a value", reg);
+            return reg;
         } else {
             panic!("No free PhysReg")
         }
     }
 
     fn deallocate(&mut self, reg: RegisterType) {
+        if (self.free_stack.contains(&reg)) {
+            panic!("Phys register {} can be deallocated while it is still on the free stack", reg);
+        }
+
+        let phys_reg_entry = self.get(reg);
+        assert!(!phys_reg_entry.has_value, " The deallocated physical register {} should not a value!", reg);
+
+
         self.free_stack.push(reg);
     }
 
@@ -241,7 +251,7 @@ impl EUTable {
 struct RATEntry {
     phys_reg: RegisterType,
     // The number of pending writes; if 0, then the entry is not valid
-    pending_writes: u16,
+    valid: bool,
 }
 
 struct RAT {
@@ -252,7 +262,7 @@ impl RAT {
     pub fn new(phys_reg_count: u16) -> Self {
         let mut table = Vec::with_capacity(phys_reg_count as usize);
         for _ in 0..phys_reg_count {
-            table.push(RATEntry { phys_reg: 0, pending_writes: 0 });
+            table.push(RATEntry { phys_reg: 0, valid: false });
         }
         Self { table }
     }
@@ -282,6 +292,7 @@ struct ROBSlot {
     rb_slot_index: Option<u16>,
     result: WordType,
     rs_index: u16,
+    sink: Operand,
 }
 
 struct ROB {
@@ -304,6 +315,7 @@ impl ROB {
                 rb_slot_index: None,
                 result: 0,
                 rs_index: 0,
+                sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
             });
         }
 
@@ -475,7 +487,7 @@ impl Backend {
             }
 
             if (instr.opcode == Opcode::INC) {
-                println!("                      INC result {}", result);
+                println!("                          execute: INC result {}", result);
             }
 
             let eu_index = eu.index;
@@ -488,7 +500,7 @@ impl Backend {
                     phys_reg_entry.has_value = true;
                     phys_reg_entry.value = result;
 
-                    println!("                          execute:Setting phys_reg {} value {}", phys_reg, result);
+                    println!("                          execute: Setting phys_reg {} value {}", phys_reg, result);
 
                     cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
                 }
@@ -509,9 +521,8 @@ impl Backend {
             rob_slot.state = ROBSlotState::EXECUTED;
         }
 
-        // todo; should be pulled into its own method.
         for req in &mut *cdb_broadcast_buffer {
-            // broad cast
+            // Iterate over all RS and replace every matching physical register, by the value
             for k in 0..rs_table_capacity {
                 let rs = rs_table.get_mut(k);
                 if rs.state == RSState::FREE {
@@ -527,16 +538,15 @@ impl Backend {
                 let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
                 let instr = Rc::clone(&rc);
 
-
                 let rs = rs_table.get_mut(rob_slot.rs_index);
                 for l in 0..rs.source_cnt {
-                    let sink_op = &mut rs.source[l as usize];
-                    if (sink_op.op_type == OpType::REGISTER && sink_op.union.get_register() == req.phys_reg) {
+                    let source_rs = &mut rs.source[l as usize];
+                    if (source_rs.op_type == OpType::REGISTER && source_rs.union.get_register() == req.phys_reg) {
                         println!("                          execute: cdb found target rs for phys_reg {} {} ", req.phys_reg, req.value);
                         println!("                          execute: target instr {} ", instr);
 
-                        sink_op.op_type = OpType::CONSTANT;
-                        sink_op.union = OpUnion::Constant(req.value);
+                        source_rs.op_type = OpType::CONSTANT;
+                        source_rs.union = OpUnion::Constant(req.value);
                         rs.source_ready_cnt += 1;
                     }
                 }
@@ -568,21 +578,31 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            println!("Retiring {}", instr);
+            println!("                                      Retiring {}", instr);
 
             if instr.sink.op_type == OpType::REGISTER {
                 let arch_reg = instr.sink.union.get_register();
 
                 let rat_entry = rat.get_mut(arch_reg);
-                let phys_reg = rat_entry.phys_reg;
+                let rat_phys_reg = rat_entry.phys_reg;
+                let rs_phys_reg = rob_slot.sink.union.get_register();
+                if(rat_phys_reg == rs_phys_reg) {
+                    rat_entry.valid = false;
+                }
 
+                println!("                                      Retiring: Deallocating phys_reg {}", rs_phys_reg);
 
-                rat_entry.pending_writes -= 1;
+                phys_reg_file.get_mut(rs_phys_reg).has_value = false;
 
-                phys_reg_file.get_mut(phys_reg).has_value = false;
-                phys_reg_file.deallocate(phys_reg);
+                // println!("                                      Retiring: rat entry phys_reg {}, pending_writes {}", rat_entry.phys_reg, rat_entry.pending_writes);
+                //
 
-                println!("Retiring: writing arg_reg {} = {}", arch_reg, rob_slot.result);
+                // only when the physical register os the rat is the same as te physical register used for that
+                // instruction, the rat entry should be invalidated
+
+                phys_reg_file.deallocate(rs_phys_reg);
+
+                println!("                                      Retiring: writing arg_reg {} = {}", arch_reg, rob_slot.result);
                 arch_reg_file.set_value(arch_reg, rob_slot.result);
             }
         }
@@ -656,7 +676,7 @@ impl Backend {
             let rob_slot = rob.get_mut(rob_slot_index);
 
             if self.trace {
-                println!("Issued {}", instr);
+                println!("issue: Issued {}", instr);
             }
 
             rob_slot.rb_slot_index = rb_slot_index;
@@ -676,18 +696,18 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            let op_sink_instr = &instr.sink;
-            if op_sink_instr.op_type == OpType::MEMORY && !memory_subsystem.sb.has_space() {
+            let instr_sink = &instr.sink;
+            if instr_sink.op_type == OpType::MEMORY && !memory_subsystem.sb.has_space() {
                 // we can't allocate a slot in the store buffer, we are done
                 break;
             }
 
             let rs_index = rs_table.allocate();
             let mut rs = rs_table.get_mut(rs_index);
-            let op_sink_rs = &mut rs.sink;
+            let rs_sink = &mut rs.sink;
 
             if self.trace {
-                println!("Issued found RS {}", instr);
+                println!("issue: Issued found RS {}", instr);
             }
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.result = 0;
@@ -702,81 +722,88 @@ impl Backend {
             rs.source_ready_cnt = 0;
 
             for i in 0..instr.source_cnt {
-                let instr_op = &instr.source[i as usize];
-                let rs_op = &mut rs.source[i as usize];
-                match instr_op.op_type {
+                let instr_source = &instr.source[i as usize];
+                let rs_source = &mut rs.source[i as usize];
+                match instr_source.op_type {
                     OpType::REGISTER => {
-                        let arch_reg = instr_op.union.get_register();
+                        let arch_reg = instr_source.union.get_register();
                         let rat_entry = rat.get(arch_reg);
-                        if rat_entry.pending_writes > 0 {
+                        if rat_entry.valid {
                             let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
                             if phys_reg_entry.has_value {
                                 //we got lucky, there is a value in the physical register.
                                 let value = phys_reg_entry.value;
-                                rs_op.op_type = OpType::CONSTANT;
-                                rs_op.union = OpUnion::Constant(value);
+                                rs_source.op_type = OpType::CONSTANT;
+                                rs_source.union = OpUnion::Constant(value);
                                 rs.source_ready_cnt += 1;
 
                                 if rs.opcode == Opcode::INC {
-                                    println!("                  Issue INC direct value {} from phys reg {}", value, rat_entry.phys_reg)
+                                    println!("issue: Issue INC direct value {} from phys reg {}", value, rat_entry.phys_reg)
                                 }
                             } else {
                                 // cdb broadcast will update
-                                rs_op.op_type = OpType::REGISTER;
-                                rs_op.union = OpUnion::Register(rat_entry.phys_reg);
-
+                                rs_source.op_type = OpType::REGISTER;
+                                rs_source.union = OpUnion::Register(rat_entry.phys_reg);
 
                                 if rs.opcode == Opcode::INC {
-                                    println!("                  Issue INC wait for phys reg {}", rat_entry.phys_reg)
+                                    println!("issue: Issue INC wait for phys reg {}", rat_entry.phys_reg)
                                 }
                             }
                         } else {
                             let value = arch_reg_file.get_value(arch_reg);
-                            rs_op.op_type = OpType::CONSTANT;
-                            rs_op.union = OpUnion::Constant(value);
+                            rs_source.op_type = OpType::CONSTANT;
+                            rs_source.union = OpUnion::Constant(value);
                             rs.source_ready_cnt += 1;
 
                             if rs.opcode == Opcode::INC {
-                                println!("                  Issue INC direct value from arc reg {}", arch_reg)
+                                println!("issue: Issue INC direct value from arc reg {}", arch_reg)
                             }
                         }
                     }
                     OpType::MEMORY | OpType::CONSTANT => {
-                        rs.source[i as usize] = *instr_op;
+                        rs.source[i as usize] = *instr_source;
                         rs.source_ready_cnt += 1;
                     }
                     OpType::UNUSED =>
-                        panic!("Unrecognized {}", rs_op)
+                        panic!("Unrecognized {}", rs_source)
                 }
             }
 
-            // todo:
-            match op_sink_instr.op_type {
+            match instr_sink.op_type {
                 OpType::REGISTER => {
-                    let arch_reg = op_sink_instr.union.get_register();
+                    let arch_reg = instr_sink.union.get_register();
                     let phys_reg = phys_reg_file.allocate();
+
+                    if rs.opcode == Opcode::INC {
+                        println!("issue: Issue INC allocated phys_reg {}", phys_reg)
+                    }
+
+                    // update the RAT entry to point to the newest phys_reg
                     let rat_entry = rat.get_mut(arch_reg);
                     rat_entry.phys_reg = phys_reg;
-                    rat_entry.pending_writes += 1;
-                    op_sink_rs.op_type = OpType::REGISTER;
-                    op_sink_rs.union = OpUnion::Register(phys_reg);
+                    rat_entry.valid = true;
+
+                    // Update the sink on the RS.
+                    rs_sink.op_type = OpType::REGISTER;
+                    rs_sink.union = OpUnion::Register(phys_reg);
                 }
                 OpType::MEMORY => {
-                    rs.sink = *op_sink_instr;
+                    rs.sink = *instr_sink;
                     // since the instructions are issued in program order, a slot is allocated in the
                     // sb in program order. And since sb will commit to the coherent cache
                     // (in this case directly to memory), the stores will become visible
                     // in program order.
                     rs.sb_pos = memory_subsystem.sb.allocate();
-                    // todo: op_rs.op-type/union and also check unused. currently not set.
                 }
                 OpType::UNUSED => {
-                    rs.sink = *op_sink_instr;
+                    rs.sink = *instr_sink;
                 }
                 OpType::CONSTANT => {
-                    panic!("Can't have a value as sink {}", op_sink_rs)
+                    panic!("Can't have a value as sink {}", rs_sink)
                 }
             }
+            rob_slot.sink = rs.sink;
+
             if rs.source_ready_cnt == rs.source_cnt {
                 rob_slot.state = ROBSlotState::DISPATCHED;
                 rs_table.enqueue_ready(rs_index);
