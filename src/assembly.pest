@@ -1,20 +1,5 @@
-assembly = _{ data_section ~ code_section }
-
-data_section = _{ ".data" ~ new_line ~ data*}
-
-data = {variable ~ whitespace  ~ integer ~ new_line }
-
-code_section = _{ ".code" ~ new_line ~ code* }
-
-code = _{( instruction | label )}
-label = {label_name ~ ":" ~ new_line }
-
-instruction = _{ (load | dec | inc) ~ new_line}
-
-load = {"LOAD" ~ whitespace ~ memory_access ~ whitespace ~ register}
-inc = {"INC" ~ whitespace ~ register }
-dec = {"DEC" ~ whitespace ~ register }
-
+empty_line =  _{ whitespace? ~ ( new_line | comment ) }
+comment = _{ ";" ~ (!"\n" ~ ANY)* }
 
 memory_access = {"[" ~ variable ~ "]"}
 register = {"R" ~ integer}
@@ -24,9 +9,47 @@ label_name = { alpha ~ (alpha | digit | "_" )* }
 variable = { alpha ~ (alpha | digit| "_" )* }
 integer = { digit+ }
 
-whitespace = _{ " " | "\t" }
+whitespace = _{ (" " | "\t")+ }
 new_line = _{ "\n" }
 alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
+
+assembly = _{ data_section ~ code_section }
+
+data_section = _{ whitespace? ~ ".data" ~ whitespace? ~ comment? ~ data_line*}
+
+data_line =  _{new_line ~ whitespace? ~ data ~ whitespace? ~ comment?}
+
+data = { variable ~ whitespace ~ integer}
+
+code_section = _{ new_line ~  whitespace? ~ ".code" ~ whitespace? ~ comment? ~ code_line* }
+
+code_line = _{ new_line ~ whitespace? ~ ( instr | label ) ~ whitespace? ~ comment? }
+label = { label_name ~ ":" }
+
+
+instr = _{  ( instr_LOAD
+            | instr_STORE
+            | instr_DEC
+            | instr_INC
+            | instr_ADD
+            | instr_SUB
+            | instr_MUL
+            | instr_DIV
+            | instr_MOD
+            | instr_PRINTR
+            )}
+
+instr_LOAD      = {"LOAD" ~ whitespace ~ memory_access ~ whitespace ~ register}
+instr_STORE     = {"STORE" ~ whitespace ~ register ~ whitespace ~ memory_access}
+instr_INC       = {"INC" ~ whitespace ~ register }
+instr_DEC       = {"DEC" ~ whitespace ~ register }
+instr_ADD       = {"ADD" ~ whitespace ~ register ~ whitespace ~ register ~ register}
+instr_SUB       = {"SUB" ~ whitespace ~ register ~ whitespace ~ register ~ register}
+instr_DIV       = {"DIV" ~ whitespace ~ register ~ whitespace ~ register ~ register}
+instr_MUL       = {"MUL" ~ whitespace ~ register ~ whitespace ~ register ~ register}
+instr_MOD       = {"MOD" ~ whitespace ~ register ~ whitespace ~ register ~ register}
+instr_PRINTR    = {"PRINTR" ~ whitespace ~ register}
+
 
 

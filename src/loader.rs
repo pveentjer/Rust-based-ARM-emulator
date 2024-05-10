@@ -30,16 +30,23 @@ pub(crate) fn load(path: &str) -> Program {
                 println!("Pair: {}",pair.as_str());
                 match pair.as_rule() {
                     Rule::data_section => println!("Found data section"),
-                   // Rule::data => println!("Found data"),
+                    Rule::data => println!("Found data "),
+                    Rule::label => println!("Found label "),
+                    Rule::instr_INC => println!("Found inc "),
+                    Rule::instr_DEC => println!("Found dec "),
+                    Rule::instr_LOAD => println!("Found load "),
+
+                    // Rule::data => println!("Found data"),
                    // Rule::code_section => println!("Found code section"),
                    // Rule::instruction => println!("Found instruction section"),
                    // Rule::WHITESPACE | Rule::COMMENT | Rule::NEWLINE => println!("Whitespace/comment"),
-                    _ => eprintln!("Unexpected rule: {:?}", pair.as_rule()),
+                    _ => unreachable!()
                 }
             }
         }
         Err(err) => {
-            eprintln!("Parsing error: {}", err);
+            panic!("Parsing error: {}", err);
+          //  eprintln!("Parsing error: {}", err);
         }
     }
     return Program::new(code);
