@@ -4,3 +4,6 @@ b 20
 c 10
 .code
 INC R1
+INC R1
+INC R1
+PRINTR R1
