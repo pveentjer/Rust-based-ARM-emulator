@@ -7,6 +7,7 @@ use crate::backend::Backend;
 use crate::frontend::Frontend;
 use crate::memory_subsystem::MemorySubsystem;
 
+#[derive(Clone)]
 pub(crate) struct CPUConfig {
     // the number of architectural registers
     pub(crate) arch_reg_count: u16,

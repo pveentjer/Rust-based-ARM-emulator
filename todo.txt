@@ -6,6 +6,8 @@ TODO
 
 - loader: validate memory access
 
+- loader: validate variable declaration that it fits in memory
+
 - loader: should not panic on error, but propagate the error to the main
 
 - implement AND
@@ -15,8 +17,6 @@ TODO
 - implement XOR
 
 - implement NOT
-
-- loader include line number
 
 - printr has no access to its arch reg
 
@@ -41,6 +41,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: include line number
 
 - loader: when duplicate variable, include line nr
 

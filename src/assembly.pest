@@ -48,17 +48,17 @@ instr = _{  ( instr_LOAD
             )}
 
 // the order for all arguments is source and then sink. E.g. 'ADD R1 R2 R3' means R3=R1+R2'.
-instr_LOAD      = {"LOAD"   ~ whitespace ~ memory_access ~ whitespace ~ register            }
-instr_STORE     = {"STORE"  ~ whitespace ~ register ~ whitespace ~ memory_access            }
-instr_INC       = {"INC"    ~ whitespace ~ register                                         }
-instr_DEC       = {"DEC"    ~ whitespace ~ register                                         }
-instr_ADD       = {"ADD"    ~ whitespace ~ register ~ whitespace ~ register ~ register      }
-instr_SUB       = {"SUB"    ~ whitespace ~ register ~ whitespace ~ register ~ register      }
-instr_DIV       = {"DIV"    ~ whitespace ~ register ~ whitespace ~ register ~ register      }
-instr_MUL       = {"MUL"    ~ whitespace ~ register ~ whitespace ~ register ~ register      }
-instr_MOD       = {"MOD"    ~ whitespace ~ register ~ whitespace ~ register ~ register      }
-instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                         }
-instr_NOP       = {"NOP"                                                                    }
+instr_LOAD      = {"LOAD"   ~ whitespace ~ memory_access ~ whitespace ~ register                        }
+instr_STORE     = {"STORE"  ~ whitespace ~ register ~ whitespace ~ memory_access                        }
+instr_INC       = {"INC"    ~ whitespace ~ register                                                     }
+instr_DEC       = {"DEC"    ~ whitespace ~ register                                                     }
+instr_ADD       = {"ADD"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_SUB       = {"SUB"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_DIV       = {"DIV"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_MUL       = {"MUL"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_MOD       = {"MOD"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                                     }
+instr_NOP       = {"NOP"                                                                                }
 
 
 

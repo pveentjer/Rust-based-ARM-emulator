@@ -28,7 +28,7 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
         Opcode::STORE => "STORE",
         Opcode::NOP => "NOP",
         Opcode::INC => "INC",
-        Opcode::DEC => "DEC"    ,
+        Opcode::DEC => "DEC",
         Opcode::PRINTR => "PRINTR",
     }
 }
@@ -190,7 +190,7 @@ impl OpUnion {
     // Implement similar functions for other variants as needed
 }
 
-pub (crate) struct Data {
+pub(crate) struct Data {
     pub(crate) value: WordType,
     pub(crate) offset: u64,
 }
@@ -201,7 +201,7 @@ pub(crate) struct Program {
 }
 
 impl Program {
-    pub fn new(code: Vec<Rc<Instr>>, data_items:HashMap::<String, Rc<Data>>) -> Self {
+    pub fn new(code: Vec<Rc<Instr>>, data_items: HashMap::<String, Rc<Data>>) -> Self {
         Self { code, data_items }
     }
 

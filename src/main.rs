@@ -28,7 +28,7 @@ fn main() {
         issue_n_wide: 1
     };
 
-    let program = Rc::new(load(&cpu_config,"program.asm",));
+    let program = Rc::new(load(cpu_config.clone(),"program.asm",));
 
     let mut cpu = CPU::new(&cpu_config);
     cpu.run(&program);
