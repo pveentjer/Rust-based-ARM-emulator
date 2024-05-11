@@ -15,6 +15,7 @@ pub enum Opcode {
     STORE,
     NOP,
     PRINTR,
+    MOV,
 }
 
 pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
@@ -30,6 +31,7 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
         Opcode::INC => "INC",
         Opcode::DEC => "DEC",
         Opcode::PRINTR => "PRINTR",
+        Opcode::MOV => "PRINTR",
     }
 }
 
@@ -313,6 +315,20 @@ pub(crate) fn create_DEC(reg: RegisterType, line: i32) -> Instr {
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
         sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
+        line,
+    }
+}
+
+pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg:RegisterType, line: i32) -> Instr {
+    Instr {
+        cycles: 1,
+        opcode: Opcode::MOV,
+        source_cnt: 1,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_reg) },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(dst_reg) },
         line,
     }
 }

@@ -1,5 +1,9 @@
 TODO
 
+- loader: validating labels
+
+- loader: MOV direct value
+
 - loader: register validation
 
 - loader: should be a struct
@@ -32,8 +36,6 @@ TODO
 
 - store to load forwarding
 
-- verify that store works
-
 - branches
 
 - program termination
@@ -41,6 +43,13 @@ TODO
 - implement print of memory
 
 DONE
+
+- verify that store works
+
+- store is placed in the store buffer, but it isn't written to main memory
+    - 2 allocates in the sb are done for the store.
+
+- implement MOV
 
 - loader: include line number
 

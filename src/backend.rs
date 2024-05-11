@@ -30,10 +30,6 @@ impl PhysRegFile {
         PhysRegFile { count, entries, free_stack }
     }
 
-    fn has_free(&self) -> bool {
-        return !self.free_stack.is_empty();
-    }
-
     fn get(&self, reg: RegisterType) -> &PhysRegEntry {
         return self.entries.get(reg as usize).unwrap();
     }
@@ -53,7 +49,7 @@ impl PhysRegFile {
     }
 
     fn deallocate(&mut self, reg: RegisterType) {
-        if (self.free_stack.contains(&reg)) {
+        if self.free_stack.contains(&reg) {
             panic!("Phys register {} can be deallocated while it is still on the free stack", reg);
         }
 
@@ -224,10 +220,6 @@ impl EUTable {
         return !self.free_stack.is_empty();
     }
 
-    fn get(&self, reg: RegisterType) -> &EU {
-        return self.array.get(reg as usize).unwrap();
-    }
-
     fn get_mut(&mut self, eu_index: u8) -> &mut EU {
         return self.array.get_mut(eu_index as usize).unwrap();
     }
@@ -289,6 +281,7 @@ struct ROBSlot {
     instr: Option<Rc<Instr>>,
     state: ROBSlotState,
     index: u16,
+    //todo: not used
     rb_slot_index: Option<u16>,
     result: WordType,
     rs_index: u16,
@@ -475,6 +468,7 @@ impl Backend {
                 Opcode::MOD => result = rs.source[0].union.get_constant() % rs.source[1].union.get_constant(),
                 Opcode::INC => result = rs.source[0].union.get_constant() + 1,
                 Opcode::DEC => result = rs.source[0].union.get_constant() - 1,
+                Opcode::MOV => result = rs.source[0].union.get_constant(),
                 Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
                 Opcode::STORE => {}
                 Opcode::NOP => {}
@@ -521,17 +515,14 @@ impl Backend {
 
                 let rob_slot_index = rs.rob_slot_index;
                 let rob_slot = rob.get_mut(rob_slot_index);
-                if (rob_slot.state != ROBSlotState::ISSUED) {
+                if rob_slot.state != ROBSlotState::ISSUED {
                     continue;
                 }
-
-                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-                let instr = Rc::clone(&rc);
 
                 let rs = rs_table.get_mut(rob_slot.rs_index);
                 for l in 0..rs.source_cnt {
                     let source_rs = &mut rs.source[l as usize];
-                    if (source_rs.op_type == OpType::REGISTER && source_rs.union.get_register() == req.phys_reg) {
+                    if source_rs.op_type == OpType::REGISTER && source_rs.union.get_register() == req.phys_reg {
                         source_rs.op_type = OpType::CONSTANT;
                         source_rs.union = OpUnion::Constant(req.value);
                         rs.source_ready_cnt += 1;
@@ -576,7 +567,7 @@ impl Backend {
 
                 // only when the physical register os the rat is the same as te physical register used for that
                 // instruction, the rat entry should be invalidated
-                if (rat_phys_reg == rs_phys_reg) {
+                if rat_phys_reg == rs_phys_reg {
                     rat_entry.valid = false;
                 }
 
@@ -641,15 +632,6 @@ impl Backend {
 
             let instr = instr_queue.peek();
 
-            let mut rb_slot_index = Option::None;
-
-            if instr.sink.op_type == OpType::MEMORY {
-                if !memory_subsystem.sb.has_space() {
-                    return;
-                }
-                rb_slot_index = Some(memory_subsystem.sb.allocate());
-            }
-
             instr_queue.dequeue();
 
 
@@ -660,7 +642,6 @@ impl Backend {
                 println!("issue: Issued {}", instr);
             }
 
-            rob_slot.rb_slot_index = rb_slot_index;
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
         }

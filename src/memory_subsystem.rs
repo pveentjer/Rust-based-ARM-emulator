@@ -49,8 +49,6 @@ impl StoreBuffer {
         assert!(self.has_space(), "StoreBuffer: can't allocate because there is no space");
 
         let index = (self.tail % self.capacity as u64) as usize;
-        let sb_entry = &mut self.entries[index];
-        sb_entry.completed = false;
         self.tail += 1;
         return index as u16;
     }
@@ -66,11 +64,11 @@ impl StoreBuffer {
         for _ in 0..self.lfb_count {
             if self.tail == self.head {
                 // store buffer is empty
-                return;
+                break;
             }
 
             let index = (self.head % self.capacity as u64) as usize;
-            let sb_entry = &self.entries[index];
+            let mut sb_entry = &mut self.entries[index];
             if !sb_entry.completed {
                 // the store buffer isn't empty, but there is a slot that didn't receive a store yet
                 // We stop, so that we ensure that all stores in the store buffer, will be written
@@ -79,6 +77,11 @@ impl StoreBuffer {
             }
 
             memory[sb_entry.addr as usize] = sb_entry.value;
+
+            sb_entry.completed = false;
+            sb_entry.value = 0;
+            sb_entry.addr = 0;
+
             self.head += 1;
         }
     }
@@ -107,7 +110,7 @@ impl MemorySubsystem {
 
     pub(crate) fn init(&mut self, program: &Rc<Program>) {
         for k in 0..self.memory.len() {
-            self.memory[k]=0;
+            self.memory[k] = 0;
         }
 
         for data in program.data_items.values() {

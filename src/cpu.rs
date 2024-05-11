@@ -53,17 +53,18 @@ pub(crate) struct CPU {
 }
 
 impl CPU {
-    pub(crate) fn new(cpu_config: & CPUConfig) -> CPU {
+    pub(crate) fn new(cpu_config: &CPUConfig) -> CPU {
         let instr_queue = Rc::new(RefCell::new(InstrQueue::new(cpu_config.instr_queue_capacity)));
 
         let memory_subsystem = Rc::new(RefCell::new(MemorySubsystem::new(cpu_config)));
 
         let arch_reg_file = Rc::new(RefCell::new(ArgRegFile::new(cpu_config.arch_reg_count)));
 
-        let backend = Backend::new(cpu_config,
-                                   Rc::clone(&instr_queue),
-                                   Rc::clone(&memory_subsystem),
-                                   Rc::clone(&arch_reg_file),
+        let backend = Backend::new(
+            cpu_config,
+            Rc::clone(&instr_queue),
+            Rc::clone(&memory_subsystem),
+            Rc::clone(&arch_reg_file),
         );
 
         let frontend = Frontend::new(cpu_config,

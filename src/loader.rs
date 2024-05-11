@@ -1,11 +1,26 @@
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
-use pest::iterators::{Pair, Pairs};
+use pest::iterators::{Pair};
 use pest::Parser;
 use pest_derive::Parser;
 use crate::cpu::CPUConfig;
-use crate::instructions::{create_ADD, create_DEC, create_DIV, create_INC, create_LOAD, create_MOD, create_MUL, create_NOP, create_PRINTR, create_STORE, create_SUB, Data, Instr, MemoryType, Program, RegisterType, WordType};
+use crate::instructions::{create_ADD,
+                          create_DEC,
+                          create_DIV,
+                          create_INC,
+                          create_LOAD,
+                          create_MOD,
+                          create_MOV,
+                          create_MUL,
+                          create_NOP,
+                          create_PRINTR,
+                          create_STORE,
+                          create_SUB,
+                          Data, Instr,
+                          MemoryType,
+                          Program,
+                          RegisterType};
 
 
 #[derive(Parser)]
@@ -46,16 +61,12 @@ impl Loader {
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
                         Rule::instr_LOAD => self.parse_LOAD(pair),
                         Rule::instr_STORE => self.parse_STORE(pair),
+                        Rule::instr_MOV => self.parse_MOV(pair),
                         Rule::instr_ADD => self.parse_ADD(pair),
                         Rule::instr_SUB => self.parse_SUB(pair),
                         Rule::instr_MUL => self.parse_MUL(pair),
                         Rule::instr_DIV => self.parse_DIV(pair),
                         Rule::instr_MOD => self.parse_MOD(pair),
-
-                        // Rule::data => println!("Found data"),
-                        // Rule::code_section => println!("Found code section"),
-                        // Rule::instruction => println!("Found instruction section"),
-                        // Rule::WHITESPACE | Rule::COMMENT | Rule::NEWLINE => println!("Whitespace/comment"),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
                 }
@@ -141,7 +152,7 @@ impl Loader {
         }
 
         let data = data_option.unwrap();
-        let instr = create_STORE(register as RegisterType, data.offset,line_column.0 as i32);
+        let instr = create_STORE(register as RegisterType, data.offset, line_column.0 as i32);
         self.code.push(Rc::new(instr));
     }
 
@@ -159,7 +170,18 @@ impl Loader {
         }
 
         let data = data_option.unwrap();
-        let instr = create_LOAD(data.offset, register as RegisterType,line_column.0 as i32);
+        let instr = create_LOAD(data.offset, register as RegisterType, line_column.0 as i32);
+        self.code.push(Rc::new(instr));
+    }
+
+    fn parse_MOV(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let instr = create_MOV(
+            self.parse_register(&inner_pairs.next().unwrap()),
+            self.parse_register(&inner_pairs.next().unwrap()),
+            line_column.0 as i32);
         self.code.push(Rc::new(instr));
     }
 
@@ -172,9 +194,8 @@ impl Loader {
     }
 
     fn parse_NOP(&mut self, pair: Pair<Rule>) {
-        let instr = create_NOP(0);
         let line_column = self.get_line_column(&pair);
-
+        let instr = create_NOP(line_column.0 as i32);
         self.code.push(Rc::new(instr))
     }
 
@@ -223,7 +244,7 @@ impl Loader {
         (line, column)
     }
 
-    fn parse_integer(&mut self, pair:&Pair<Rule>) -> i32 {
+    fn parse_integer(&mut self, pair: &Pair<Rule>) -> i32 {
         pair.as_str().trim().parse().unwrap()
     }
 
