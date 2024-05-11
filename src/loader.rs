@@ -37,9 +37,7 @@ pub(crate) fn load(cpu_config: &CPUConfig, path: &str) -> Program {
 
     match AssemblyParser::parse(Rule::file, &input) {
         Ok(parsed) => {
-            println!("parsed length {}", parsed.len());
             for pair in parsed {
-                println!("Pair: {}", pair.as_str());
                 match pair.as_rule() {
                     Rule::assembly => {}
                     Rule::file => {}
@@ -47,18 +45,16 @@ pub(crate) fn load(cpu_config: &CPUConfig, path: &str) -> Program {
                     Rule::data_section => println!("Found data section"),
                     Rule::data => {
                         let mut inner_pairs = pair.into_inner();
-                        let name = parse_variable(&mut inner_pairs);
+                        let var = inner_pairs.next().unwrap();
+                        let name = String::from(var.as_str());
                         let value: i32 = parse_integer(&mut inner_pairs);
 
                         if data_section.contains_key(&name) {
-                            panic!("Duplicate variable declaration '{}'", name);
-                        } else {
-                            data_section.insert(name.clone(), Rc::new(Data { value, offset: heap_size }));
-                            heap_size + 1;
+                            let line_column = get_line_column(&var);
+                            panic!("Duplicate variable declaration '{}' at {}:{}", name, line_column.0, line_column.1);
                         }
-
-                        println!("variable {}={}", name, value);
-                        // parse the data section
+                        data_section.insert(name.clone(), Rc::new(Data { value, offset: heap_size }));
+                        heap_size += 1;
                     }
                     Rule::label => println!("Found label "),
                     Rule::instr_INC => {
@@ -80,7 +76,6 @@ pub(crate) fn load(cpu_config: &CPUConfig, path: &str) -> Program {
                     }
                     Rule::instr_LOAD => {
                         let mut inner_pairs = pair.into_inner();
-                        println!("first {}", inner_pairs.peek().unwrap().as_str());
 
                         let name = parse_variable(&mut inner_pairs);
                         let register = parse_register(&mut inner_pairs);
@@ -88,11 +83,26 @@ pub(crate) fn load(cpu_config: &CPUConfig, path: &str) -> Program {
                         let data_option = data_section.get(&name);
                         if data_option.is_none() {
                             // todo: add line
-                            panic!("Could not find variable declaration '{}'", name);
+                            panic!("Unknown variable '{}'", name);
                         }
 
                         let data = data_option.unwrap();
                         code.push(Rc::new(create_LOAD(data.offset, register as RegisterType, 0)));
+                    }
+                    Rule::instr_STORE => {
+                        let mut inner_pairs = pair.into_inner();
+
+                        let register = parse_register(&mut inner_pairs);
+                        let name = parse_variable(&mut inner_pairs);
+
+                        let data_option = data_section.get(&name);
+                        if data_option.is_none() {
+                            // todo: add line
+                            panic!("Unknown variable '{}'", name);
+                        }
+
+                        let data = data_option.unwrap();
+                        code.push(Rc::new(create_STORE(register as RegisterType, data.offset, 0)));
                     }
                     Rule::instr_ADD => {
                         let mut inner_pairs = pair.into_inner();
@@ -151,15 +161,24 @@ pub(crate) fn load(cpu_config: &CPUConfig, path: &str) -> Program {
     return Program::new(code, data_section);
 }
 
+fn get_line_column(pair: &Pair<Rule>) -> (usize, usize) {
+    let start_pos = pair.as_span().start_pos();
+    let (line, column) = start_pos.line_col();
+    (line, column)
+}
+
 fn parse_integer(inner_pairs: &mut Pairs<Rule>) -> i32 {
     inner_pairs.next().unwrap().as_str().trim().parse().unwrap()
 }
 
 fn parse_register(inner_pairs: &mut Pairs<Rule>) -> u16 {
-    let register_token = inner_pairs.as_str(); // Extract the register token
-    return register_token[1..].parse().unwrap(); // Parse the integer part after the "R" prefix
+    let s = inner_pairs.next().unwrap().as_str();
+    return s[1..].parse().unwrap();
 }
 
 fn parse_variable(inner_pairs: &mut Pairs<Rule>) -> String {
-    inner_pairs.next().unwrap().as_str().trim().to_string()
+    let s = String::from(inner_pairs.next().unwrap().as_str());
+    let s_len = s.len();
+    let x = &s[1..s_len - 1];
+    return String::from(x);
 }

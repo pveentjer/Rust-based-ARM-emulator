@@ -1,5 +1,13 @@
 TODO
 
+- loader: register validation
+
+- loader: should be a struct
+
+- loader: validate memory access
+
+- loader: should not panic on error, but propagate the error to the main
+
 - implement AND
 
 - implement OR
@@ -8,11 +16,7 @@ TODO
 
 - implement NOT
 
-- implement a proper loader
-
-- loader: should be a struct
-
-- loader: when duplicate variable, include line nr
+- loader include line number
 
 - printr has no access to its arch reg
 
@@ -38,6 +42,11 @@ TODO
 
 DONE
 
+- loader: when duplicate variable, include line nr
+
+- loader: parse memory access
+
+- implement a proper loader
 
 - loader: the parser stops when it run into something it doesn't recognize instead of returning some error
 
