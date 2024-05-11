@@ -7,7 +7,7 @@ pub(crate) struct Frontend {
     instr_queue: Rc<RefCell<InstrQueue>>,
     n_wide: u8,
     ip_next_fetch: i64,
-    program_option: Option<Program>,
+    program_option: Option<Rc<Program>>,
     trace: bool,
 }
 
@@ -22,8 +22,8 @@ impl Frontend {
         }
     }
 
-    pub(crate) fn init(&mut self, program: Program) {
-        self.program_option = Some(program);
+    pub(crate) fn init(&mut self, program: &Rc<Program>) {
+        self.program_option = Some(Rc::clone(program));
         self.ip_next_fetch = 0;
     }
 
@@ -31,8 +31,10 @@ impl Frontend {
         match &self.program_option {
             None => return,
             Some(program) => {
+                let mut instr_queue = self.instr_queue.borrow_mut();
                 for _ in 0..self.n_wide {
-                    if self.instr_queue.borrow_mut().is_full() {
+                    // todo: can this instr_queue be pulled out of the loop
+                    if instr_queue.is_full() {
                         break;
                     }
 
@@ -45,12 +47,12 @@ impl Frontend {
                         break;
                     }
 
-                    let instr = program.get(self.ip_next_fetch as usize);
+                    let instr = program.get_code(self.ip_next_fetch as usize);
                     if self.trace {
                         println!("Frontend: ip_next_fetch: {} decoded {}", self.ip_next_fetch, instr);
                     }
 
-                    self.instr_queue.borrow_mut().enqueue(instr);
+                    instr_queue.enqueue(instr);
                     self.ip_next_fetch += 1;
                 }
             }

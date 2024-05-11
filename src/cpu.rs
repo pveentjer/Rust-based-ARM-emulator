@@ -78,8 +78,10 @@ impl CPU {
         }
     }
 
-    pub(crate) fn run(&mut self, program: Program) {
+    pub(crate) fn run(&mut self, program: &Rc<Program>) {
         self.frontend.init(program);
+
+        self.memory_subsystem.borrow_mut().init(program);
 
         loop {
             self.cycle_cnt += 1;

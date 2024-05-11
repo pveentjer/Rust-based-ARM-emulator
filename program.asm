@@ -1,10 +1,6 @@
-.data ; banana
-a 10    ; fop
+.data
+a 10
 b 20
 c 10
-.code ; bar
-foo:
-LOAD [A] R4 ; bar
-LOAD [B] R7
+.code
 INC R1
-DEC R8

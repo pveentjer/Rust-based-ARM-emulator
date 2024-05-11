@@ -1,5 +1,19 @@
 TODO
 
+- implement AND
+
+- implement OR
+
+- implement XOR
+
+- implement NOT
+
+- implement a proper loader
+
+- loader: should be a struct
+
+- loader: when duplicate variable, include line nr
+
 - printr has no access to its arch reg
 
 - metrics: instructions issued
@@ -22,9 +36,20 @@ TODO
 
 - implement print of memory
 
-- implement a proper loader
-
 DONE
+
+
+- loader: the parser stops when it run into something it doesn't recognize instead of returning some error
+
+- CPU: variables should be loaded in memory
+
+- loader: nop
+
+- memory subsystem: init program
+
+- memory subsystem: wipe out memory on init program
+
+- loader: loading of variables
 
 - There is a problem with the reuse of the physical register.
 

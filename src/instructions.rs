@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -189,17 +190,22 @@ impl OpUnion {
     // Implement similar functions for other variants as needed
 }
 
+pub (crate) struct Data {
+    pub(crate) value: WordType,
+    pub(crate) offset: u64,
+}
 
 pub(crate) struct Program {
+    pub(crate) data_items: HashMap::<String, Rc<Data>>,
     pub(crate) code: Vec<Rc<Instr>>,
 }
 
 impl Program {
-    pub fn new(code: Vec<Rc<Instr>>) -> Self {
-        Self { code }
+    pub fn new(code: Vec<Rc<Instr>>, data_items:HashMap::<String, Rc<Data>>) -> Self {
+        Self { code, data_items }
     }
 
-    pub fn get(&self, pos: usize) -> Rc<Instr> {
+    pub fn get_code(&self, pos: usize) -> Rc<Instr> {
         Rc::clone(&self.code[pos])
     }
 }

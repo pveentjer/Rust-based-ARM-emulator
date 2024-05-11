@@ -5,18 +5,12 @@ mod frontend;
 mod backend;
 mod memory_subsystem;
 
+use std::rc::Rc;
 use crate::cpu::{CPU, CPUConfig};
 use crate::loader::load;
 
-use pest_derive::Parser;
-use pest::Parser;
-
-
-
 fn main() {
-    let program = load("program.asm");
-
-    let cpu_config = CPUConfig {
+   let cpu_config = CPUConfig {
         arch_reg_count: 16,
         phys_reg_count: 64,
         frontend_n_wide: 1,
@@ -34,6 +28,8 @@ fn main() {
         issue_n_wide: 1
     };
 
+    let program = Rc::new(load(&cpu_config,"program.asm",));
+
     let mut cpu = CPU::new(&cpu_config);
-    cpu.run(program);
+    cpu.run(&program);
 }

@@ -1,5 +1,6 @@
+use std::rc::Rc;
 use crate::cpu::CPUConfig;
-use crate::instructions::{MemoryType, WordType};
+use crate::instructions::{MemoryType, Program, WordType};
 
 
 struct StoreBufferEntry {
@@ -36,16 +37,16 @@ impl StoreBuffer {
         }
     }
 
-    pub fn size(&self)->u16{
-        return (self.tail-self.head) as u16;
+    pub fn size(&self) -> u16 {
+        return (self.tail - self.head) as u16;
     }
 
-    pub fn has_space(&self)->bool{
-        return self.size()<self.capacity;
+    pub fn has_space(&self) -> bool {
+        return self.size() < self.capacity;
     }
 
     pub fn allocate(&mut self) -> u16 {
-        assert!(self.has_space(),"StoreBuffer: can't allocate because there is no space");
+        assert!(self.has_space(), "StoreBuffer: can't allocate because there is no space");
 
         let index = (self.tail % self.capacity as u64) as usize;
         let sb_entry = &mut self.entries[index];
@@ -101,6 +102,16 @@ impl MemorySubsystem {
         MemorySubsystem {
             memory,
             sb,
+        }
+    }
+
+    pub(crate) fn init(&mut self, program: &Rc<Program>) {
+        for k in 0..self.memory.len() {
+            self.memory[k]=0;
+        }
+
+        for data in program.data_items.values() {
+            self.memory[data.offset as usize] = data.value;
         }
     }
 
