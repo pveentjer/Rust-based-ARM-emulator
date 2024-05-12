@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 use crate::backend::Backend;
-use crate::frontend::Frontend;
+use crate::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::MemorySubsystem;
 
 #[derive(Clone)]
@@ -60,15 +60,20 @@ impl CPU {
 
         let arch_reg_file = Rc::new(RefCell::new(ArgRegFile::new(cpu_config.arch_reg_count)));
 
+        let mut frontend_control = Rc::new(RefCell::new(FrontendControl{ip_next_fetch:-1, control_hazard:false}));
+
         let backend = Backend::new(
             cpu_config,
             Rc::clone(&instr_queue),
             Rc::clone(&memory_subsystem),
             Rc::clone(&arch_reg_file),
+            Rc::clone(&frontend_control),
         );
 
-        let frontend = Frontend::new(cpu_config,
-                                     Rc::clone(&instr_queue));
+        let frontend = Frontend::new(
+            cpu_config,
+            Rc::clone(&instr_queue),
+            Rc::clone(&frontend_control));
 
         CPU {
             backend,

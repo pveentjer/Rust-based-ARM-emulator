@@ -16,9 +16,18 @@ pub enum Opcode {
     NOP,
     PRINTR,
     MOV,
+    JNZ,
+    JZ,
 }
 
-pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
+pub(crate) fn is_control(opcode: Opcode) -> bool {
+    return match opcode {
+        Opcode::JNZ => true,
+        _ => false,
+    };
+}
+
+pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
     match opcode {
         Opcode::ADD => "ADD",
         Opcode::SUB => "SUB",
@@ -32,14 +41,16 @@ pub(crate) fn mnemonic(opcode: &Opcode) -> &'static str {
         Opcode::DEC => "DEC",
         Opcode::PRINTR => "PRINTR",
         Opcode::MOV => "PRINTR",
+        Opcode::JNZ => "JNZ",
+        Opcode::JZ => "JZ",
     }
 }
 
 pub(crate) const NOP: Instr = create_NOP(-1);
 
 pub(crate) type RegisterType = u16;
-pub(crate) type MemoryType = u64;
-pub(crate) type CodeType = u64;
+pub(crate) type MemoryAddressType = u64;
+pub(crate) type CodeAddressType = u64;
 pub(crate) type WordType = i32;
 
 // The InstrQueue sits between frontend and backend
@@ -106,6 +117,7 @@ pub(crate) enum OpType {
     MEMORY,
     CONSTANT,
     UNUSED,
+    CODE,
 }
 
 // The maximum number of source (input) operands for an instruction.
@@ -122,7 +134,7 @@ pub(crate) struct Instr {
 
 impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", mnemonic(&self.opcode))?;
+        write!(f, "{}", mnemonic(self.opcode))?;
 
         for k in 0..self.source_cnt {
             write!(f, " {}", self.source[k as usize])?;
@@ -161,8 +173,8 @@ impl fmt::Display for Operand {
 #[derive(Clone, Copy)]
 pub(crate) enum OpUnion {
     Register(RegisterType),
-    Memory(MemoryType),
-    Code(MemoryType),
+    Memory(MemoryAddressType),
+    Code(CodeAddressType),
     Constant(WordType),
     Unused,
 }
@@ -182,7 +194,14 @@ impl OpUnion {
         }
     }
 
-    pub(crate) fn get_memory_addr(&self) -> MemoryType {
+    pub(crate) fn get_code_address(&self) -> CodeAddressType {
+        match self {
+            OpUnion::Code(constant) => *constant,
+            _ => panic!(),
+        }
+    }
+
+    pub(crate) fn get_memory_addr(&self) -> MemoryAddressType {
         match self {
             OpUnion::Memory(addr) => *addr,
             _ => panic!(),
@@ -277,7 +296,7 @@ pub(crate) fn create_MOD(src_1: RegisterType, src_2: RegisterType, sink: Registe
     }
 }
 
-pub(crate) fn create_LOAD(addr: MemoryType, sink: RegisterType, line: i32) -> Instr {
+pub(crate) fn create_LOAD(addr: MemoryAddressType, sink: RegisterType, line: i32) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::LOAD,
@@ -319,7 +338,7 @@ pub(crate) fn create_DEC(reg: RegisterType, line: i32) -> Instr {
     }
 }
 
-pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg:RegisterType, line: i32) -> Instr {
+pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg: RegisterType, line: i32) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::MOV,
@@ -333,7 +352,7 @@ pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg:RegisterType, line: i32)
     }
 }
 
-pub(crate) fn create_STORE(src: RegisterType, addr: MemoryType, line: i32) -> Instr {
+pub(crate) fn create_STORE(src: RegisterType, addr: MemoryAddressType, line: i32) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::STORE,
@@ -374,3 +393,33 @@ pub(crate) const fn create_PRINTR(reg: RegisterType, line: i32) -> Instr {
         line,
     }
 }
+
+pub(crate) const fn create_JNZ(reg: RegisterType, address: CodeAddressType, line: i32) -> Instr {
+    Instr {
+        cycles: 1,
+        opcode: Opcode::JNZ,
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
+            Operand { op_type: OpType::CODE, union: OpUnion::Code(address) }
+        ],
+        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+        line,
+    }
+}
+
+
+pub(crate) const fn create_JZ(reg: RegisterType, address: CodeAddressType, line: i32) -> Instr {
+    Instr {
+        cycles: 1,
+        opcode: Opcode::JZ,
+        source_cnt: 2,
+        source: [
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
+            Operand { op_type: OpType::CODE, union: OpUnion::Code(address) }
+        ],
+        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+        line,
+    }
+}
+

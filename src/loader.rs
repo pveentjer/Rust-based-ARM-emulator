@@ -5,22 +5,7 @@ use pest::iterators::{Pair};
 use pest::Parser;
 use pest_derive::Parser;
 use crate::cpu::CPUConfig;
-use crate::instructions::{create_ADD,
-                          create_DEC,
-                          create_DIV,
-                          create_INC,
-                          create_LOAD,
-                          create_MOD,
-                          create_MOV,
-                          create_MUL,
-                          create_NOP,
-                          create_PRINTR,
-                          create_STORE,
-                          create_SUB,
-                          Data, Instr,
-                          MemoryType,
-                          Program,
-                          RegisterType};
+use crate::instructions::{CodeAddressType, create_ADD, create_DEC, create_DIV, create_INC, create_JNZ, create_JZ, create_LOAD, create_MOD, create_MOV, create_MUL, create_NOP, create_PRINTR, create_STORE, create_SUB, Data, Instr, MemoryAddressType, Program, RegisterType};
 
 
 #[derive(Parser)]
@@ -30,10 +15,12 @@ struct AssemblyParser;
 struct Loader {
     cpu_config: CPUConfig,
     path: String,
-    heap_size: MemoryType,
+    heap_size: MemoryAddressType,
     code: Vec::<Rc<Instr>>,
     data_section: HashMap::<String, Rc<Data>>,
+    labels: HashMap<String, usize>,
 }
+
 
 impl Loader {
     fn load(&mut self) -> Program {
@@ -54,7 +41,7 @@ impl Loader {
                         Rule::EOI => {}
                         Rule::data_section => {}
                         Rule::data => self.parse_data(pair),
-                        Rule::label => println!("Found label "),
+                        Rule::label => self.parse_label(pair),
                         Rule::instr_INC => self.parse_INC(pair),
                         Rule::instr_DEC => self.parse_DEC(pair),
                         Rule::instr_NOP => self.parse_NOP(pair),
@@ -67,6 +54,7 @@ impl Loader {
                         Rule::instr_MUL => self.parse_MUL(pair),
                         Rule::instr_DIV => self.parse_DIV(pair),
                         Rule::instr_MOD => self.parse_MOD(pair),
+                        Rule::instr_JNZ => self.parse_JNZ(pair),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
                 }
@@ -77,6 +65,23 @@ impl Loader {
             }
         };
         return Program::new(self.code.clone(), self.data_section.clone());
+    }
+
+    fn parse_label(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let mut label = String::from(inner_pairs.next().unwrap().as_str());
+        // get rid of the colon
+        //label.pop();
+
+        println!("Label {}", label);
+
+        if self.labels.contains_key(&label) {
+            panic!("Duplicate label '{}' at [{}:{}]", label, line_column.0, line_column.1);
+        } else {
+            self.labels.insert(label, self.code.len());
+        }
     }
 
     fn parse_MOD(&mut self, pair: Pair<Rule>) {
@@ -203,10 +208,8 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
-        let register_pair = inner_pairs.next().unwrap();
-
         let instr = create_DEC(
-            self.parse_register(&register_pair),
+            self.parse_register(&inner_pairs.next().unwrap()),
             line_column.0 as i32);
         self.code.push(Rc::new(instr));
     }
@@ -215,9 +218,50 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
-        let register_pair = inner_pairs.next().unwrap();
         let instr = create_INC(
-            self.parse_register(&register_pair),
+            self.parse_register(&inner_pairs.next().unwrap()),
+            line_column.0 as i32);
+        self.code.push(Rc::new(instr));
+    }
+
+    fn parse_JNZ(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let register = self.parse_register(&inner_pairs.next().unwrap());
+
+        let label = String::from(inner_pairs.next().unwrap().as_str());
+
+        let code_offset_option = self.labels.get(&label);
+        if code_offset_option.is_none() {
+            panic!("Unknown label '{}' at {}:{}", label, line_column.0, line_column.1);
+        }
+
+        let offset = code_offset_option.unwrap();
+        let instr = create_JNZ(
+            register,
+            *offset as CodeAddressType,
+            line_column.0 as i32);
+        self.code.push(Rc::new(instr));
+    }
+
+    fn parse_JN(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let register = self.parse_register(&inner_pairs.next().unwrap());
+
+        let label = String::from(inner_pairs.next().unwrap().as_str());
+
+        let code_offset_option = self.labels.get(&label);
+        if code_offset_option.is_none() {
+            panic!("Unknown label '{}' at {}:{}", label, line_column.0, line_column.1);
+        }
+
+        let offset = code_offset_option.unwrap();
+        let instr = create_JZ(
+            register,
+            *offset as CodeAddressType,
             line_column.0 as i32);
         self.code.push(Rc::new(instr));
     }
@@ -273,6 +317,7 @@ pub(crate) fn load(cpu_config: CPUConfig, path: &str) -> Program {
         path: String::from(path),
         code: Vec::<Rc<Instr>>::new(),
         data_section: HashMap::<String, Rc<Data>>::new(),
+        labels: HashMap::<String, usize>::new(),
     };
 
     return loader.load();

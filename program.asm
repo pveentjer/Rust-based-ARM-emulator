@@ -4,11 +4,10 @@
     c 10
     d 0
 .code
-    LOAD [a] R1
-    INC R1
-    INC R1
-    INC R1
-    LOAD [b] R2
-    ADD R1 R2 R3
-    PRINTR R3
-    STORE R4 [d]
+    LOAD [a] R0
+    LOAD [b] R1
+foo:
+    PRINTR R0
+    DEC R0
+    JNZ R0 foo
+    PRINTR R1

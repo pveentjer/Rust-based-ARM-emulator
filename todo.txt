@@ -1,6 +1,8 @@
 TODO
 
-- loader: validating labels
+- memory access should not just be a variable, but could be some expression with one or more registers
+
+- store to load forwarding
 
 - loader: MOV direct value
 
@@ -34,82 +36,13 @@ TODO
 
 - metrics: ipc last cycle
 
-- store to load forwarding
-
-- branches
-
 - program termination
 
 - implement print of memory
 
 DONE
 
-- verify that store works
+- added JZ
 
-- store is placed in the store buffer, but it isn't written to main memory
-    - 2 allocates in the sb are done for the store.
+- JNZ working
 
-- implement MOV
-
-- loader: include line number
-
-- loader: when duplicate variable, include line nr
-
-- loader: parse memory access
-
-- implement a proper loader
-
-- loader: the parser stops when it run into something it doesn't recognize instead of returning some error
-
-- CPU: variables should be loaded in memory
-
-- loader: nop
-
-- memory subsystem: init program
-
-- memory subsystem: wipe out memory on init program
-
-- loader: loading of variables
-
-- There is a problem with the reuse of the physical register.
-
-- cdb broadcast
-
-- the value of the inc isn't visible when printing
-
-- reverse the ordering of the initial free stack for physical registers
-
-- inc is failing with panic
-
-- register rename of the sink should be done after register rename of the source
-
-- fixed problem in execution due to no proper rs.opcode.
-
-- printr isn't being run
-
-- frontend and trace
-
-- retire isn't picked up
-
-- system runs out of rob-etries; so they are not properly returned.
-    - retiring isn't working
-
-- cpu_config issue_n_wide
-
-- cpu config dispatch_n_wide
-
-- implement instruction execution
-
-- implement retire
-
-- instructions should have configurable latency
-
-- an instruction should have only 1 sink
-
-- fix the backend compilation problem
-
-- deal with a full store buffer
-
-- instructions: use asserts instead of panics
-
-- allocate a slot in the store buffer

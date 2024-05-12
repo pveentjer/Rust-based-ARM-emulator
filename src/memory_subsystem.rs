@@ -1,11 +1,11 @@
 use std::rc::Rc;
 use crate::cpu::CPUConfig;
-use crate::instructions::{MemoryType, Program, WordType};
+use crate::instructions::{MemoryAddressType, Program, WordType};
 
 
 struct StoreBufferEntry {
     value: WordType,
-    addr: MemoryType,
+    addr: MemoryAddressType,
     completed: bool,
 }
 
@@ -53,7 +53,7 @@ impl StoreBuffer {
         return index as u16;
     }
 
-    pub fn store(&mut self, index: u16, addr: MemoryType, value: WordType) {
+    pub fn store(&mut self, index: u16, addr: MemoryAddressType, value: WordType) {
         let sb_entry = &mut self.entries[index as usize];
         sb_entry.addr = addr;
         sb_entry.value = value;

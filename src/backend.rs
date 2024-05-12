@@ -4,6 +4,7 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Display};
 use crate::cpu::{ArgRegFile, CPUConfig};
+use crate::frontend::FrontendControl;
 use crate::instructions::{Instr, InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
 
@@ -101,7 +102,7 @@ impl RS {
 impl Display for RS {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "RS ")?;
-        write!(f, "{}", mnemonic(&self.opcode))?;
+        write!(f, "{}", mnemonic(self.opcode))?;
 
         for k in 0..self.source_cnt {
             write!(f, " {}", self.source[k as usize])?;
@@ -393,13 +394,15 @@ pub(crate) struct Backend {
     dispatch_n_wide: u8,
     issue_n_wide: u8,
     cdb_broadcast_buffer: Vec<CDBBroadcastRequest>,
+    frontend_control: Rc<RefCell<FrontendControl>>,
 }
 
 impl Backend {
     pub(crate) fn new(cpu_config: &CPUConfig,
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       memory_subsystem: Rc<RefCell<MemorySubsystem>>,
-                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Backend {
+                      arch_reg_file: Rc<RefCell<ArgRegFile>>,
+                      frontend_control: Rc<RefCell<FrontendControl>>) -> Backend {
         Backend {
             trace: cpu_config.trace,
             instr_queue,
@@ -414,6 +417,7 @@ impl Backend {
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
+            frontend_control,
         }
     }
 
@@ -461,6 +465,7 @@ impl Backend {
 
             let mut result: WordType = 0;
             match rs.opcode {
+                Opcode::NOP => {}
                 Opcode::ADD => result = rs.source[0].union.get_constant() + rs.source[1].union.get_constant(),
                 Opcode::SUB => result = rs.source[0].union.get_constant() - rs.source[1].union.get_constant(),
                 Opcode::MUL => result = rs.source[0].union.get_constant() * rs.source[1].union.get_constant(),
@@ -471,9 +476,28 @@ impl Backend {
                 Opcode::MOV => result = rs.source[0].union.get_constant(),
                 Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
                 Opcode::STORE => {}
-                Opcode::NOP => {}
                 Opcode::PRINTR => {
                     println!("                                                  PRINTR {}", rs.source[0].union.get_constant());
+                }
+                Opcode::JNZ => {
+                    let mut frontend_control = self.frontend_control.borrow_mut();
+                    let value = rs.source[0].union.get_constant();
+                    if value != 0 {
+                        frontend_control.ip_next_fetch = rs.source[1].union.get_code_address() as i64;
+                    } else {
+                        frontend_control.ip_next_fetch += 1;
+                    }
+                    frontend_control.control_hazard = false;
+                }
+                Opcode::JZ => {
+                    let mut frontend_control = self.frontend_control.borrow_mut();
+                    let value = rs.source[0].union.get_constant();
+                    if value == 0 {
+                        frontend_control.ip_next_fetch = rs.source[1].union.get_code_address() as i64;
+                    } else {
+                        frontend_control.ip_next_fetch += 1;
+                    }
+                    frontend_control.control_hazard = false;
                 }
             }
 
@@ -492,9 +516,8 @@ impl Backend {
                     // a store to memory
                     memory_subsystem.sb.store(rs.sb_pos, rs.sink.union.get_memory_addr(), result);
                 }
-                OpType::CONSTANT => {
-                    panic!("Constants can't be sinks.");
-                }
+                OpType::CONSTANT => panic!("Constants can't be sinks."),
+                OpType::CODE => panic!("Code can't be sinks."),
                 OpType::UNUSED => {}
             }
 
@@ -556,7 +579,9 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            println!("Retiring {}", instr);
+            if self.trace {
+                println!("Retiring {}", instr);
+            }
 
             if instr.sink.op_type == OpType::REGISTER {
                 let arch_reg = instr.sink.union.get_register();
@@ -710,7 +735,7 @@ impl Backend {
                             rs.source_ready_cnt += 1;
                         }
                     }
-                    OpType::MEMORY | OpType::CONSTANT => {
+                    OpType::MEMORY | OpType::CONSTANT | OpType::CODE => {
                         rs.source[i as usize] = *instr_source;
                         rs.source_ready_cnt += 1;
                     }
@@ -744,7 +769,10 @@ impl Backend {
                     rs.sink = *instr_sink;
                 }
                 OpType::CONSTANT => {
-                    panic!("Can't have a value as sink {}", rs_sink)
+                    panic!("Can't have a constant as sink {}", rs_sink)
+                }
+                OpType::CODE => {
+                    panic!("Can't have a code address as sink {}", rs_sink)
                 }
             }
             rob_slot.sink = rs.sink;
