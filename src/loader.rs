@@ -5,7 +5,7 @@ use pest::iterators::{Pair};
 use pest::Parser;
 use pest_derive::Parser;
 use crate::cpu::CPUConfig;
-use crate::instructions::{CodeAddressType, create_ADD, create_DEC, create_DIV, create_INC, create_JNZ, create_JZ, create_LOAD, create_MOD, create_MOV, create_MUL, create_NOP, create_PRINTR, create_STORE, create_SUB, Data, Instr, MemoryAddressType, Program, RegisterType};
+use crate::instructions::{CodeAddressType, create_JNZ, create_JZ, create_LOAD, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr};
 
 
 #[derive(Parser)]
@@ -42,18 +42,23 @@ impl Loader {
                         Rule::data_section => {}
                         Rule::data => self.parse_data(pair),
                         Rule::label => self.parse_label(pair),
-                        Rule::instr_INC => self.parse_INC(pair),
-                        Rule::instr_DEC => self.parse_DEC(pair),
-                        Rule::instr_NOP => self.parse_NOP(pair),
+                        Rule::instr_ADD => self.parse_register_bi_instr(pair, Opcode::ADD),
+                        Rule::instr_SUB => self.parse_register_bi_instr(pair, Opcode::SUB),
+                        Rule::instr_MUL => self.parse_register_bi_instr(pair, Opcode::MUL),
+                        Rule::instr_DIV => self.parse_register_bi_instr(pair, Opcode::DIV),
+                        Rule::instr_MOD => self.parse_register_bi_instr(pair, Opcode::MOD),
+                        Rule::instr_INC => self.parse_reg_self_instr(pair, Opcode::INC),
+                        Rule::instr_DEC => self.parse_reg_self_instr(pair, Opcode::DEC),
+                        Rule::instr_NEG => self.parse_reg_self_instr(pair, Opcode::NEG),
+                        Rule::instr_AND => self.parse_register_bi_instr(pair, Opcode::AND),
+                        Rule::instr_OR => self.parse_register_bi_instr(pair, Opcode::OR),
+                        Rule::instr_XOR => self.parse_register_bi_instr(pair, Opcode::XOR),
+                        Rule::instr_NOT => self.parse_reg_self_instr(pair, Opcode::NOT),
+                        Rule::instr_NOP => self.parse_reg_mono_instr(pair, Opcode::MOV),
+                        Rule::instr_MOV => self.parse_reg_mono_instr(pair, Opcode::MOV),
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
                         Rule::instr_LOAD => self.parse_LOAD(pair),
                         Rule::instr_STORE => self.parse_STORE(pair),
-                        Rule::instr_MOV => self.parse_MOV(pair),
-                        Rule::instr_ADD => self.parse_ADD(pair),
-                        Rule::instr_SUB => self.parse_SUB(pair),
-                        Rule::instr_MUL => self.parse_MUL(pair),
-                        Rule::instr_DIV => self.parse_DIV(pair),
-                        Rule::instr_MOD => self.parse_MOD(pair),
                         Rule::instr_JNZ => self.parse_JNZ(pair),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
@@ -84,10 +89,11 @@ impl Loader {
         }
     }
 
-    fn parse_MOD(&mut self, pair: Pair<Rule>) {
+    fn parse_register_bi_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
-        let instr = create_MOD(
+        let instr = create_reg_bi_Instr(
+            opcode,
             self.parse_register(&inner_pairs.next().unwrap()),
             self.parse_register(&inner_pairs.next().unwrap()),
             self.parse_register(&inner_pairs.next().unwrap()),
@@ -95,48 +101,23 @@ impl Loader {
         self.code.push(Rc::new(instr));
     }
 
-    fn parse_DIV(&mut self, pair: Pair<Rule>) {
+    fn parse_reg_self_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
-
-        let instr = create_DIV(
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
+        let reg = self.parse_register(&inner_pairs.next().unwrap());
+        let instr = create_reg_mono_Instr(
+            opcode,
+            reg,
+            reg,
             line_column.0 as i32);
         self.code.push(Rc::new(instr));
     }
 
-    fn parse_MUL(&mut self, pair: Pair<Rule>) {
+    fn parse_reg_mono_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
-
-        let instr = create_MUL(
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
-            line_column.0 as i32);
-        self.code.push(Rc::new(instr));
-    }
-
-    fn parse_SUB(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let instr = create_SUB(
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
-            line_column.0 as i32);
-        self.code.push(Rc::new(instr));
-    }
-
-    fn parse_ADD(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let instr = create_ADD(
-            self.parse_register(&inner_pairs.next().unwrap()),
+        let instr = create_reg_mono_Instr(
+            opcode,
             self.parse_register(&inner_pairs.next().unwrap()),
             self.parse_register(&inner_pairs.next().unwrap()),
             line_column.0 as i32);
@@ -179,17 +160,6 @@ impl Loader {
         self.code.push(Rc::new(instr));
     }
 
-    fn parse_MOV(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let instr = create_MOV(
-            self.parse_register(&inner_pairs.next().unwrap()),
-            self.parse_register(&inner_pairs.next().unwrap()),
-            line_column.0 as i32);
-        self.code.push(Rc::new(instr));
-    }
-
     fn parse_PRINTR(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
@@ -202,26 +172,6 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let instr = create_NOP(line_column.0 as i32);
         self.code.push(Rc::new(instr))
-    }
-
-    fn parse_DEC(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let instr = create_DEC(
-            self.parse_register(&inner_pairs.next().unwrap()),
-            line_column.0 as i32);
-        self.code.push(Rc::new(instr));
-    }
-
-    fn parse_INC(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let instr = create_INC(
-            self.parse_register(&inner_pairs.next().unwrap()),
-            line_column.0 as i32);
-        self.code.push(Rc::new(instr));
     }
 
     fn parse_JNZ(&mut self, pair: Pair<Rule>) {

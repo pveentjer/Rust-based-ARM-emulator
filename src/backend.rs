@@ -8,6 +8,7 @@ use crate::frontend::FrontendControl;
 use crate::instructions::{Instr, InstrQueue, mnemonic, Opcode, Operand, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
 
+
 struct PhysRegEntry {
     value: WordType,
     has_value: bool,
@@ -269,7 +270,6 @@ impl RAT {
     }
 }
 
-
 #[derive(Clone, Copy, PartialEq)]
 enum ROBSlotState {
     UNUSED,
@@ -395,6 +395,7 @@ pub(crate) struct Backend {
     issue_n_wide: u8,
     cdb_broadcast_buffer: Vec<CDBBroadcastRequest>,
     frontend_control: Rc<RefCell<FrontendControl>>,
+    stack: Vec<WordType>,
 }
 
 impl Backend {
@@ -418,6 +419,7 @@ impl Backend {
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
             frontend_control,
+            stack: Vec::new(),
         }
     }
 
@@ -473,12 +475,18 @@ impl Backend {
                 Opcode::MOD => result = rs.source[0].union.get_constant() % rs.source[1].union.get_constant(),
                 Opcode::INC => result = rs.source[0].union.get_constant() + 1,
                 Opcode::DEC => result = rs.source[0].union.get_constant() - 1,
+                Opcode::NEG => result = -rs.source[0].union.get_constant(),
+                Opcode::AND => result = rs.source[0].union.get_constant() & rs.source[1].union.get_constant(),
+                Opcode::OR => result = rs.source[0].union.get_constant() | rs.source[1].union.get_constant(),
+                Opcode::XOR => result = rs.source[0].union.get_constant() ^ rs.source[1].union.get_constant(),
+                Opcode::NOT => result = !rs.source[0].union.get_constant(),
                 Opcode::MOV => result = rs.source[0].union.get_constant(),
                 Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
                 Opcode::STORE => {}
                 Opcode::PRINTR => {
                     println!("                                                  PRINTR {}", rs.source[0].union.get_constant());
                 }
+                //todo: flatten the 2 branches
                 Opcode::JNZ => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
                     let value = rs.source[0].union.get_constant();
@@ -498,6 +506,17 @@ impl Backend {
                         frontend_control.ip_next_fetch += 1;
                     }
                     frontend_control.control_hazard = false;
+                }
+                Opcode::PUSH => {
+                    let rsp = rs.source[0].union.get_constant();
+
+                    let value = rs.source[1].union.get_constant();
+
+                    // this will update the rsp
+                    result = rsp+1;
+                }
+                Opcode::POP => {
+                    // todo: we have 2 sink operands, the rsp and the value popped
                 }
             }
 

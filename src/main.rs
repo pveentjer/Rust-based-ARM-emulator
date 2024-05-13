@@ -25,7 +25,8 @@ fn main() {
         trace: false,
         retire_n_wide: 1,
         dispatch_n_wide: 1,
-        issue_n_wide: 1
+        issue_n_wide: 1,
+        stack_size: 32,
     };
 
     let program = Rc::new(load(cpu_config.clone(),"program.asm",));

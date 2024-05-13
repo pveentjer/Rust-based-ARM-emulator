@@ -48,6 +48,12 @@ instr = _{  ( instr_LOAD
             | instr_NOP
             | instr_JNZ
             | instr_JZ
+            | instr_PUSH
+            | instr_POP
+            | instr_AND
+            | instr_OR
+            | instr_XOR
+            | instr_NOT
             )}
 
 // the order for all arguments is source and then sink. E.g. 'ADD R1 R2 R3' means R3=R1+R2'.
@@ -59,11 +65,20 @@ instr_INC       = {"INC"    ~ whitespace ~ register                             
 instr_DEC       = {"DEC"    ~ whitespace ~ register                                                     }
 instr_ADD       = {"ADD"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
 instr_SUB       = {"SUB"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_NEG       = {"NEG"    ~ whitespace ~ register                                                     }
 instr_DIV       = {"DIV"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
 instr_MUL       = {"MUL"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
 instr_MOD       = {"MOD"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+// bitwise logical operations
+instr_AND       = {"AND"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_OR        = {"OR"     ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_XOR       = {"XOR"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+instr_NOT       = {"NOT"    ~ whitespace ~ register ~ whitespace ~ register ~ whitespace ~ register     }
+
 instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                                     }
 instr_JNZ       = {"JNZ"    ~ whitespace ~ register ~ whitespace ~ label_name                           }
 instr_JZ        = {"JZ"     ~ whitespace ~ register ~ whitespace ~ label_name                           }
+instr_PUSH      = {"PUSH"   ~ whitespace ~ register                                                     }
+instr_POP       = {"POP"    ~ whitespace ~ register                                                     }
 
 

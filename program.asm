@@ -1,13 +1,15 @@
 .data
     a 10
-    b 20
-    c 10
+    b 1
+    c 2
     d 0
 .code
     LOAD [a] R0
-    LOAD [b] R1
-foo:
+again:
     PRINTR R0
     DEC R0
-    JNZ R0 foo
-    PRINTR R1
+    JNZ R0 again
+    LOAD [b] R1
+    LOAD [c] R2
+    ADD R1 R2 R3
+    PRINTR R3

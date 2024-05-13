@@ -1,28 +1,31 @@
 TODO
 
+- add push
+
+- add pop
+
+- support for stack
+
+- function calls
+
+- special registers like stack pointer, base pointer:
+    ideally they are just like general purpose register; just a register and no special treatment
+
+- every instruction should have an optional label in front of it
+
 - memory access should not just be a variable, but could be some expression with one or more registers
 
-- store to load forwarding
+- store to load forwarding: currently the store in the sb isn't seen
 
 - loader: MOV direct value
 
 - loader: register validation
-
-- loader: should be a struct
 
 - loader: validate memory access
 
 - loader: validate variable declaration that it fits in memory
 
 - loader: should not panic on error, but propagate the error to the main
-
-- implement AND
-
-- implement OR
-
-- implement XOR
-
-- implement NOT
 
 - printr has no access to its arch reg
 
@@ -40,7 +43,19 @@ TODO
 
 - implement print of memory
 
+- print string
+
 DONE
+
+- implement AND
+
+- implement OR
+
+- implement XOR
+
+- implement NOT
+
+- loader: should be a struct
 
 - added JZ
 

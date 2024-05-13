@@ -7,6 +7,8 @@ use crate::backend::Backend;
 use crate::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::MemorySubsystem;
 
+const ADDITIONAL_REGS:u16 = 1;
+
 #[derive(Clone)]
 pub(crate) struct CPUConfig {
     // the number of architectural registers
@@ -41,6 +43,8 @@ pub(crate) struct CPUConfig {
     pub(crate) dispatch_n_wide: u8,
     // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
     pub(crate) issue_n_wide: u8,
+    // The size of the stack
+    pub(crate) stack_size: u32,
 }
 
 pub(crate) struct CPU {
@@ -50,17 +54,22 @@ pub(crate) struct CPU {
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     cycle_cnt: u64,
     cycle_period: Duration,
+    trace: bool,
 }
 
 impl CPU {
     pub(crate) fn new(cpu_config: &CPUConfig) -> CPU {
         let instr_queue = Rc::new(RefCell::new(InstrQueue::new(cpu_config.instr_queue_capacity)));
 
-        let memory_subsystem = Rc::new(RefCell::new(MemorySubsystem::new(cpu_config)));
+        let memory_subsystem = Rc::new(RefCell::new(
+            MemorySubsystem::new(cpu_config)));
 
-        let arch_reg_file = Rc::new(RefCell::new(ArgRegFile::new(cpu_config.arch_reg_count)));
 
-        let mut frontend_control = Rc::new(RefCell::new(FrontendControl{ip_next_fetch:-1, control_hazard:false}));
+        let arch_reg_file = Rc::new(RefCell::new(
+            ArgRegFile::new(cpu_config.arch_reg_count + ADDITIONAL_REGS)));
+
+        let mut frontend_control = Rc::new(RefCell::new(
+            FrontendControl{ip_next_fetch:-1, control_hazard:false}));
 
         let backend = Backend::new(
             cpu_config,
@@ -75,6 +84,10 @@ impl CPU {
             Rc::clone(&instr_queue),
             Rc::clone(&frontend_control));
 
+
+        let x = Duration::from_micros(1_000_000 / cpu_config.frequency_hz);
+        println!("Duration: {:?}", x);
+
         CPU {
             backend,
             frontend,
@@ -82,6 +95,7 @@ impl CPU {
             arch_reg_file,
             cycle_cnt: 0,
             cycle_period: Duration::from_micros(1_000_000 / cpu_config.frequency_hz),
+            trace: cpu_config.trace,
         }
     }
 
@@ -92,8 +106,11 @@ impl CPU {
 
         loop {
             self.cycle_cnt += 1;
-            println!("=======================================================================");
-            println!("Cycle {}", self.cycle_cnt);
+
+            if self.trace {
+                println!("=======================================================================");
+                println!("Cycle {}", self.cycle_cnt);
+            }
             self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.do_cycle();
             self.frontend.do_cycle();

@@ -18,6 +18,13 @@ pub enum Opcode {
     MOV,
     JNZ,
     JZ,
+    PUSH,
+    POP,
+    NEG,
+    AND,
+    OR,
+    XOR,
+    NOT,
 }
 
 pub(crate) fn is_control(opcode: Opcode) -> bool {
@@ -34,6 +41,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::MUL => "MUL",
         Opcode::DIV => "DIV",
         Opcode::MOD => "MOD",
+        Opcode::NEG => "NEG",
         Opcode::LOAD => "LOAD",
         Opcode::STORE => "STORE",
         Opcode::NOP => "NOP",
@@ -43,6 +51,12 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::MOV => "PRINTR",
         Opcode::JNZ => "JNZ",
         Opcode::JZ => "JZ",
+        Opcode::PUSH => "PUSH",
+        Opcode::POP => "POP",
+        Opcode::AND => "AND",
+        Opcode::OR => "OR",
+        Opcode::XOR => "XOR",
+        Opcode::NOT => "NOT",
     }
 }
 
@@ -231,10 +245,10 @@ impl Program {
     }
 }
 
-pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
+pub(crate) fn create_reg_bi_Instr(opcode: Opcode, src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
     Instr {
         cycles: 1,
-        opcode: Opcode::ADD,
+        opcode: opcode,
         source_cnt: 2,
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
@@ -244,54 +258,16 @@ pub(crate) fn create_ADD(src_1: RegisterType, src_2: RegisterType, sink: Registe
     }
 }
 
-pub(crate) fn create_SUB(src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
+pub(crate) fn create_reg_mono_Instr(opcode: Opcode, src: RegisterType, dst: RegisterType, line: i32) -> Instr {
     Instr {
         cycles: 1,
-        opcode: Opcode::SUB,
-        source_cnt: 2,
+        opcode,
+        source_cnt: 1,
         source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
-        line,
-    }
-}
-
-pub(crate) fn create_MUL(src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 5,
-        opcode: Opcode::MUL,
-        source_cnt: 2,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
-        line,
-    }
-}
-
-pub(crate) fn create_DIV(src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 10,
-        opcode: Opcode::DIV,
-        source_cnt: 2,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
-        line,
-    }
-}
-
-pub(crate) fn create_MOD(src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 10,
-        opcode: Opcode::MOD,
-        source_cnt: 2,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
+            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+        ],
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
         line,
     }
 }
@@ -310,33 +286,6 @@ pub(crate) fn create_LOAD(addr: MemoryAddressType, sink: RegisterType, line: i32
     }
 }
 
-pub(crate) fn create_INC(reg: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::INC,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-        line,
-    }
-}
-
-pub(crate) fn create_DEC(reg: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::DEC,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-        line,
-    }
-}
 
 pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg: RegisterType, line: i32) -> Instr {
     Instr {
@@ -407,7 +356,6 @@ pub(crate) const fn create_JNZ(reg: RegisterType, address: CodeAddressType, line
         line,
     }
 }
-
 
 pub(crate) const fn create_JZ(reg: RegisterType, address: CodeAddressType, line: i32) -> Instr {
     Instr {
