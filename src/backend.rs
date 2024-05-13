@@ -486,21 +486,16 @@ impl Backend {
                 Opcode::PRINTR => {
                     println!("                                                  PRINTR {}", rs.source[0].union.get_constant());
                 }
-                //todo: flatten the 2 branches
-                Opcode::JNZ => {
+                Opcode::JNZ | Opcode::JZ => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
                     let value = rs.source[0].union.get_constant();
-                    if value != 0 {
-                        frontend_control.ip_next_fetch = rs.source[1].union.get_code_address() as i64;
-                    } else {
-                        frontend_control.ip_next_fetch += 1;
-                    }
-                    frontend_control.control_hazard = false;
-                }
-                Opcode::JZ => {
-                    let mut frontend_control = self.frontend_control.borrow_mut();
-                    let value = rs.source[0].union.get_constant();
-                    if value == 0 {
+                    let take_branch = match rs.opcode {
+                        Opcode::JNZ => value != 0,
+                        Opcode::JZ => value == 0,
+                        _ => unreachable!(),
+                    };
+
+                    if take_branch {
                         frontend_control.ip_next_fetch = rs.source[1].union.get_code_address() as i64;
                     } else {
                         frontend_control.ip_next_fetch += 1;
@@ -512,11 +507,13 @@ impl Backend {
 
                     let value = rs.source[1].union.get_constant();
 
+                    // todo: at which point do we want to update the stack? I guess it should be done at retiring
+
                     // this will update the rsp
-                    result = rsp+1;
+                    result = rsp + 1;
                 }
                 Opcode::POP => {
-                    // todo: we have 2 sink operands, the rsp and the value popped
+                    // todo: we have 2 sink operands, the rsp and the register with the value popped
                 }
             }
 
