@@ -484,7 +484,7 @@ impl Backend {
                 Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
                 Opcode::STORE => {}
                 Opcode::PRINTR => {
-                    println!("                                                  PRINTR {}", rs.source[0].union.get_constant());
+                    println!("PRINTR R{}={}", instr.source[0].union.get_register(), rs.source[0].union.get_constant());
                 }
                 Opcode::JNZ | Opcode::JZ => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
