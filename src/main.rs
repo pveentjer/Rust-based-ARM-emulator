@@ -2,8 +2,8 @@ mod instructions;
 mod cpu;
 mod loader;
 mod frontend;
-mod backend;
 mod memory_subsystem;
+mod backend;
 
 use std::rc::Rc;
 use crate::cpu::{CPU, CPUConfig};

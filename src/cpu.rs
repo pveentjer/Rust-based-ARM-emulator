@@ -3,7 +3,7 @@ use crate::instructions::{InstrQueue, Program, RegisterType, WordType};
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
-use crate::backend::Backend;
+use crate::backend::bbackend::Backend;
 use crate::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::MemorySubsystem;
 

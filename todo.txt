@@ -1,5 +1,7 @@
 TODO
 
+- splitting of backend into separate files.
+
 - store to load forwarding: currently the store in the sb isn't seen
 
 - loader: every instruction should have an optional label in front of it
