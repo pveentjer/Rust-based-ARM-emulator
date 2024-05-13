@@ -69,7 +69,7 @@ impl CPU {
             ArgRegFile::new(cpu_config.arch_reg_count + ADDITIONAL_REGS)));
 
         let mut frontend_control = Rc::new(RefCell::new(
-            FrontendControl{ip_next_fetch:-1, control_hazard:false}));
+            FrontendControl{ip_next_fetch:-1, halted:false}));
 
         let backend = Backend::new(
             cpu_config,

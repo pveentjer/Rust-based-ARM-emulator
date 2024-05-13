@@ -7,7 +7,7 @@ pub(crate) struct FrontendControl {
     // indicates that there is an instruction in the pipeline that could cause a control
     // hazard if they frontend would move to the next instruction.
     pub(crate) ip_next_fetch: i64,
-    pub(crate) control_hazard: bool,
+    pub(crate) halted: bool,
 }
 
 pub(crate) struct Frontend {
@@ -28,7 +28,7 @@ impl Frontend {
             n_wide: cpu_config.frontend_n_wide,
             program_option: None,
             trace: cpu_config.trace,
-            frontend_control: frontend_control,
+            frontend_control,
         }
     }
 
@@ -41,7 +41,7 @@ impl Frontend {
         match &self.program_option {
             None => return,
             Some(program) => {
-                if self.frontend_control.borrow_mut().control_hazard {
+                if self.frontend_control.borrow_mut().halted {
                     return;
                 }
 
@@ -61,17 +61,18 @@ impl Frontend {
                         break;
                     }
 
-                    let instr = program.get_code(frontend_control.ip_next_fetch as usize);
+                    let instr = program.get_instr(frontend_control.ip_next_fetch as usize);
                     if self.trace {
                         println!("Frontend: ip_next_fetch: {} decoded {}", frontend_control.ip_next_fetch, instr);
                     }
 
                     let opcode = instr.opcode;
 
+                    // todo: what about cloning?
                     instr_queue.enqueue(instr);
 
                     if is_control(opcode) {
-                        frontend_control.control_hazard = true;
+                        frontend_control.halted = true;
                         return;
                     }
                     frontend_control.ip_next_fetch += 1;

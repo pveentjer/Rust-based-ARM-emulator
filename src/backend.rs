@@ -500,7 +500,7 @@ impl Backend {
                     } else {
                         frontend_control.ip_next_fetch += 1;
                     }
-                    frontend_control.control_hazard = false;
+                    frontend_control.halted = false;
                 }
                 Opcode::PUSH => {
                     let rsp = rs.source[0].union.get_constant();

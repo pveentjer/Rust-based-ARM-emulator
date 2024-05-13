@@ -1,5 +1,11 @@
 TODO
 
+- store to load forwarding: currently the store in the sb isn't seen
+
+- loader: every instruction should have an optional label in front of it
+
+- loader: MOV direct value
+
 - add push
 
 - add pop
@@ -11,13 +17,7 @@ TODO
 - special registers like stack pointer, base pointer:
     ideally they are just like general purpose register; just a register and no special treatment
 
-- every instruction should have an optional label in front of it
-
 - memory access should not just be a variable, but could be some expression with one or more registers
-
-- store to load forwarding: currently the store in the sb isn't seen
-
-- loader: MOV direct value
 
 - loader: register validation
 
@@ -26,8 +26,6 @@ TODO
 - loader: validate variable declaration that it fits in memory
 
 - loader: should not panic on error, but propagate the error to the main
-
-- printr has no access to its arch reg
 
 - metrics: instructions issued
 
@@ -46,6 +44,10 @@ TODO
 - print string
 
 DONE
+
+- loader: a variable can't have the same name as a register.
+
+- printr has no access to its arch reg
 
 - implement AND
 

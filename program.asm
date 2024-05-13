@@ -9,7 +9,7 @@ again:
     PRINTR R0
     DEC R0
     JNZ R0 again
-    LOAD [b] R1
+    LOAD [a] R1
     LOAD [c] R2
     ADD R1 R2 R3
     PRINTR R3

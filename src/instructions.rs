@@ -60,6 +60,33 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
     }
 }
 
+pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
+    match name {
+        "ADD" => Some(Opcode::ADD),
+        "SUB" => Some(Opcode::SUB),
+        "MUL" => Some(Opcode::MUL),
+        "DIV" => Some(Opcode::DIV),
+        "MOD" => Some(Opcode::MOD),
+        "NEG" => Some(Opcode::NEG),
+        "LOAD" => Some(Opcode::LOAD),
+        "STORE" => Some(Opcode::STORE),
+        "NOP" => Some(Opcode::NOP),
+        "INC" => Some(Opcode::INC),
+        "DEC" => Some(Opcode::DEC),
+        "PRINTR" => Some(Opcode::PRINTR),
+        "MOV" => Some(Opcode::MOV),
+        "JNZ" => Some(Opcode::JNZ),
+        "JZ" => Some(Opcode::JZ),
+        "PUSH" => Some(Opcode::PUSH),
+        "POP" => Some(Opcode::POP),
+        "AND" => Some(Opcode::AND),
+        "OR" => Some(Opcode::OR),
+        "XOR" => Some(Opcode::XOR),
+        "NOT" => Some(Opcode::NOT),
+        _ => None,
+    }
+}
+
 pub(crate) const NOP: Instr = create_NOP(-1);
 
 pub(crate) type RegisterType = u16;
@@ -240,7 +267,7 @@ impl Program {
         Self { code, data_items }
     }
 
-    pub fn get_code(&self, pos: usize) -> Rc<Instr> {
+    pub fn get_instr(&self, pos: usize) -> Rc<Instr> {
         Rc::clone(&self.code[pos])
     }
 }

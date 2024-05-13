@@ -4,8 +4,9 @@ use std::rc::Rc;
 use pest::iterators::{Pair};
 use pest::Parser;
 use pest_derive::Parser;
+use regex::Regex;
 use crate::cpu::CPUConfig;
-use crate::instructions::{CodeAddressType, create_JNZ, create_JZ, create_LOAD, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr};
+use crate::instructions::{CodeAddressType, create_JNZ, create_JZ, create_LOAD, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr, Operand, OpType, OpUnion, get_opcode};
 
 
 #[derive(Parser)]
@@ -129,7 +130,7 @@ impl Loader {
         let mut inner_pairs = pair.into_inner();
 
         let register = self.parse_register(&inner_pairs.next().unwrap());
-        let name = self.parse_variable(&inner_pairs.next().unwrap());
+        let name = self.parse_variable_reference(&inner_pairs.next().unwrap());
 
         let data_option = self.data_section.get(&name);
         if data_option.is_none() {
@@ -146,17 +147,31 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
-        let name = self.parse_variable(&inner_pairs.next().unwrap());
+
+        let variable_or_register = self.parse_variable_reference(&inner_pairs.next().unwrap());
         let register = self.parse_register(&inner_pairs.next().unwrap());
 
-        let data_option = self.data_section.get(&name);
+        let data_option = self.data_section.get(&variable_or_register);
         if data_option.is_none() {
             // todo: add line
-            panic!("Unknown variable '{}'", name);
+            panic!("Unknown variable '{}'", variable_or_register);
         }
 
         let data = data_option.unwrap();
-        let instr = create_LOAD(data.offset, register as RegisterType, line_column.0 as i32);
+        let addr = data.offset;
+        let sink = register as RegisterType;
+        let line = line_column.0 as i32;
+        let instr = Instr {
+            cycles: 1,
+            opcode: Opcode::LOAD,
+            source_cnt: 1,
+            source: [
+                Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
+                Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
+            ],
+            sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
+            line,
+        };
         self.code.push(Rc::new(instr));
     }
 
@@ -195,6 +210,7 @@ impl Loader {
         self.code.push(Rc::new(instr));
     }
 
+    // todo: merge with parse_JNZ
     fn parse_JN(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
@@ -219,18 +235,22 @@ impl Loader {
     fn parse_data(&mut self, pair: Pair<Rule>) {
         let mut inner_pairs = pair.into_inner();
         let var_pair = inner_pairs.next().unwrap();
+        let line_column = self.get_line_column(&var_pair);
         let value_pair = inner_pairs.next().unwrap();
 
-        let name = String::from(var_pair.as_str());
-        let value: i32 = self.parse_integer(&value_pair);
-
-        if self.data_section.contains_key(&name) {
-            let line_column = self.get_line_column(&var_pair);
-            panic!("Duplicate variable declaration '{}' at {}:{}", name, line_column.0, line_column.1);
+        let variable_name = String::from(var_pair.as_str());
+        if !is_valid_variable_name(&variable_name) {
+            panic!("Illegal variable name '{}' at {}:{}", variable_name, line_column.0, line_column.1);
         }
-        self.data_section.insert(name.clone(), Rc::new(Data { value, offset: self.heap_size }));
+
+        let value: i32 = self.parse_integer(&value_pair);
+        if self.data_section.contains_key(&variable_name) {
+            panic!("Duplicate variable declaration '{}' at {}:{}", variable_name, line_column.0, line_column.1);
+        }
+        self.data_section.insert(variable_name.clone(), Rc::new(Data { value, offset: self.heap_size }));
         self.heap_size += 1;
     }
+
 
     fn get_line_column(&mut self, pair: &Pair<Rule>) -> (usize, usize) {
         let start_pos = pair.as_span().start_pos();
@@ -251,12 +271,30 @@ impl Loader {
         return register;
     }
 
-    fn parse_variable(&mut self, pair: &Pair<Rule>) -> String {
+    fn parse_variable_reference(&mut self, pair: &Pair<Rule>) -> String {
         let s = String::from(pair.as_str());
         let s_len = s.len();
-        let x = &s[1..s_len - 1];
-        return String::from(x);
+        let variable_name = &s[1..s_len - 1];
+        return String::from(variable_name);
     }
+}
+
+fn is_valid_variable_name(name: &String) -> bool {
+    if name.len() == 0 {
+        return false;
+    }
+
+    let re = Regex::new(r"^(?i)R\d+$").unwrap();
+    if re.is_match(name) {
+        return false;
+    }
+
+    if get_opcode(name).is_some() {
+        // It can't be an existing mnemonic
+        return false;
+    }
+
+    return true;
 }
 
 // for the time being we always return the same program
