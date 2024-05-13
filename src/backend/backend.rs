@@ -4,7 +4,7 @@ use std::fmt::Display;
 use crate::cpu::{ArgRegFile, CPUConfig};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, OpType, OpUnion, RegisterType, WordType};
-use crate::memory_subsystem::MemorySubsystem;
+use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};

@@ -1,9 +1,9 @@
 mod cpu;
 mod loader;
 mod frontend;
-mod memory_subsystem;
 mod backend;
 mod instructions;
+mod memory_subsystem;
 
 
 use std::rc::Rc;

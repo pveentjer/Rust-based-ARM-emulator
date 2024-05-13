@@ -5,7 +5,7 @@ use std::thread;
 use std::time::Duration;
 use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
-use crate::memory_subsystem::MemorySubsystem;
+use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 const ADDITIONAL_REGS:u16 = 1;
 
