@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
-use crate::instructions::{mnemonic, Opcode, Operand, OpType, OpUnion};
+use crate::instructions::instructions::{mnemonic, Opcode, Operand, OpType, OpUnion};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum RSState {
@@ -13,7 +13,7 @@ pub struct RS {
     pub(crate) state: RSState,
     pub(crate) sink: Operand,
     pub(crate) source_cnt: u8,
-    pub(crate) source: [Operand; crate::instructions::MAX_SOURCE_COUNT as usize],
+    pub(crate) source: [Operand; crate::instructions::instructions::MAX_SOURCE_COUNT as usize],
     pub(crate) source_ready_cnt: u8,
     pub(crate) sb_pos: u16,
     pub(crate) rob_slot_index: u16,

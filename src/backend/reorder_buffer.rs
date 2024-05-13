@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::instructions::{Instr, Operand, OpType, OpUnion, WordType};
+use crate::instructions::instructions::{Instr, Operand, OpType, OpUnion, WordType};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ROBSlotState {

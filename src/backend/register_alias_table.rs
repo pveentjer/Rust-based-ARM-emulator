@@ -1,4 +1,4 @@
-use crate::instructions::RegisterType;
+use crate::instructions::instructions::RegisterType;
 
 pub struct RATEntry {
     pub(crate) phys_reg: RegisterType,

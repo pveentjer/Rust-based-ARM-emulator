@@ -2,8 +2,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt::Display;
 use crate::cpu::{ArgRegFile, CPUConfig};
-use crate::frontend::FrontendControl;
-use crate::instructions::{Instr, InstrQueue, Opcode, OpType, OpUnion, RegisterType, WordType};
+use crate::frontend::frontend::FrontendControl;
+use crate::instructions::instructions::{Instr, InstrQueue, Opcode, OpType, OpUnion, RegisterType, WordType};
 use crate::memory_subsystem::MemorySubsystem;
 
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};

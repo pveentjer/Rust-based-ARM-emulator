@@ -1,4 +1,4 @@
-pub mod bbackend;
+pub mod backend;
 mod reservation_station;
 mod reorder_buffer;
 mod physical_register;

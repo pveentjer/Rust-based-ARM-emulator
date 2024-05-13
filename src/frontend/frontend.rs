@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::cpu::CPUConfig;
-use crate::instructions::{InstrQueue, is_control, Program};
+use crate::instructions::instructions::{InstrQueue, is_control, Program};
 
 pub(crate) struct FrontendControl {
     // indicates that there is an instruction in the pipeline that could cause a control

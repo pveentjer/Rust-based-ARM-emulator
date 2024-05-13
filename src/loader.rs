@@ -6,7 +6,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
 use crate::cpu::CPUConfig;
-use crate::instructions::{CodeAddressType, create_JNZ, create_JZ, create_LOAD, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr, Operand, OpType, OpUnion, get_opcode};
+use crate::instructions::instructions::{CodeAddressType, create_JNZ, create_JZ, create_LOAD, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr, Operand, OpType, OpUnion, get_opcode};
 
 
 #[derive(Parser)]

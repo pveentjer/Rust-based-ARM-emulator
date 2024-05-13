@@ -1,4 +1,4 @@
-use crate::instructions::{RegisterType, WordType};
+use crate::instructions::instructions::{RegisterType, WordType};
 
 pub struct PhysRegEntry {
     pub(crate) value: WordType,

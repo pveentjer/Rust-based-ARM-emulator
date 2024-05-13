@@ -1,10 +1,10 @@
 use std::cell::RefCell;
-use crate::instructions::{InstrQueue, Program, RegisterType, WordType};
+use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordType};
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
-use crate::backend::bbackend::Backend;
-use crate::frontend::{Frontend, FrontendControl};
+use crate::backend::backend::Backend;
+use crate::frontend::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::MemorySubsystem;
 
 const ADDITIONAL_REGS:u16 = 1;

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use crate::cpu::CPUConfig;
-use crate::instructions::{MemoryAddressType, Program, WordType};
+use crate::instructions::instructions::{MemoryAddressType, Program, WordType};
 
 
 struct StoreBufferEntry {
