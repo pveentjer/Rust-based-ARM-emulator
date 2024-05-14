@@ -1,6 +1,6 @@
 TODO
 
-- splitting of backend into separate files.
+- add construtor functions for operand to make it less tedious to write.
 
 - store to load forwarding: currently the store in the sb isn't seen
 
@@ -46,6 +46,8 @@ TODO
 - print string
 
 DONE
+
+- splitting of backend into separate files.
 
 - loader: a variable can't have the same name as a register.
 

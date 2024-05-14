@@ -32,6 +32,7 @@ pub struct Backend {
     cdb_broadcast_buffer: Vec<CDBBroadcastRequest>,
     frontend_control: Rc<RefCell<FrontendControl>>,
     stack: Vec<WordType>,
+    stack_capacity: u32,
 }
 
 impl Backend {
@@ -40,6 +41,11 @@ impl Backend {
                       memory_subsystem: Rc<RefCell<MemorySubsystem>>,
                       arch_reg_file: Rc<RefCell<ArgRegFile>>,
                       frontend_control: Rc<RefCell<FrontendControl>>) -> Backend {
+        let mut stack = Vec::with_capacity(cpu_config.stack_capacity as usize);
+        for _ in 0..cpu_config.stack_capacity {
+            stack.push(0);
+        }
+
         Backend {
             trace: cpu_config.trace,
             instr_queue,
@@ -55,7 +61,8 @@ impl Backend {
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
             frontend_control,
-            stack: Vec::new(),
+            stack: stack,
+            stack_capacity: cpu_config.stack_capacity,
         }
     }
 
@@ -101,23 +108,22 @@ impl Backend {
                 println!("Executing {}", instr);
             }
 
-            let mut result: WordType = 0;
             match rs.opcode {
                 Opcode::NOP => {}
-                Opcode::ADD => result = rs.source[0].union.get_constant() + rs.source[1].union.get_constant(),
-                Opcode::SUB => result = rs.source[0].union.get_constant() - rs.source[1].union.get_constant(),
-                Opcode::MUL => result = rs.source[0].union.get_constant() * rs.source[1].union.get_constant(),
-                Opcode::DIV => result = rs.source[0].union.get_constant() / rs.source[1].union.get_constant(),
-                Opcode::MOD => result = rs.source[0].union.get_constant() % rs.source[1].union.get_constant(),
-                Opcode::INC => result = rs.source[0].union.get_constant() + 1,
-                Opcode::DEC => result = rs.source[0].union.get_constant() - 1,
-                Opcode::NEG => result = -rs.source[0].union.get_constant(),
-                Opcode::AND => result = rs.source[0].union.get_constant() & rs.source[1].union.get_constant(),
-                Opcode::OR => result = rs.source[0].union.get_constant() | rs.source[1].union.get_constant(),
-                Opcode::XOR => result = rs.source[0].union.get_constant() ^ rs.source[1].union.get_constant(),
-                Opcode::NOT => result = !rs.source[0].union.get_constant(),
-                Opcode::MOV => result = rs.source[0].union.get_constant(),
-                Opcode::LOAD => result = memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize],
+                Opcode::ADD => rob_slot.result.push(rs.source[0].union.get_constant() + rs.source[1].union.get_constant()),
+                Opcode::SUB => rob_slot.result.push(rs.source[0].union.get_constant() - rs.source[1].union.get_constant()),
+                Opcode::MUL => rob_slot.result.push(rs.source[0].union.get_constant() * rs.source[1].union.get_constant()),
+                Opcode::DIV => rob_slot.result.push(rs.source[0].union.get_constant() / rs.source[1].union.get_constant()),
+                Opcode::MOD => rob_slot.result.push(rs.source[0].union.get_constant() % rs.source[1].union.get_constant()),
+                Opcode::INC => rob_slot.result.push(rs.source[0].union.get_constant() + 1),
+                Opcode::DEC => rob_slot.result.push(rs.source[0].union.get_constant() - 1),
+                Opcode::NEG => rob_slot.result.push(-rs.source[0].union.get_constant()),
+                Opcode::AND => rob_slot.result.push(rs.source[0].union.get_constant() & rs.source[1].union.get_constant()),
+                Opcode::OR => rob_slot.result.push(rs.source[0].union.get_constant() | rs.source[1].union.get_constant()),
+                Opcode::XOR => rob_slot.result.push(rs.source[0].union.get_constant() ^ rs.source[1].union.get_constant()),
+                Opcode::NOT => rob_slot.result.push(!rs.source[0].union.get_constant()),
+                Opcode::MOV => rob_slot.result.push(rs.source[0].union.get_constant()),
+                Opcode::LOAD => rob_slot.result.push(memory_subsystem.memory[rs.source[0].union.get_memory_addr() as usize]),
                 Opcode::STORE => {}
                 Opcode::PRINTR => {
                     println!("PRINTR R{}={}", instr.source[0].union.get_register(), rs.source[0].union.get_constant());
@@ -139,44 +145,51 @@ impl Backend {
                     frontend_control.halted = false;
                 }
                 Opcode::PUSH => {
-                    let rsp = rs.source[0].union.get_constant();
+                    let value = rs.source[0].union.get_constant();
+                    let stack_index = rs.source[1].union.get_constant();
 
-                    let value = rs.source[1].union.get_constant();
+                    if stack_index as usize == self.stack_capacity as usize {
+                        panic!("Ran out of stack");
+                    }
 
-                    // todo: at which point do we want to update the stack? I guess it should be done at retiring
-
-                    // this will update the rsp
-                    result = rsp + 1;
+                    self.stack[stack_index as usize] = value;
+                    rob_slot.result.push(stack_index + 1);
                 }
                 Opcode::POP => {
-                    // todo: we have 2 sink operands, the rsp and the register with the value popped
+                    let stack_index = (rs.source[0].union.get_constant() - 1) as WordType;
+                    rob_slot.result.push(self.stack[stack_index as usize]);
+                    rob_slot.result.push(stack_index);
                 }
             }
 
             let eu_index = eu.index;
             eu_table.deallocate(eu_index);
 
-            match rs.sink.op_type {
-                OpType::REGISTER => {
-                    let phys_reg = rs.sink.union.get_register();
-                    let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
-                    phys_reg_entry.has_value = true;
-                    phys_reg_entry.value = result;
-                    cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
+            for sink_index in 0..rs.sink_cnt {
+                let sink = rs.sink[sink_index as usize];
+                match sink.op_type {
+                    OpType::REGISTER => {
+                        let phys_reg = sink.union.get_register();
+                        let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
+                        phys_reg_entry.has_value = true;
+                        let result = rob_slot.result[sink_index as usize];
+                        phys_reg_entry.value = result;
+                        cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
+                    }
+                    OpType::MEMORY => {
+                        let result = rob_slot.result[sink_index as usize];
+                        // a store to memory
+                        memory_subsystem.sb.store(rs.sb_pos, sink.union.get_memory_addr(), result);
+                    }
+                    OpType::CONSTANT => panic!("Constants can't be sinks."),
+                    OpType::CODE => panic!("Code can't be sinks."),
+                    OpType::UNUSED => {}
                 }
-                OpType::MEMORY => {
-                    // a store to memory
-                    memory_subsystem.sb.store(rs.sb_pos, rs.sink.union.get_memory_addr(), result);
-                }
-                OpType::CONSTANT => panic!("Constants can't be sinks."),
-                OpType::CODE => panic!("Code can't be sinks."),
-                OpType::UNUSED => {}
             }
 
             rs.state = RSState::FREE;
             rs_table.deallocate(rs_index);
 
-            rob_slot.result = result;
             rob_slot.state = ROBSlotState::EXECUTED;
         }
 
@@ -235,24 +248,25 @@ impl Backend {
                 println!("Retiring {}", instr);
             }
 
-            if instr.sink.op_type == OpType::REGISTER {
-                let arch_reg = instr.sink.union.get_register();
+            for sink_index in 0..instr.sink_cnt {
+                let sink = instr.sink[sink_index as usize];
+                if sink.op_type == OpType::REGISTER {
+                    let arch_reg = sink.union.get_register();
 
-                let rat_entry = rat.get_mut(arch_reg);
-                let rat_phys_reg = rat_entry.phys_reg;
-                let rs_phys_reg = rob_slot.sink.union.get_register();
+                    let rat_entry = rat.get_mut(arch_reg);
+                    let rat_phys_reg = rat_entry.phys_reg;
+                    let rs_phys_reg = rob_slot.sink[sink_index as usize].union.get_register();
 
-                // only when the physical register os the rat is the same as te physical register used for that
-                // instruction, the rat entry should be invalidated
-                if rat_phys_reg == rs_phys_reg {
-                    rat_entry.valid = false;
+                    // only when the physical register on the rat is the same as te physical register used for that
+                    // instruction, the rat entry should be invalidated
+                    if rat_phys_reg == rs_phys_reg {
+                        rat_entry.valid = false;
+                    }
+
+                    phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+                    phys_reg_file.deallocate(rs_phys_reg);
+                    arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index as usize]);
                 }
-
-                phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-
-
-                phys_reg_file.deallocate(rs_phys_reg);
-                arch_reg_file.set_value(arch_reg, rob_slot.result);
             }
         }
     }
@@ -287,7 +301,7 @@ impl Backend {
             eu.cycles_remaining = instr.cycles;
 
             if self.trace {
-                println!("Dispatched {}", instr);
+                println!("Dispatched [{}]", instr);
             }
         }
     }
@@ -316,7 +330,7 @@ impl Backend {
             let rob_slot = rob.get_mut(rob_slot_index);
 
             if self.trace {
-                println!("issue: Issued {}", instr);
+                println!("issue: Issued [{}]", instr);
             }
 
             rob_slot.state = ROBSlotState::ISSUED;
@@ -335,21 +349,19 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            let instr_sink = &instr.sink;
-            if instr_sink.op_type == OpType::MEMORY && !memory_subsystem.sb.has_space() {
+            if instr.mem_stores>0 && !memory_subsystem.sb.has_space() {
                 // we can't allocate a slot in the store buffer, we are done
                 break;
             }
 
             let rs_index = rs_table.allocate();
             let mut rs = rs_table.get_mut(rs_index);
-            let rs_sink = &mut rs.sink;
 
             if self.trace {
-                println!("issue: Issued found RS {}", instr);
+                println!("issue: Issued found RS [{}]", instr);
             }
             rob_slot.state = ROBSlotState::ISSUED;
-            rob_slot.result = 0;
+            rob_slot.result.clear();
             rob_slot.rs_index = rs_index;
 
             rs.rob_slot_index = rob_slot_index;
@@ -396,35 +408,39 @@ impl Backend {
                 }
             }
 
-            match instr_sink.op_type {
-                OpType::REGISTER => {
-                    let arch_reg = instr_sink.union.get_register();
-                    let phys_reg = phys_reg_file.allocate();
-                    // update the RAT entry to point to the newest phys_reg
-                    let rat_entry = rat.get_mut(arch_reg);
-                    rat_entry.phys_reg = phys_reg;
-                    rat_entry.valid = true;
+            rs.sink_cnt = instr.sink_cnt;
+            for sink_index in 0..instr.sink_cnt {
+                let instr_sink = instr.sink[sink_index as usize];
+                match instr_sink.op_type {
+                    OpType::REGISTER => {
+                        let arch_reg = instr_sink.union.get_register();
+                        let phys_reg = phys_reg_file.allocate();
+                        // update the RAT entry to point to the newest phys_reg
+                        let rat_entry = rat.get_mut(arch_reg);
+                        rat_entry.phys_reg = phys_reg;
+                        rat_entry.valid = true;
 
-                    // Update the sink on the RS.
-                    rs_sink.op_type = OpType::REGISTER;
-                    rs_sink.union = OpUnion::Register(phys_reg);
-                }
-                OpType::MEMORY => {
-                    rs.sink = *instr_sink;
-                    // since the instructions are issued in program order, a slot is allocated in the
-                    // sb in program order. And since sb will commit to the coherent cache
-                    // (in this case directly to memory), the stores will become visible
-                    // in program order.
-                    rs.sb_pos = memory_subsystem.sb.allocate();
-                }
-                OpType::UNUSED => {
-                    rs.sink = *instr_sink;
-                }
-                OpType::CONSTANT => {
-                    panic!("Can't have a constant as sink {}", rs_sink)
-                }
-                OpType::CODE => {
-                    panic!("Can't have a code address as sink {}", rs_sink)
+                        // Update the sink on the RS.
+                        rs.sink[sink_index as usize].op_type = OpType::REGISTER;
+                        rs.sink[sink_index as usize].union = OpUnion::Register(phys_reg);
+                    }
+                    OpType::MEMORY => {
+                        rs.sink[sink_index as usize] = instr_sink;
+                        // since the instructions are issued in program order, a slot is allocated in the
+                        // sb in program order. And since sb will commit to the coherent cache
+                        // (in this case directly to memory), the stores will become visible
+                        // in program order.
+                        rs.sb_pos = memory_subsystem.sb.allocate();
+                    }
+                    OpType::UNUSED => {
+                        rs.sink[sink_index as usize] = instr_sink;
+                    }
+                    OpType::CONSTANT => {
+                        panic!("Can't have a constant as sink {}", instr.sink[sink_index as usize])
+                    }
+                    OpType::CODE => {
+                        panic!("Can't have a code address as sink {}", instr.sink[sink_index as usize])
+                    }
                 }
             }
             rob_slot.sink = rs.sink;

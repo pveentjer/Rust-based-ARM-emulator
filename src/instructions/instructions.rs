@@ -1,5 +1,3 @@
-
-
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
@@ -94,7 +92,7 @@ pub(crate) const NOP: Instr = create_NOP(-1);
 pub(crate) type RegisterType = u16;
 pub(crate) type MemoryAddressType = u64;
 pub(crate) type CodeAddressType = u64;
-pub(crate) type WordType = i32;
+pub(crate) type WordType = i64;
 
 // The InstrQueue sits between frontend and backend
 // The 'a lifetime specifier tells that the instructions need to live as least as long
@@ -154,7 +152,7 @@ impl InstrQueue {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum OpType {
     REGISTER,
     MEMORY,
@@ -165,14 +163,17 @@ pub(crate) enum OpType {
 
 // The maximum number of source (input) operands for an instruction.
 pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
+pub(crate) const MAX_SINK_COUNT: u8 = 2;
 
 pub(crate) struct Instr {
     pub(crate) cycles: u8,
     pub(crate) opcode: Opcode,
-    pub(crate) sink: Operand,
     pub(crate) source_cnt: u8,
     pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
+    pub(crate) sink_cnt: u8,
+    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
     pub(crate) line: i32,
+    pub(crate) mem_stores: u8,
 }
 
 impl fmt::Display for Instr {
@@ -183,8 +184,9 @@ impl fmt::Display for Instr {
             write!(f, " {}", self.source[k as usize])?;
         }
 
-        if self.sink.op_type != OpType::UNUSED {
-            write!(f, " {}", self.sink)?;
+
+        for k in 0..self.sink_cnt {
+            write!(f, " {}", self.sink[k as usize])?;
         }
 
         if self.line > 0 {
@@ -199,7 +201,27 @@ impl fmt::Display for Instr {
 pub(crate) struct Operand {
     pub(crate) op_type: OpType,
     pub(crate) union: OpUnion,
+
 }
+
+impl Operand {
+    pub const fn new_unused() -> Self {
+        Self { op_type: OpType::UNUSED, union: OpUnion::Unused }
+    }
+
+    pub const fn new_register(reg: RegisterType) -> Self {
+        Self { op_type: OpType::REGISTER, union: OpUnion::Register(reg) }
+    }
+
+    pub const fn new_code(address: CodeAddressType) -> Self {
+        Self { op_type: OpType::CODE, union: OpUnion::Code(address) }
+    }
+
+    pub const fn new_memory(address: MemoryAddressType) -> Self {
+        Self { op_type: OpType::MEMORY, union: OpUnion::Memory(address) }
+    }
+}
+
 
 impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -226,32 +248,42 @@ impl OpUnion {
     pub(crate) fn get_register(&self) -> RegisterType {
         match self {
             OpUnion::Register(reg) => *reg,
-            _ => panic!(),
+            _ => panic!("OpUnion is not a Register but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_constant(&self) -> WordType {
         match self {
             OpUnion::Constant(constant) => *constant,
-            _ => panic!(),
+            _ => panic!("OpUnion is not a Constant but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_code_address(&self) -> CodeAddressType {
         match self {
             OpUnion::Code(constant) => *constant,
-            _ => panic!(),
+            _ => panic!("OpUnion is not a Code but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_memory_addr(&self) -> MemoryAddressType {
         match self {
             OpUnion::Memory(addr) => *addr,
-            _ => panic!(),
+            _ => panic!("OpUnion is not a Memory but of type {:?}", self),
         }
     }
+}
 
-    // Implement similar functions for other variants as needed
+impl fmt::Debug for OpUnion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            OpUnion::Register(reg) => write!(f, "Register({:?})", reg),
+            OpUnion::Constant(c) => write!(f, "Constant({:?})", c),
+            OpUnion::Code(addr) => write!(f, "Code({:?})", addr),
+            OpUnion::Memory(addr) => write!(f, "Memory({:?})", addr),
+            OpUnion::Unused => write!(f, "Unused"),
+        }
+    }
 }
 
 pub(crate) struct Data {
@@ -274,113 +306,15 @@ impl Program {
     }
 }
 
-pub(crate) fn create_reg_bi_Instr(opcode: Opcode, src_1: RegisterType, src_2: RegisterType, sink: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: opcode,
-        source_cnt: 2,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_1) },
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_2) }],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
-        line,
-    }
-}
-
-pub(crate) fn create_reg_mono_Instr(opcode: Opcode, src: RegisterType, dst: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(dst) },
-        line,
-    }
-}
-
-pub(crate) fn create_LOAD(addr: MemoryAddressType, sink: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::LOAD,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(sink) },
-        line,
-    }
-}
-
-pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::MOV,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src_reg) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(dst_reg) },
-        line,
-    }
-}
-
-pub(crate) fn create_STORE(src: RegisterType, addr: MemoryAddressType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::STORE,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::MEMORY, union: OpUnion::Memory(addr) },
-        line,
-    }
-}
-
 pub(crate) const fn create_NOP(line: i32) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::NOP,
         source_cnt: 0,
-        source: [
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+        source: [Operand::new_unused(), Operand::new_unused()],
+        sink_cnt: 0,
+        sink: [Operand::new_unused(), Operand::new_unused()],
         line,
-    }
-}
-
-pub(crate) const fn create_PRINTR(reg: RegisterType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::PRINTR,
-        source_cnt: 1,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-            Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-        ],
-        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
-        line,
-    }
-}
-
-pub(crate) const fn create_cond_jump_instr(reg: RegisterType, address: CodeAddressType, opcode: Opcode, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode,
-        source_cnt: 2,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-            Operand { op_type: OpType::CODE, union: OpUnion::Code(address) }
-        ],
-        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
-        line,
+        mem_stores: 0,
     }
 }

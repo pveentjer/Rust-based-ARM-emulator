@@ -7,6 +7,9 @@
     LOAD [a] R0
 again:
     PRINTR R0
+    PUSH R0
+    POP R1
+    PRINTR R1
     DEC R0
     JNZ R0 again
     LOAD [b] R1

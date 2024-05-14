@@ -26,7 +26,7 @@ fn main() {
         retire_n_wide: 1,
         dispatch_n_wide: 1,
         issue_n_wide: 1,
-        stack_size: 32,
+        stack_capacity: 32,
     };
 
     let program = Rc::new(load(cpu_config.clone(),"program.asm",));

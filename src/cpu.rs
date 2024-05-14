@@ -7,7 +7,6 @@ use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
-const ADDITIONAL_REGS:u16 = 1;
 
 #[derive(Clone)]
 pub(crate) struct CPUConfig {
@@ -44,7 +43,7 @@ pub(crate) struct CPUConfig {
     // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
     pub(crate) issue_n_wide: u8,
     // The size of the stack
-    pub(crate) stack_size: u32,
+    pub(crate) stack_capacity: u32,
 }
 
 pub(crate) struct CPU {
@@ -66,7 +65,7 @@ impl CPU {
 
 
         let arch_reg_file = Rc::new(RefCell::new(
-            ArgRegFile::new(cpu_config.arch_reg_count + ADDITIONAL_REGS)));
+            ArgRegFile::new(cpu_config.arch_reg_count + RESERVED_ARG_REGS_CNT)));
 
         let mut frontend_control = Rc::new(RefCell::new(
             FrontendControl{ip_next_fetch:-1, halted:false}));
@@ -119,6 +118,9 @@ impl CPU {
     }
 }
 
+pub const RESERVED_ARG_REGS_CNT:u16 = 1;
+pub const ARCH_REG_RSP_OFFSET: u16 = 0;
+
 struct ArgRegEntry {
     pub(crate) value: WordType,
 }
@@ -126,6 +128,7 @@ struct ArgRegEntry {
 pub struct ArgRegFile {
     entries: Vec<ArgRegEntry>,
 }
+
 
 impl ArgRegFile {
     fn new(rs_count: u16) -> ArgRegFile {

@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
-use crate::instructions::instructions::{mnemonic, Opcode, Operand, OpType, OpUnion};
+use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand, OpType};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum RSState {
@@ -9,14 +9,14 @@ pub enum RSState {
 }
 
 pub struct RS {
-    pub(crate) opcode: Opcode,
-    pub(crate) state: RSState,
-    pub(crate) sink: Operand,
-    pub(crate) source_cnt: u8,
-    pub(crate) source: [Operand; crate::instructions::instructions::MAX_SOURCE_COUNT as usize],
-    pub(crate) source_ready_cnt: u8,
     pub(crate) sb_pos: u16,
-    pub(crate) rob_slot_index: u16,
+    pub(crate) rob_slot_index: u16,  pub(crate) opcode: Opcode,
+    pub(crate) state: RSState,
+    pub(crate) source_cnt: u8,
+    pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
+    pub(crate) source_ready_cnt: u8,
+    pub(crate) sink_cnt: u8,
+    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
 }
 
 impl RS {
@@ -25,12 +25,10 @@ impl RS {
             opcode: Opcode::NOP,
             state: RSState::FREE,
             source_cnt: 0,
-            source: [
-                Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
-                Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
-            ],
+            source: [Operand::new_unused(), Operand::new_unused()],
             source_ready_cnt: 0,
-            sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
+            sink_cnt: 0,
+            sink: [Operand::new_unused(), Operand::new_unused()],
             sb_pos: 0,
             rob_slot_index: 0,
         }
@@ -46,8 +44,8 @@ impl Display for RS {
             write!(f, " {}", self.source[k as usize])?;
         }
 
-        if self.sink.op_type != OpType::UNUSED {
-            write!(f, " {}", self.sink)?;
+        for k in 0..self.sink_cnt {
+            write!(f, " {}", self.sink[k as usize])?;
         }
 
         Ok(())
