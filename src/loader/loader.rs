@@ -10,7 +10,7 @@ use crate::instructions::instructions::{CodeAddressType, create_reg_bi_Instr, cr
 
 
 #[derive(Parser)]
-#[grammar = "assembly.pest"]
+#[grammar = "loader/assembly.pest"]
 struct AssemblyParser;
 
 struct Loader {
@@ -21,7 +21,6 @@ struct Loader {
     data_section: HashMap::<String, Rc<Data>>,
     labels: HashMap<String, usize>,
 }
-
 
 impl Loader {
     fn load(&mut self) -> Program {
@@ -277,7 +276,7 @@ fn is_valid_variable_name(name: &String) -> bool {
 }
 
 // for the time being we always return the same program
-pub(crate) fn load(cpu_config: CPUConfig, path: &str) -> Program {
+pub fn load(cpu_config: CPUConfig, path: &str) -> Program {
     let mut loader = Loader {
         heap_size: 0,
         cpu_config,

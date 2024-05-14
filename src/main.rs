@@ -5,10 +5,9 @@ mod backend;
 mod instructions;
 mod memory_subsystem;
 
-
 use std::rc::Rc;
 use crate::cpu::{CPU, CPUConfig};
-use crate::loader::load;
+use crate::loader::loader::load;
 
 fn main() {
    let cpu_config = CPUConfig {
