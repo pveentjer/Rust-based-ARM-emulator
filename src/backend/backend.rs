@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::fmt::Display;
 use crate::cpu::{ArgRegFile, CPUConfig};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, OpType, OpUnion, RegisterType, WordType};

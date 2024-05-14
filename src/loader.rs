@@ -6,7 +6,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
 use crate::cpu::CPUConfig;
-use crate::instructions::instructions::{CodeAddressType, create_JNZ, create_JZ, create_LOAD, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr, Operand, OpType, OpUnion, get_opcode};
+use crate::instructions::instructions::{CodeAddressType, create_reg_bi_Instr, create_NOP, create_PRINTR, create_STORE, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, create_reg_mono_Instr, Operand, OpType, OpUnion, get_opcode, create_cond_jump_instr};
 
 
 #[derive(Parser)]
@@ -55,12 +55,13 @@ impl Loader {
                         Rule::instr_OR => self.parse_register_bi_instr(pair, Opcode::OR),
                         Rule::instr_XOR => self.parse_register_bi_instr(pair, Opcode::XOR),
                         Rule::instr_NOT => self.parse_reg_self_instr(pair, Opcode::NOT),
-                        Rule::instr_NOP => self.parse_reg_mono_instr(pair, Opcode::MOV),
+                        Rule::instr_NOP => self.parse_NOP(pair),
                         Rule::instr_MOV => self.parse_reg_mono_instr(pair, Opcode::MOV),
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
                         Rule::instr_LOAD => self.parse_LOAD(pair),
                         Rule::instr_STORE => self.parse_STORE(pair),
-                        Rule::instr_JNZ => self.parse_JNZ(pair),
+                        Rule::instr_JNZ => self.parse_cond_jump(pair, Opcode::JNZ),
+                        Rule::instr_JZ => self.parse_cond_jump(pair, Opcode::JZ),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
                 }
@@ -189,7 +190,7 @@ impl Loader {
         self.code.push(Rc::new(instr))
     }
 
-    fn parse_JNZ(&mut self, pair: Pair<Rule>) {
+    fn parse_cond_jump(&mut self, pair: Pair<Rule>, opcode: Opcode) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
@@ -203,31 +204,10 @@ impl Loader {
         }
 
         let offset = code_offset_option.unwrap();
-        let instr = create_JNZ(
+        let instr = create_cond_jump_instr(
             register,
             *offset as CodeAddressType,
-            line_column.0 as i32);
-        self.code.push(Rc::new(instr));
-    }
-
-    // todo: merge with parse_JNZ
-    fn parse_JN(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let register = self.parse_register(&inner_pairs.next().unwrap());
-
-        let label = String::from(inner_pairs.next().unwrap().as_str());
-
-        let code_offset_option = self.labels.get(&label);
-        if code_offset_option.is_none() {
-            panic!("Unknown label '{}' at {}:{}", label, line_column.0, line_column.1);
-        }
-
-        let offset = code_offset_option.unwrap();
-        let instr = create_JZ(
-            register,
-            *offset as CodeAddressType,
+            opcode,
             line_column.0 as i32);
         self.code.push(Rc::new(instr));
     }
@@ -250,7 +230,6 @@ impl Loader {
         self.data_section.insert(variable_name.clone(), Rc::new(Data { value, offset: self.heap_size }));
         self.heap_size += 1;
     }
-
 
     fn get_line_column(&mut self, pair: &Pair<Rule>) -> (usize, usize) {
         let start_pos = pair.as_span().start_pos();

@@ -296,7 +296,7 @@ pub(crate) fn create_reg_mono_Instr(opcode: Opcode, src: RegisterType, dst: Regi
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
             Operand { op_type: OpType::UNUSED, union: OpUnion::Unused }
         ],
-        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(src) },
+        sink: Operand { op_type: OpType::REGISTER, union: OpUnion::Register(dst) },
         line,
     }
 }
@@ -314,7 +314,6 @@ pub(crate) fn create_LOAD(addr: MemoryAddressType, sink: RegisterType, line: i32
         line,
     }
 }
-
 
 pub(crate) fn create_MOV(src_reg: RegisterType, dst_reg: RegisterType, line: i32) -> Instr {
     Instr {
@@ -372,10 +371,10 @@ pub(crate) const fn create_PRINTR(reg: RegisterType, line: i32) -> Instr {
     }
 }
 
-pub(crate) const fn create_JNZ(reg: RegisterType, address: CodeAddressType, line: i32) -> Instr {
+pub(crate) const fn create_cond_jump_instr(reg: RegisterType, address: CodeAddressType, opcode: Opcode, line: i32) -> Instr {
     Instr {
         cycles: 1,
-        opcode: Opcode::JNZ,
+        opcode,
         source_cnt: 2,
         source: [
             Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
@@ -385,18 +384,3 @@ pub(crate) const fn create_JNZ(reg: RegisterType, address: CodeAddressType, line
         line,
     }
 }
-
-pub(crate) const fn create_JZ(reg: RegisterType, address: CodeAddressType, line: i32) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::JZ,
-        source_cnt: 2,
-        source: [
-            Operand { op_type: OpType::REGISTER, union: OpUnion::Register(reg) },
-            Operand { op_type: OpType::CODE, union: OpUnion::Code(address) }
-        ],
-        sink: Operand { op_type: OpType::UNUSED, union: OpUnion::Unused },
-        line,
-    }
-}
-
