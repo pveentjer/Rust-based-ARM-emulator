@@ -1,8 +1,8 @@
 use std::rc::Rc;
+
 use crate::cpu::CPUConfig;
 use crate::instructions::instructions::{Program, WordType};
 use crate::memory_subsystem::store_buffer::StoreBuffer;
-
 
 pub(crate) struct MemorySubsystem {
     pub(crate) memory: Vec<WordType>,

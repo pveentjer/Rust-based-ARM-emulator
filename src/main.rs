@@ -1,13 +1,14 @@
+use std::rc::Rc;
+
+use crate::cpu::{CPU, CPUConfig, Trace};
+use crate::loader::loader::load;
+
 mod cpu;
 mod loader;
 mod frontend;
 mod backend;
 mod instructions;
 mod memory_subsystem;
-
-use std::rc::Rc;
-use crate::cpu::{CPU, CPUConfig, Trace};
-use crate::loader::loader::load;
 
 fn main() {
     let cpu_config = CPUConfig {

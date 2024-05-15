@@ -1,15 +1,15 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::backend::execution_unit::EUTable;
+use crate::backend::physical_register::PhysRegFile;
+use crate::backend::register_alias_table::RAT;
+use crate::backend::reorder_buffer::{ROB, ROBSlotState};
+use crate::backend::reservation_station::{RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
-
-use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reservation_station::{RSState, RSTable};
-use crate::backend::physical_register::PhysRegFile;
-use crate::backend::execution_unit::EUTable;
-use crate::backend::register_alias_table::RAT;
 
 struct CDBBroadcast {
     phys_reg: RegisterType,
@@ -34,7 +34,7 @@ pub struct Backend {
     stack: Vec<WordType>,
     stack_capacity: u32,
     pub(crate) exit: bool,
-    perf_counters:Rc<RefCell<PerfCounters>>,
+    perf_counters: Rc<RefCell<PerfCounters>>,
 }
 
 impl Backend {
@@ -221,7 +221,7 @@ impl Backend {
             self.rs_table.deallocate(rs_index);
 
             rob_slot.state = ROBSlotState::EXECUTED;
-            perf_monitors.execute_cnt+=1;
+            perf_monitors.execute_cnt += 1;
         }
     }
 
@@ -286,7 +286,7 @@ impl Backend {
                 println!("Retiring {}", instr);
             }
 
-            perf_monitors.retire_cnt+=1;
+            perf_monitors.retire_cnt += 1;
 
             for sink_index in 0..instr.sink_cnt as usize {
                 let sink = instr.sink[sink_index];
@@ -339,7 +339,7 @@ impl Backend {
                 println!("Dispatched [{}]", instr);
             }
 
-            perf_monitors.dispatch_cnt+=1;
+            perf_monitors.dispatch_cnt += 1;
         }
     }
 
@@ -371,7 +371,7 @@ impl Backend {
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
 
-            perf_monitors.issue_cnt+=1;
+            perf_monitors.issue_cnt += 1;
         }
 
         // try to put as many instructions from the rob, into reservation stations

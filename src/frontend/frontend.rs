@@ -1,8 +1,8 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::cpu::{CPUConfig, PerfCounters, Trace};
 use crate::instructions::instructions::{InstrQueue, is_control, Opcode, Program};
-
 
 pub(crate) struct FrontendControl {
     pub(crate) ip_next_fetch: i64,
@@ -25,7 +25,6 @@ impl Frontend {
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>,
     ) -> Frontend {
-
         Frontend {
             instr_queue,
             n_wide: cpu_config.frontend_n_wide,
@@ -88,7 +87,7 @@ impl Frontend {
                         return;
                     }
                     frontend_control.ip_next_fetch += 1;
-                    perf_counters.decode_cnt+=1;
+                    perf_counters.decode_cnt += 1;
                 }
             }
         }

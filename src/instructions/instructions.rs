@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Clone, Copy, PartialEq,Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Opcode {
     ADD,
     SUB,
@@ -202,7 +202,6 @@ impl fmt::Display for Instr {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Operand {
-
     Register(RegisterType),
     // The operand is directly specified in the instruction itself.
     Immediate(WordType),
@@ -211,14 +210,13 @@ pub(crate) enum Operand {
 
     Code(CodeAddressType),
 
-
     Unused,
 }
 
 //Indexed(u8, i16),   // Indexed addressing mode (base register and offset).
 //Indirect(u8),
 
-impl Operand{
+impl Operand {
     pub(crate) fn get_register(&self) -> RegisterType {
         match *self {
             Operand::Register(reg) => reg,

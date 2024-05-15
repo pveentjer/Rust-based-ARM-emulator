@@ -1,10 +1,11 @@
 use std::cell::RefCell;
-use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordType};
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
+
 use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
+use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 #[derive(Clone)]

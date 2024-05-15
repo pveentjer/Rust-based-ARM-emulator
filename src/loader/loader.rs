@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
-use pest::iterators::{Pair};
+
+use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
-use crate::cpu::{ARCH_REG_RSP_OFFSET, CPUConfig};
-use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, Operand, get_opcode};
-use crate::instructions::instructions::Operand::Code;
 
+use crate::cpu::{ARCH_REG_RSP_OFFSET, CPUConfig};
+use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, get_opcode, Instr, MemoryAddressType, Opcode, Operand, Program, RegisterType};
+use crate::instructions::instructions::Operand::Code;
 
 #[derive(Parser)]
 #[grammar = "loader/assembly.pest"]
@@ -30,7 +31,7 @@ struct Unresolved {
 }
 
 impl Loader {
-    fn load(&mut self)  {
+    fn load(&mut self) {
         let path = &self.path;
         let input = match fs::read_to_string(path) {
             Ok(content) => content,
@@ -86,9 +87,9 @@ impl Loader {
         for unresolved in &self.unresolved_vec {
             let mut instr = &mut self.code[unresolved.index];
             if let Some(&address) = self.labels.get(&unresolved.label) {
-                for source_index in 0..instr.source_cnt as usize{
+                for source_index in 0..instr.source_cnt as usize {
                     let source = &mut instr.source[source_index as usize];
-                    if let Operand::Code(code_address) = source{
+                    if let Operand::Code(code_address) = source {
                         if *code_address == 0 {
                             instr.source[source_index] = Code(address as CodeAddressType);
                         }
@@ -460,12 +461,12 @@ pub fn load(cpu_config: CPUConfig, path: &str) -> Program {
     loader.load();
 
     let mut code = Vec::with_capacity(loader.code.len());
-    for k in 0..loader.code.len(){
+    for k in 0..loader.code.len() {
         let instr = *loader.code.get(k).unwrap();
         code.push(Rc::new(instr));
     }
 
     println!("code.len: {}", code.len());
 
-    return Program{code, data_items:loader.data_section.clone()}
+    return Program { code, data_items: loader.data_section.clone() };
 }

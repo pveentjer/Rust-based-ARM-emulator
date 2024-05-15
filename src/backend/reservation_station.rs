@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
+
 use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
 
 #[derive(Clone, Copy, PartialEq)]

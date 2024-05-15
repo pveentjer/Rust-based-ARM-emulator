@@ -1,4 +1,5 @@
 use std::rc::Rc;
+
 use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType};
 
 #[derive(Clone, Copy, PartialEq)]
