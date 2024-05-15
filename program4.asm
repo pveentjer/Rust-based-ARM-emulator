@@ -1,3 +1,7 @@
+; dooo
+
+            ; fooo ss;ssk
+
 .data
     a 10
 .code
@@ -28,14 +32,18 @@ again:
     NOP
     NOP
     NOP
+
+; doo
+
     NOP
     NOP
     NOP
     NOP
+
     NOP
     NOP
     NOP
-    NOP
+    NOP ; comments
     NOP
     NOP
     NOP

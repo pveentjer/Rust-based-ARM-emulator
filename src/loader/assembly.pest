@@ -2,6 +2,8 @@ whitespace = _{ (" " | "\t")+ }
 
 new_line = _{ "\n" }
 
+empty_line = _{ whitespace? ~ comment? ~ new_line }
+
 alpha = { 'a'..'z' | 'A'..'Z' }
 
 digit = { '0'..'9' }
@@ -20,17 +22,18 @@ integer = { digit+ }
 
 file = _{ SOI ~ assembly ~ EOI }
 
-assembly = _{ data_section ~ code_section }
+assembly = _{ empty_line* ~ data_section? ~ code_section }
 
 data_section = _{ whitespace? ~ ".data" ~ whitespace? ~ comment? ~ data_line*}
 
-data_line =  _{new_line ~ whitespace? ~ data ~ whitespace? ~ comment?}
+data_line = _{ new_line ~ whitespace? ~ data ~ whitespace? ~ comment?}
 
 data = { variable_name ~ whitespace ~ integer}
 
-code_section = _{ new_line ~  whitespace? ~ ".code" ~ whitespace? ~ comment? ~ code_line* }
+code_section = _{ new_line ~  whitespace? ~ ".code" ~ whitespace? ~ comment? ~ (code_line | empty_line)* }
 
 code_line = _{ new_line ~ whitespace? ~ ( instr | label ) ~ whitespace? ~ comment? }
+
 
 label = { label_name ~ ":" }
 
