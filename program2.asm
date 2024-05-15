@@ -1,5 +1,9 @@
 .data
 a 10
 .code
-LOAD [a] R1
-PRINTR R1
+LOAD [a] R0
+again:
+PRINTR R0
+DEC R0
+JNZ R0 again
+EXIT

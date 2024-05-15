@@ -7,6 +7,7 @@ use pest_derive::Parser;
 use regex::Regex;
 use crate::cpu::{ARCH_REG_RSP_OFFSET, CPUConfig};
 use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, Operand, get_opcode};
+use crate::instructions::instructions::Operand::CodeAddress;
 
 
 #[derive(Parser)]
@@ -17,13 +18,19 @@ struct Loader {
     cpu_config: CPUConfig,
     path: String,
     heap_size: MemoryAddressType,
-    code: Vec::<Rc<Instr>>,
+    code: Vec<Instr>,
     data_section: HashMap::<String, Rc<Data>>,
     labels: HashMap<String, usize>,
+    unresolved_vec: Vec<Unresolved>,
+}
+
+struct Unresolved {
+    index: usize,
+    label: String,
 }
 
 impl Loader {
-    fn load(&mut self) -> Program {
+    fn load(&mut self)  {
         let path = &self.path;
         let input = match fs::read_to_string(path) {
             Ok(content) => content,
@@ -55,6 +62,7 @@ impl Loader {
                         Rule::instr_XOR => self.parse_register_bi_instr(pair, Opcode::XOR),
                         Rule::instr_NOT => self.parse_reg_self_instr(pair, Opcode::NOT),
                         Rule::instr_NOP => self.parse_NOP(pair),
+                        Rule::instr_EXIT => self.parse_EXIT(pair),
                         Rule::instr_MOV => self.parse_reg_mono_instr(pair, Opcode::MOV),
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
                         Rule::instr_LOAD => self.parse_LOAD(pair),
@@ -63,6 +71,8 @@ impl Loader {
                         Rule::instr_POP => self.parse_POP(pair),
                         Rule::instr_JNZ => self.parse_cond_jump(pair, Opcode::JNZ),
                         Rule::instr_JZ => self.parse_cond_jump(pair, Opcode::JZ),
+                        Rule::instr_CALL => self.parse_CALL(pair),
+                        Rule::instr_RET => self.parse_RET(pair),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
                 }
@@ -72,7 +82,22 @@ impl Loader {
                 //  eprintln!("Parsing error: {}", err);
             }
         };
-        return Program::new(self.code.clone(), self.data_section.clone());
+
+        for unresolved in &self.unresolved_vec {
+            let mut instr = &mut self.code[unresolved.index];
+            if let Some(&address) = self.labels.get(&unresolved.label) {
+                for source_index in 0..instr.source_cnt as usize{
+                    let source = &mut instr.source[source_index as usize];
+                    if let Operand::CodeAddress(code_address) = source{
+                        if *code_address == 0 {
+                            instr.source[source_index] = CodeAddress(address as CodeAddressType);
+                        }
+                    }
+                }
+            } else {
+                panic!("Can't find label {} for instruction at line {}", unresolved.label, instr.line);
+            }
+        }
     }
 
     fn parse_label(&mut self, pair: Pair<Rule>) {
@@ -99,17 +124,16 @@ impl Loader {
         let src_2 = self.parse_register(&inner_pairs.next().unwrap());
         let sink = self.parse_register(&inner_pairs.next().unwrap());
         let line = line_column.0 as i32;
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode,
             source_cnt: 2,
-            source: [Operand::new_register(src_1), Operand::new_register(src_2)],
+            source: [Operand::Register(src_1), Operand::Register(src_2), Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::new_register(sink), Operand::new_unused()],
+            sink: [Operand::Register(sink), Operand::Unused],
             line,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_reg_self_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
@@ -117,17 +141,16 @@ impl Loader {
         let mut inner_pairs = pair.into_inner();
         let reg = self.parse_register(&inner_pairs.next().unwrap());
         let line = line_column.0 as i32;
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode,
             source_cnt: 1,
-            source: [Operand::new_register(reg), Operand::new_unused()],
+            source: [Operand::Register(reg), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::new_register(reg), Operand::new_unused()],
+            sink: [Operand::Register(reg), Operand::Unused],
             line,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_reg_mono_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
@@ -136,17 +159,16 @@ impl Loader {
         let src = self.parse_register(&inner_pairs.next().unwrap());
         let dst = self.parse_register(&inner_pairs.next().unwrap());
         let line = line_column.0 as i32;
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode,
             source_cnt: 1,
-            source: [Operand::new_register(src), Operand::new_unused()],
+            source: [Operand::Register(src), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::new_register(dst), Operand::new_unused()],
+            sink: [Operand::Register(dst), Operand::Unused],
             line,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_STORE(&mut self, pair: Pair<Rule>) {
@@ -166,17 +188,16 @@ impl Loader {
         let src = register as RegisterType;
         let addr = data.offset;
         let line = line_column.0 as i32;
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::STORE,
             source_cnt: 1,
-            source: [Operand::new_register(src), Operand::new_unused()],
+            source: [Operand::Register(src), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::new_memory(addr), Operand::new_unused()],
+            sink: [Operand::MemoryAddress(addr), Operand::Unused],
             line,
-            mem_stores:1,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 1,
+        });
     }
 
     fn parse_LOAD(&mut self, pair: Pair<Rule>) {
@@ -196,17 +217,16 @@ impl Loader {
         let addr = data.offset;
         let sink = register as RegisterType;
         let line = line_column.0 as i32;
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::LOAD,
             source_cnt: 1,
-            source: [Operand::new_memory(addr), Operand::new_unused()],
+            source: [Operand::MemoryAddress(addr), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::new_register(sink), Operand::new_unused()],
+            sink: [Operand::Register(sink), Operand::Unused],
             line,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_PRINTR(&mut self, pair: Pair<Rule>) {
@@ -215,17 +235,16 @@ impl Loader {
 
         let reg = self.parse_register(&inner_pairs.next().unwrap());
         let line = line_column.0 as i32;
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::PRINTR,
             source_cnt: 1,
-            source: [Operand::new_register(reg), Operand::new_unused()],
+            source: [Operand::Register(reg), Operand::Unused, Operand::Unused],
             sink_cnt: 0,
-            sink: [Operand::new_unused(), Operand::new_unused()],
+            sink: [Operand::Unused, Operand::Unused],
             line,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_PUSH(&mut self, pair: Pair<Rule>) {
@@ -236,17 +255,16 @@ impl Loader {
         let register = self.parse_register(&inner_pairs.next().unwrap());
         let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
 
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::PUSH,
             source_cnt: 2,
-            source: [Operand::new_register(register), Operand::new_register(rsp)],
+            source: [Operand::Register(register), Operand::Register(rsp), Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::new_register(rsp), Operand::new_unused()],
+            sink: [Operand::Register(rsp), Operand::Unused],
             line: line_column.0 as i32,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_POP(&mut self, pair: Pair<Rule>) {
@@ -257,23 +275,82 @@ impl Loader {
         let register = self.parse_register(&inner_pairs.next().unwrap());
         let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
 
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::POP,
             source_cnt: 1,
-            source: [Operand::new_register(rsp), Operand::new_unused()],
+            source: [Operand::Register(rsp), Operand::Unused, Operand::Unused],
             sink_cnt: 2,
-            sink: [Operand::new_register(register), Operand::new_register(rsp)],
+            sink: [Operand::Register(register), Operand::Register(rsp)],
             line: line_column.0 as i32,
-            mem_stores:0,
-        };
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
+
+    fn parse_CALL(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let label = String::from(inner_pairs.next().unwrap().as_str());
+
+        let address = match self.labels.get(&label) {
+            Some(code_address) => *code_address,
+            None => {
+                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
+                0
+            }
+        };
+
+        let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
+
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::CALL,
+            source_cnt: 2,
+            source: [Operand::Register(rsp), Operand::CodeAddress(address as CodeAddressType), Operand::Unused],
+            sink_cnt: 1,
+            sink: [Operand::Register(rsp), Operand::Unused],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+        });
+    }
+
+    fn parse_RET(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+
+        let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
+
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::RET,
+            source_cnt: 1,
+            source: [Operand::Register(rsp), Operand::Unused, Operand::Unused],
+            sink_cnt: 1,
+            sink: [Operand::Register(rsp), Operand::Unused],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+        });
+    }
+
 
     fn parse_NOP(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
-        let instr = create_NOP(line_column.0 as i32);
-        self.code.push(Rc::new(instr))
+        self.code.push(create_NOP(line_column.0 as i32));
+    }
+
+
+    fn parse_EXIT(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::EXIT,
+            source_cnt: 0,
+            source: [Operand::Unused, Operand::Unused, Operand::Unused],
+            sink_cnt: 0,
+            sink: [Operand::Unused, Operand::Unused],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+        });
     }
 
     fn parse_cond_jump(&mut self, pair: Pair<Rule>, opcode: Opcode) {
@@ -284,23 +361,24 @@ impl Loader {
 
         let label = String::from(inner_pairs.next().unwrap().as_str());
 
-        let address_option = self.labels.get(&label);
-        if address_option.is_none() {
-            panic!("Unknown label '{}' at {}:{}", label, line_column.0, line_column.1);
-        }
+        let address = match self.labels.get(&label) {
+            Some(code_address) => *code_address,
+            None => {
+                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
+                0
+            }
+        };
 
-        let instr = Instr {
+        self.code.push(Instr {
             cycles: 1,
             opcode,
             source_cnt: 2,
-            source: [Operand::new_register(register), Operand::new_code(*address_option.unwrap() as CodeAddressType)],
+            source: [Operand::Register(register), Operand::CodeAddress(address as CodeAddressType), Operand::Unused],
             sink_cnt: 0,
-            sink: [Operand::new_unused(), Operand::new_unused(), ],
+            sink: [Operand::Unused, Operand::Unused],
             line: line_column.0 as i32,
-            mem_stores:0,
-        };
-
-        self.code.push(Rc::new(instr));
+            mem_stores: 0,
+        });
     }
 
     fn parse_data(&mut self, pair: Pair<Rule>) {
@@ -373,10 +451,21 @@ pub fn load(cpu_config: CPUConfig, path: &str) -> Program {
         heap_size: 0,
         cpu_config,
         path: String::from(path),
-        code: Vec::<Rc<Instr>>::new(),
+        code: Vec::new(),
         data_section: HashMap::<String, Rc<Data>>::new(),
         labels: HashMap::<String, usize>::new(),
+        unresolved_vec: Vec::new(),
     };
 
-    return loader.load();
+    loader.load();
+
+    let mut code = Vec::with_capacity(loader.code.len());
+    for k in 0..loader.code.len(){
+        let instr = *loader.code.get(k).unwrap();
+        code.push(Rc::new(instr));
+    }
+
+    println!("code.len: {}", code.len());
+
+    return Program{code, data_items:loader.data_section.clone()}
 }

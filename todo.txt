@@ -1,23 +1,14 @@
 TODO
 
-- add construtor functions for operand to make it less tedious to write.
+- function calls
+
+- fix function call: push the instruction pointer in the stack (what about rbp)
 
 - store to load forwarding: currently the store in the sb isn't seen
 
 - loader: every instruction should have an optional label in front of it
 
 - loader: MOV direct value
-
-- add push
-
-- add pop
-
-- support for stack
-
-- function calls
-
-- special registers like stack pointer, base pointer:
-    ideally they are just like general purpose register; just a register and no special treatment
 
 - memory access should not just be a variable, but could be some expression with one or more registers
 
@@ -46,6 +37,17 @@ TODO
 - print string
 
 DONE
+
+- special registers like stack pointer, base pointer:
+    ideally they are just like general purpose register; just a register and no special treatment
+
+- add constructor functions for operand to make it less tedious to write.
+
+- add push
+
+- add pop
+
+- support for stack
 
 - splitting of backend into separate files.
 

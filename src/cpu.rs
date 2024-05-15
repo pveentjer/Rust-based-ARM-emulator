@@ -103,7 +103,7 @@ impl CPU {
 
         self.memory_subsystem.borrow_mut().init(program);
 
-        loop {
+        while !self.backend.exit{
             self.cycle_cnt += 1;
 
             if self.trace {
@@ -115,11 +115,14 @@ impl CPU {
             self.frontend.do_cycle();
             thread::sleep(self.cycle_period);
         }
+
+        println!("Program complete!");
     }
 }
 
-pub const RESERVED_ARG_REGS_CNT:u16 = 1;
+pub const RESERVED_ARG_REGS_CNT:u16 = 2;
 pub const ARCH_REG_RSP_OFFSET: u16 = 0;
+pub const ARCH_REG_RBP_OFFSET: u16 = 1;
 
 struct ArgRegEntry {
     pub(crate) value: WordType,
@@ -128,7 +131,6 @@ struct ArgRegEntry {
 pub struct ArgRegFile {
     entries: Vec<ArgRegEntry>,
 }
-
 
 impl ArgRegFile {
     fn new(rs_count: u16) -> ArgRegFile {

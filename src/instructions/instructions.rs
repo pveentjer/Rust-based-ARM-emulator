@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq,Debug)]
 pub enum Opcode {
     ADD,
     SUB,
@@ -25,11 +25,16 @@ pub enum Opcode {
     OR,
     XOR,
     NOT,
+    CALL,
+    RET,
+    EXIT,
 }
 
 pub(crate) fn is_control(opcode: Opcode) -> bool {
     return match opcode {
         Opcode::JNZ => true,
+        Opcode::CALL => true,
+        Opcode::RET => true,
         _ => false,
     };
 }
@@ -57,6 +62,9 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::OR => "OR",
         Opcode::XOR => "XOR",
         Opcode::NOT => "NOT",
+        Opcode::CALL => "CALL",
+        Opcode::RET => "RET",
+        Opcode::EXIT => "EXIT",
     }
 }
 
@@ -83,6 +91,9 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "OR" => Some(Opcode::OR),
         "XOR" => Some(Opcode::XOR),
         "NOT" => Some(Opcode::NOT),
+        "CALL" => Some(Opcode::CALL),
+        "RET" => Some(Opcode::RET),
+        "EXIT" => Some(Opcode::RET),
         _ => None,
     }
 }
@@ -152,19 +163,20 @@ impl InstrQueue {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub(crate) enum OpType {
-    REGISTER,
-    MEMORY,
-    CONSTANT,
-    UNUSED,
-    CODE,
+// unused
+#[derive(Debug, Clone, Copy)]
+enum AddressingMode {
+    Immediate,
+    Direct,
+    Indirect,
+    Indexed,
 }
 
 // The maximum number of source (input) operands for an instruction.
-pub(crate) const MAX_SOURCE_COUNT: u8 = 2;
+pub(crate) const MAX_SOURCE_COUNT: u8 = 3;
 pub(crate) const MAX_SINK_COUNT: u8 = 2;
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Instr {
     pub(crate) cycles: u8,
     pub(crate) opcode: Opcode,
@@ -181,12 +193,12 @@ impl fmt::Display for Instr {
         write!(f, "{}", mnemonic(self.opcode))?;
 
         for k in 0..self.source_cnt {
-            write!(f, " {}", self.source[k as usize])?;
+            write!(f, " {:?}", self.source[k as usize])?;
         }
 
 
         for k in 0..self.sink_cnt {
-            write!(f, " {}", self.sink[k as usize])?;
+            write!(f, " {:?}", self.sink[k as usize])?;
         }
 
         if self.line > 0 {
@@ -197,94 +209,51 @@ impl fmt::Display for Instr {
     }
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct Operand {
-    pub(crate) op_type: OpType,
-    pub(crate) union: OpUnion,
-
-}
-
-impl Operand {
-    pub const fn new_unused() -> Self {
-        Self { op_type: OpType::UNUSED, union: OpUnion::Unused }
-    }
-
-    pub const fn new_register(reg: RegisterType) -> Self {
-        Self { op_type: OpType::REGISTER, union: OpUnion::Register(reg) }
-    }
-
-    pub const fn new_code(address: CodeAddressType) -> Self {
-        Self { op_type: OpType::CODE, union: OpUnion::Code(address) }
-    }
-
-    pub const fn new_memory(address: MemoryAddressType) -> Self {
-        Self { op_type: OpType::MEMORY, union: OpUnion::Memory(address) }
-    }
-}
-
-
-impl fmt::Display for Operand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.union {
-            OpUnion::Register(reg) => write!(f, "R{}", reg),
-            OpUnion::Memory(mem) => write!(f, "[{}]", mem),
-            OpUnion::Code(code) => write!(f, "[{}]", code),
-            OpUnion::Constant(val) => write!(f, "{}", val),
-            OpUnion::Unused => write!(f, "unused"),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum OpUnion {
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Operand {
     Register(RegisterType),
-    Memory(MemoryAddressType),
-    Code(CodeAddressType),
-    Constant(WordType),
+    // The operand is directly specified in the instruction itself.
+    Immediate(WordType),
+    // todo: rename to direct?
+    MemoryAddress(MemoryAddressType),
+
+    CodeAddress(CodeAddressType),
     Unused,
 }
 
-impl OpUnion {
+//Indexed(u8, i16),   // Indexed addressing mode (base register and offset).
+//Indirect(u8),
+
+impl Operand{
     pub(crate) fn get_register(&self) -> RegisterType {
-        match self {
-            OpUnion::Register(reg) => *reg,
-            _ => panic!("OpUnion is not a Register but of type {:?}", self),
+        match *self {
+            Operand::Register(reg) => reg,
+            _ => panic!("Operation is not a Register but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_constant(&self) -> WordType {
         match self {
-            OpUnion::Constant(constant) => *constant,
-            _ => panic!("OpUnion is not a Constant but of type {:?}", self),
+            Operand::Immediate(constant) => *constant,
+            _ => panic!("Operand is not a Constant but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_code_address(&self) -> CodeAddressType {
         match self {
-            OpUnion::Code(constant) => *constant,
-            _ => panic!("OpUnion is not a Code but of type {:?}", self),
+            Operand::CodeAddress(constant) => *constant,
+            _ => panic!("Operand is not a Code but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_memory_addr(&self) -> MemoryAddressType {
         match self {
-            OpUnion::Memory(addr) => *addr,
-            _ => panic!("OpUnion is not a Memory but of type {:?}", self),
+            Operand::MemoryAddress(addr) => *addr,
+            _ => panic!("Operand is not a Memory but of type {:?}", self),
         }
     }
 }
 
-impl fmt::Debug for OpUnion {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            OpUnion::Register(reg) => write!(f, "Register({:?})", reg),
-            OpUnion::Constant(c) => write!(f, "Constant({:?})", c),
-            OpUnion::Code(addr) => write!(f, "Code({:?})", addr),
-            OpUnion::Memory(addr) => write!(f, "Memory({:?})", addr),
-            OpUnion::Unused => write!(f, "Unused"),
-        }
-    }
-}
 
 pub(crate) struct Data {
     pub(crate) value: WordType,
@@ -311,9 +280,9 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         cycles: 1,
         opcode: Opcode::NOP,
         source_cnt: 0,
-        source: [Operand::new_unused(), Operand::new_unused()],
+        source: [Operand::Unused, Operand::Unused, Operand::Unused],
         sink_cnt: 0,
-        sink: [Operand::new_unused(), Operand::new_unused()],
+        sink: [Operand::Unused, Operand::Unused],
         line,
         mem_stores: 0,
     }

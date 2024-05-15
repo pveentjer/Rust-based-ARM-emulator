@@ -37,6 +37,9 @@ label = { label_name ~ ":" }
 instr = _{  ( instr_LOAD
             | instr_STORE
             | instr_MOV
+            | instr_AND
+            | instr_OR
+            | instr_XOR
             | instr_DEC
             | instr_INC
             | instr_ADD
@@ -46,14 +49,14 @@ instr = _{  ( instr_LOAD
             | instr_MOD
             | instr_PRINTR
             | instr_NOP
+            | instr_EXIT
             | instr_JNZ
             | instr_JZ
             | instr_PUSH
             | instr_POP
-            | instr_AND
-            | instr_OR
-            | instr_XOR
             | instr_NOT
+            | instr_CALL
+            | instr_RET
             )}
 
 // the order for all arguments is source and then sink. E.g. 'ADD R1 R2 R3' means R3=R1+R2'.
@@ -80,9 +83,11 @@ instr_POP       = {"POP"    ~ whitespace ~ register                             
 // various
 instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                                     }
 instr_NOP       = {"NOP"                                                                                }
+instr_EXIT      = {"EXIT"                                                                               }
 // memory & register copying
 instr_LOAD      = {"LOAD"   ~ whitespace ~ memory_access ~ whitespace ~ register                        }
 instr_STORE     = {"STORE"  ~ whitespace ~ register ~ whitespace ~ memory_access                        }
 instr_MOV       = {"MOV"    ~ whitespace ~ register ~ whitespace ~ register                             }
-
-
+// procedure call
+instr_CALL      = {"CALL"  ~ whitespace ~ label_name                                                    }
+instr_RET       = {"RET"                                                                                }

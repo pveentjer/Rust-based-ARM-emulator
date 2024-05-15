@@ -1,18 +1,16 @@
 .data
     a 10
-    b 1
+    b 0
     c 2
     d 0
 .code
     LOAD [a] R0
-again:
-    PRINTR R0
-    PUSH R0
-    POP R1
-    PRINTR R1
+loop:
+    CALL procedure_banana
     DEC R0
-    JNZ R0 again
-    LOAD [b] R1
-    LOAD [c] R2
-    ADD R1 R2 R3
-    PRINTR R3
+    INC R1
+    JNZ R0 loop
+    EXIT
+procedure_banana:
+    PRINTR R1
+    RET

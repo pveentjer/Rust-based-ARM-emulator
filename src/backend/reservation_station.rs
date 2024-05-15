@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
-use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand, OpType};
+use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum RSState {
@@ -10,7 +10,8 @@ pub enum RSState {
 
 pub struct RS {
     pub(crate) sb_pos: u16,
-    pub(crate) rob_slot_index: u16,  pub(crate) opcode: Opcode,
+    pub(crate) rob_slot_index: u16,
+    pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
     pub(crate) source_cnt: u8,
     pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
@@ -25,10 +26,10 @@ impl RS {
             opcode: Opcode::NOP,
             state: RSState::FREE,
             source_cnt: 0,
-            source: [Operand::new_unused(), Operand::new_unused()],
+            source: [Operand::Unused, Operand::Unused, Operand::Unused],
             source_ready_cnt: 0,
             sink_cnt: 0,
-            sink: [Operand::new_unused(), Operand::new_unused()],
+            sink: [Operand::Unused, Operand::Unused],
             sb_pos: 0,
             rob_slot_index: 0,
         }
@@ -41,11 +42,11 @@ impl Display for RS {
         write!(f, "{}", mnemonic(self.opcode))?;
 
         for k in 0..self.source_cnt {
-            write!(f, " {}", self.source[k as usize])?;
+            write!(f, " {:?}", self.source[k as usize])?;
         }
 
         for k in 0..self.sink_cnt {
-            write!(f, " {}", self.sink[k as usize])?;
+            write!(f, " {:?}", self.sink[k as usize])?;
         }
 
         Ok(())

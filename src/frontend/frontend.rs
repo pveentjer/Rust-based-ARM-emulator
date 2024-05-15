@@ -1,11 +1,9 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::cpu::CPUConfig;
-use crate::instructions::instructions::{InstrQueue, is_control, Program};
+use crate::instructions::instructions::{InstrQueue, is_control, Opcode, Program};
 
 pub(crate) struct FrontendControl {
-    // indicates that there is an instruction in the pipeline that could cause a control
-    // hazard if they frontend would move to the next instruction.
     pub(crate) ip_next_fetch: i64,
     pub(crate) halted: bool,
 }
@@ -16,6 +14,7 @@ pub(crate) struct Frontend {
     frontend_control: Rc<RefCell<FrontendControl>>,
     program_option: Option<Rc<Program>>,
     trace: bool,
+    exit: bool,
 }
 
 impl Frontend {
@@ -29,6 +28,7 @@ impl Frontend {
             program_option: None,
             trace: cpu_config.trace,
             frontend_control,
+            exit: false,
         }
     }
 
@@ -48,6 +48,10 @@ impl Frontend {
                 let mut instr_queue = self.instr_queue.borrow_mut();
                 let mut frontend_control = self.frontend_control.borrow_mut();
                 for _ in 0..self.n_wide {
+                    if self.exit {
+                        return;
+                    }
+
                     if instr_queue.is_full() {
                         break;
                     }
@@ -65,8 +69,10 @@ impl Frontend {
                     if self.trace {
                         println!("Frontend: ip_next_fetch: {} decoded {}", frontend_control.ip_next_fetch, instr);
                     }
-
                     let opcode = instr.opcode;
+                    if opcode == Opcode::EXIT {
+                        self.exit = true;
+                    }
 
                     // todo: what about cloning?
                     instr_queue.enqueue(instr);

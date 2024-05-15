@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, OpType, OpUnion, WordType};
+use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ROBSlotState {
@@ -40,7 +40,7 @@ impl ROB {
                 rb_slot_index: None,
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: 0,
-                sink: [Operand::new_unused(), Operand::new_unused()],
+                sink: [Operand::Unused, Operand::Unused],
             });
         }
 
