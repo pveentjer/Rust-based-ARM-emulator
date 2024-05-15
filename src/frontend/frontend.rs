@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::cpu::{CPUConfig, Trace};
+use crate::cpu::{CPUConfig, PerfCounters, Trace};
 use crate::instructions::instructions::{InstrQueue, is_control, Opcode, Program};
 
 
@@ -16,13 +16,16 @@ pub(crate) struct Frontend {
     program_option: Option<Rc<Program>>,
     trace: Trace,
     exit: bool,
+    perf_counters: Rc<RefCell<PerfCounters>>,
 }
 
 impl Frontend {
     pub(crate) fn new(cpu_config: &CPUConfig,
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
+                      perf_counters: Rc<RefCell<PerfCounters>>,
     ) -> Frontend {
+
         Frontend {
             instr_queue,
             n_wide: cpu_config.frontend_n_wide,
@@ -30,6 +33,7 @@ impl Frontend {
             trace: cpu_config.trace.clone(),
             frontend_control,
             exit: false,
+            perf_counters,
         }
     }
 
@@ -48,6 +52,7 @@ impl Frontend {
 
                 let mut instr_queue = self.instr_queue.borrow_mut();
                 let mut frontend_control = self.frontend_control.borrow_mut();
+                let mut perf_counters = self.perf_counters.borrow_mut();
                 for _ in 0..self.n_wide {
                     if self.exit {
                         return;
@@ -83,6 +88,7 @@ impl Frontend {
                         return;
                     }
                     frontend_control.ip_next_fetch += 1;
+                    perf_counters.decode_cnt+=1;
                 }
             }
         }

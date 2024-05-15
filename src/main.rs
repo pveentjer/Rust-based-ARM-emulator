@@ -6,15 +6,14 @@ mod instructions;
 mod memory_subsystem;
 
 use std::rc::Rc;
-use std::task::ready;
 use crate::cpu::{CPU, CPUConfig, Trace};
 use crate::loader::loader::load;
 
 fn main() {
-   let cpu_config = CPUConfig {
+    let cpu_config = CPUConfig {
         arch_reg_count: 16,
         phys_reg_count: 64,
-        frontend_n_wide: 1,
+        frontend_n_wide: 4,
         instr_queue_capacity: 8,
         frequency_hz: 4,
         rs_count: 16,
@@ -23,14 +22,21 @@ fn main() {
         lfb_count: 8,
         rob_capacity: 32,
         eu_count: 16,
-        trace: Trace{decode:false,issue:false,dispatch:false,execute:true,retire:false,cycle:true},
-        retire_n_wide: 1,
-        dispatch_n_wide: 1,
-        issue_n_wide: 1,
+        trace: Trace {
+            decode: false,
+            issue: false,
+            dispatch: false,
+            execute: true,
+            retire: false,
+            cycle: true,
+        },
+        retire_n_wide: 4,
+        dispatch_n_wide: 4,
+        issue_n_wide: 4,
         stack_capacity: 32,
     };
 
-    let program = Rc::new(load(cpu_config.clone(),"program.asm",));
+    let program = Rc::new(load(cpu_config.clone(), "program4.asm"));
 
     let mut cpu = CPU::new(&cpu_config);
     cpu.run(&program);

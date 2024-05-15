@@ -8,7 +8,7 @@ use crate::frontend::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 #[derive(Clone)]
-pub(crate) struct Trace{
+pub(crate) struct Trace {
     pub decode: bool,
     pub issue: bool,
     pub dispatch: bool,
@@ -16,6 +16,22 @@ pub(crate) struct Trace{
     pub retire: bool,
     pub cycle: bool,
 }
+
+pub(crate) struct PerfCounters {
+    pub decode_cnt: u64,
+    pub issue_cnt: u64,
+    pub dispatch_cnt: u64,
+    pub execute_cnt: u64,
+    pub retire_cnt: u64,
+    pub cycle_cnt: u64,
+}
+
+impl PerfCounters {
+    pub fn new() -> Self {
+        Self { decode_cnt: 0, issue_cnt: 0, dispatch_cnt: 0, execute_cnt: 0, retire_cnt: 0, cycle_cnt: 0 }
+    }
+}
+
 
 #[derive(Clone)]
 pub(crate) struct CPUConfig {
@@ -60,24 +76,25 @@ pub(crate) struct CPU {
     frontend: Frontend,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
-    cycle_cnt: u64,
     cycle_period: Duration,
     trace: Trace,
+    perf_counters: Rc<RefCell<PerfCounters>>,
 }
 
 impl CPU {
     pub(crate) fn new(cpu_config: &CPUConfig) -> CPU {
         let instr_queue = Rc::new(RefCell::new(InstrQueue::new(cpu_config.instr_queue_capacity)));
 
+        let perf_counters = Rc::new(RefCell::new(PerfCounters::new()));
+
         let memory_subsystem = Rc::new(RefCell::new(
             MemorySubsystem::new(cpu_config)));
-
 
         let arch_reg_file = Rc::new(RefCell::new(
             ArgRegFile::new(cpu_config.arch_reg_count + RESERVED_ARG_REGS_CNT)));
 
         let mut frontend_control = Rc::new(RefCell::new(
-            FrontendControl{ip_next_fetch:-1, halted:false}));
+            FrontendControl { ip_next_fetch: -1, halted: false }));
 
         let backend = Backend::new(
             cpu_config,
@@ -85,12 +102,15 @@ impl CPU {
             Rc::clone(&memory_subsystem),
             Rc::clone(&arch_reg_file),
             Rc::clone(&frontend_control),
+            Rc::clone(&perf_counters),
         );
 
         let frontend = Frontend::new(
             cpu_config,
             Rc::clone(&instr_queue),
-            Rc::clone(&frontend_control));
+            Rc::clone(&frontend_control),
+            Rc::clone(&perf_counters),
+        );
 
 
         let x = Duration::from_micros(1_000_000 / cpu_config.frequency_hz);
@@ -101,9 +121,9 @@ impl CPU {
             frontend,
             memory_subsystem,
             arch_reg_file,
-            cycle_cnt: 0,
             cycle_period: Duration::from_micros(1_000_000 / cpu_config.frequency_hz),
             trace: cpu_config.trace.clone(),
+            perf_counters: Rc::clone(&perf_counters),
         }
     }
 
@@ -112,12 +132,19 @@ impl CPU {
 
         self.memory_subsystem.borrow_mut().init(program);
 
-        while !self.backend.exit{
-            self.cycle_cnt += 1;
+        while !self.backend.exit {
+            self.perf_counters.borrow_mut().cycle_cnt += 1;
 
             if self.trace.cycle {
                 println!("=======================================================================");
-                println!("Cycle {}", self.cycle_cnt);
+                let perf_counters = self.perf_counters.borrow_mut();
+                println!("Cycle Count {}", perf_counters.cycle_cnt);
+                println!("Decode Count {}", perf_counters.decode_cnt);
+                println!("Issue Count {}", perf_counters.issue_cnt);
+                println!("Dispatch Count {}", perf_counters.dispatch_cnt);
+                println!("Execute Count {}", perf_counters.execute_cnt);
+                println!("Retired Count {}", perf_counters.retire_cnt);
+                println!("IPC {}", perf_counters.retire_cnt as f32 / perf_counters.cycle_cnt as f32);
             }
             self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.do_cycle();
@@ -129,7 +156,7 @@ impl CPU {
     }
 }
 
-pub const RESERVED_ARG_REGS_CNT:u16 = 2;
+pub const RESERVED_ARG_REGS_CNT: u16 = 2;
 pub const ARCH_REG_RSP_OFFSET: u16 = 0;
 pub const ARCH_REG_RBP_OFFSET: u16 = 1;
 

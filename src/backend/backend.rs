@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::cpu::{ArgRegFile, CPUConfig, Trace};
+use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -34,6 +34,7 @@ pub struct Backend {
     stack: Vec<WordType>,
     stack_capacity: u32,
     pub(crate) exit: bool,
+    perf_counters:Rc<RefCell<PerfCounters>>,
 }
 
 impl Backend {
@@ -41,7 +42,8 @@ impl Backend {
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       memory_subsystem: Rc<RefCell<MemorySubsystem>>,
                       arch_reg_file: Rc<RefCell<ArgRegFile>>,
-                      frontend_control: Rc<RefCell<FrontendControl>>) -> Backend {
+                      frontend_control: Rc<RefCell<FrontendControl>>,
+                      perf_counters: Rc<RefCell<PerfCounters>>) -> Backend {
         let mut stack = Vec::with_capacity(cpu_config.stack_capacity as usize);
         for _ in 0..cpu_config.stack_capacity {
             stack.push(0);
@@ -65,6 +67,7 @@ impl Backend {
             stack,
             stack_capacity: cpu_config.stack_capacity,
             exit: false,
+            perf_counters,
         }
     }
 
@@ -78,6 +81,7 @@ impl Backend {
 
     fn cycle_eu_table(&mut self) {
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        let mut perf_monitors = self.perf_counters.borrow_mut();
 
         for eu_index in 0..self.eu_table.capacity {
             let mut eu = self.eu_table.get_mut(eu_index);
@@ -217,6 +221,7 @@ impl Backend {
             self.rs_table.deallocate(rs_index);
 
             rob_slot.state = ROBSlotState::EXECUTED;
+            perf_monitors.execute_cnt+=1;
         }
     }
 
@@ -260,6 +265,7 @@ impl Backend {
 
     fn cycle_retire(&mut self) {
         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
+        let mut perf_monitors = self.perf_counters.borrow_mut();
 
         for _ in 0..self.retire_n_wide {
             if !self.rob.head_has_executed() {
@@ -279,6 +285,8 @@ impl Backend {
             if self.trace.retire {
                 println!("Retiring {}", instr);
             }
+
+            perf_monitors.retire_cnt+=1;
 
             for sink_index in 0..instr.sink_cnt as usize {
                 let sink = instr.sink[sink_index];
@@ -302,6 +310,8 @@ impl Backend {
     }
 
     fn cycle_dispatch(&mut self) {
+        let mut perf_monitors = self.perf_counters.borrow_mut();
+
         for _ in 0..self.dispatch_n_wide {
             if !self.rs_table.has_ready() || !self.eu_table.has_free() {
                 break;
@@ -328,10 +338,14 @@ impl Backend {
             if self.trace.dispatch {
                 println!("Dispatched [{}]", instr);
             }
+
+            perf_monitors.dispatch_cnt+=1;
         }
     }
 
     fn cycle_issue(&mut self) {
+        let mut perf_monitors = self.perf_counters.borrow_mut();
+
         let mut instr_queue = self.instr_queue.borrow_mut();
         let arch_reg_file = self.arch_reg_file.borrow();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
@@ -356,6 +370,8 @@ impl Backend {
 
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
+
+            perf_monitors.issue_cnt+=1;
         }
 
         // try to put as many instructions from the rob, into reservation stations

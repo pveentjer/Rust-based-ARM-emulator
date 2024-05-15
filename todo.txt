@@ -24,14 +24,6 @@ TODO
 
 - loader: should not panic on error, but propagate the error to the main
 
-- metrics: instructions issued
-
-- metrics: cycles
-
-- metrics: instructions retired
-
-- metrics: overall ipc
-
 - metrics: ipc last cycle
 
 - implement print of memory
@@ -39,6 +31,14 @@ TODO
 - print string
 
 DONE
+
+- metrics: instructions issued
+
+- metrics: cycles
+
+- metrics: instructions retired
+
+- metrics: overall ipc
 
 - more control on which parts of the CPU to trace
 
