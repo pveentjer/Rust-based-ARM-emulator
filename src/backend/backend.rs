@@ -18,19 +18,19 @@ struct CDBBroadcastRequest {
 
 pub struct Backend {
     instr_queue: Rc<RefCell<InstrQueue>>,
-    rs_table: Rc<RefCell<RSTable>>,
-    phys_reg_file: Rc<RefCell<PhysRegFile>>,
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
-    rat: Rc<RefCell<RAT>>,
-    rob: Rc<RefCell<ROB>>,
-    eu_table: Rc<RefCell<EUTable>>,
+    frontend_control: Rc<RefCell<FrontendControl>>,
+    rs_table:RSTable,
+    phys_reg_file: PhysRegFile,
+    rat: RAT,
+    rob: ROB,
+    eu_table: EUTable,
     trace: bool,
     retire_n_wide: u8,
     dispatch_n_wide: u8,
     issue_n_wide: u8,
     cdb_broadcast_buffer: Vec<CDBBroadcastRequest>,
-    frontend_control: Rc<RefCell<FrontendControl>>,
     stack: Vec<WordType>,
     stack_capacity: u32,
     pub(crate) exit: bool,
@@ -52,11 +52,11 @@ impl Backend {
             instr_queue,
             memory_subsystem,
             arch_reg_file,
-            rs_table: Rc::new(RefCell::new(RSTable::new(cpu_config.rs_count))),
-            phys_reg_file: Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count))),
-            rat: Rc::new(RefCell::new(RAT::new(cpu_config.phys_reg_count))),
-            rob: Rc::new(RefCell::new(ROB::new(cpu_config.rob_capacity))),
-            eu_table: Rc::new(RefCell::new(EUTable::new(cpu_config.eu_count))),
+            rs_table: RSTable::new(cpu_config.rs_count),
+            phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
+            rat: RAT::new(cpu_config.phys_reg_count),
+            rob:ROB::new(cpu_config.rob_capacity),
+            eu_table: EUTable::new(cpu_config.eu_count),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
@@ -77,15 +77,10 @@ impl Backend {
     }
 
     fn cycle_eu_table(&mut self) {
-        let mut eu_table = self.eu_table.borrow_mut();
-        let mut rs_table = self.rs_table.borrow_mut();
-        let mut rob = self.rob.borrow_mut();
-        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-        let mut cdb_broadcast_buffer = &mut self.cdb_broadcast_buffer;
+         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
-        for eu_index in 0..eu_table.capacity {
-            let mut eu = eu_table.get_mut(eu_index);
+        for eu_index in 0..self.eu_table.capacity {
+            let mut eu = self.eu_table.get_mut(eu_index);
             if eu.cycles_remaining == 0 {
                 // eu is free, ignore it.
                 continue;
@@ -98,10 +93,10 @@ impl Backend {
 
             // it is the last cycle; so lets give this Eu some real work
             let rs_index = eu.rs_index;
-            let mut rs = rs_table.get_mut(rs_index);
+            let mut rs = self.rs_table.get_mut(rs_index);
 
             let rob_index = rs.rob_slot_index;
-            let mut rob_slot = rob.get_mut(rob_index);
+            let mut rob_slot = self.rob.get_mut(rob_index);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -197,17 +192,17 @@ impl Backend {
             }
 
             let eu_index = eu.index;
-            eu_table.deallocate(eu_index);
+            self.eu_table.deallocate(eu_index);
 
             for sink_index in 0..rs.sink_cnt {
                 let sink = rs.sink[sink_index as usize];
                 match sink {
                     Operand::Register(phys_reg) => {
-                        let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
+                        let phys_reg_entry = self.phys_reg_file.get_mut(phys_reg);
                         phys_reg_entry.has_value = true;
                         let result = rob_slot.result[sink_index as usize];
                         phys_reg_entry.value = result;
-                        cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
+                        self.cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
                     }
                     Operand::Memory(addr) => {
                         let result = rob_slot.result[sink_index as usize];
@@ -219,33 +214,30 @@ impl Backend {
             }
 
             rs.state = RSState::FREE;
-            rs_table.deallocate(rs_index);
+            self.rs_table.deallocate(rs_index);
 
             rob_slot.state = ROBSlotState::EXECUTED;
         }
     }
 
     fn cdb_broadcast(&mut self) {
-        let mut rs_table = self.rs_table.borrow_mut();
-        let mut rob = self.rob.borrow_mut();
-        let mut cdb_broadcast_buffer = &mut self.cdb_broadcast_buffer;
-        let rs_table_capacity = rs_table.capacity;
+        let rs_table_capacity = self.rs_table.capacity;
 
-        for req in &mut *cdb_broadcast_buffer {
+        for req in &mut *self.cdb_broadcast_buffer {
             // Iterate over all RS and replace every matching physical register, by the value
             for rs_index in 0..rs_table_capacity {
-                let rs = rs_table.get_mut(rs_index);
+                let rs = self.rs_table.get_mut(rs_index);
                 if rs.state == RSState::FREE {
                     continue;
                 }
 
                 let rob_slot_index = rs.rob_slot_index;
-                let rob_slot = rob.get_mut(rob_slot_index);
+                let rob_slot = self.rob.get_mut(rob_slot_index);
                 if rob_slot.state != ROBSlotState::ISSUED {
                     continue;
                 }
 
-                let rs = rs_table.get_mut(rob_slot.rs_index);
+                let rs = self.rs_table.get_mut(rob_slot.rs_index);
                 for source_index in 0..rs.source_cnt as usize {
                     let source_rs = &mut rs.source[source_index];
                     if let Operand::Register(phys_reg) = source_rs {
@@ -258,27 +250,24 @@ impl Backend {
 
                 if rs.source_cnt == rs.source_ready_cnt {
                     rob_slot.state = ROBSlotState::DISPATCHED;
-                    rs_table.enqueue_ready(rob_slot.rs_index);
+                    self.rs_table.enqueue_ready(rob_slot.rs_index);
                 }
             }
         }
 
-        cdb_broadcast_buffer.clear();
+        self.cdb_broadcast_buffer.clear();
     }
 
     fn cycle_retire(&mut self) {
-        let mut rob = self.rob.borrow_mut();
-        let mut rat = self.rat.borrow_mut();
-        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-        let mut arch_reg_file = self.arch_reg_file.borrow_mut();
+         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
 
         for _ in 0..self.retire_n_wide {
-            if !rob.head_has_executed() {
+            if !self.rob.head_has_executed() {
                 break;
             }
 
-            let rob_slot_index = rob.next_executed();
-            let mut rob_slot = rob.get_mut(rob_slot_index);
+            let rob_slot_index = self.rob.next_executed();
+            let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -294,7 +283,7 @@ impl Backend {
             for sink_index in 0..instr.sink_cnt as usize {
                 let sink = instr.sink[sink_index];
                 if let Operand::Register(arch_reg) = sink {
-                    let rat_entry = rat.get_mut(arch_reg);
+                    let rat_entry = self.rat.get_mut(arch_reg);
                     let rat_phys_reg = rat_entry.phys_reg;
                     let rs_phys_reg = rob_slot.sink[sink_index].get_register();
 
@@ -304,8 +293,8 @@ impl Backend {
                         rat_entry.valid = false;
                     }
 
-                    phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-                    phys_reg_file.deallocate(rs_phys_reg);
+                    self.phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+                    self.phys_reg_file.deallocate(rs_phys_reg);
                     arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
                 }
             }
@@ -313,26 +302,22 @@ impl Backend {
     }
 
     fn cycle_dispatch(&mut self) {
-        let mut rs_table = self.rs_table.borrow_mut();
-        let mut rob = self.rob.borrow_mut();
-        let mut eu_table = self.eu_table.borrow_mut();
-
         for _ in 0..self.dispatch_n_wide {
-            if !rs_table.has_ready() || !eu_table.has_free() {
+            if !self.rs_table.has_ready() || !self.eu_table.has_free() {
                 break;
             }
 
-            let rs_index = rs_table.deque_ready();
-            let rs = rs_table.get_mut(rs_index);
+            let rs_index = self.rs_table.deque_ready();
+            let rs = self.rs_table.get_mut(rs_index);
 
             let rob_slot_index = rs.rob_slot_index;
 
-            let rob_slot = rob.get_mut(rob_slot_index);
+            let rob_slot = self.rob.get_mut(rob_slot_index);
             rob_slot.state = ROBSlotState::DISPATCHED;
 
-            let eu_index = eu_table.allocate();
+            let eu_index = self.eu_table.allocate();
 
-            let mut eu = eu_table.get_mut(eu_index);
+            let mut eu = self.eu_table.get_mut(eu_index);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -347,17 +332,13 @@ impl Backend {
     }
 
     fn cycle_issue(&mut self) {
-        let mut rob = self.rob.borrow_mut();
-        let mut rs_table = self.rs_table.borrow_mut();
         let mut instr_queue = self.instr_queue.borrow_mut();
-        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-        let mut rat = self.rat.borrow_mut();
         let arch_reg_file = self.arch_reg_file.borrow();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
         // try to put as many instructions into the rob
         for _ in 0..self.issue_n_wide {
-            if instr_queue.is_empty() || !rob.has_space() {
+            if instr_queue.is_empty() || !self.rob.has_space() {
                 break;
             }
 
@@ -366,8 +347,8 @@ impl Backend {
             instr_queue.dequeue();
 
 
-            let rob_slot_index = rob.allocate();
-            let rob_slot = rob.get_mut(rob_slot_index);
+            let rob_slot_index = self.rob.allocate();
+            let rob_slot = self.rob.get_mut(rob_slot_index);
 
             if self.trace {
                 println!("issue: Issued [{}]", instr);
@@ -379,12 +360,12 @@ impl Backend {
 
         // try to put as many instructions from the rob, into reservation stations
         for _ in 0..self.issue_n_wide {
-            if !rob.has_issued() || !rs_table.has_free() {
+            if !self.rob.has_issued() || !self.rs_table.has_free() {
                 break;
             }
 
-            let rob_slot_index = rob.next_issued();
-            let mut rob_slot = rob.get_mut(rob_slot_index);
+            let rob_slot_index = self.rob.next_issued();
+            let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -394,8 +375,8 @@ impl Backend {
                 break;
             }
 
-            let rs_index = rs_table.allocate();
-            let mut rs = rs_table.get_mut(rs_index);
+            let rs_index = self.rs_table.allocate();
+            let mut rs = self.rs_table.get_mut(rs_index);
 
             if self.trace {
                 println!("issue: Issued found RS [{}]", instr);
@@ -417,9 +398,9 @@ impl Backend {
                 let rs_source = &rs.source[source_index];
                 match instr_source {
                     Operand::Register(arch_reg) => {
-                        let rat_entry = rat.get(*arch_reg);
+                        let rat_entry = self.rat.get(*arch_reg);
                         if rat_entry.valid {
-                            let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
+                            let phys_reg_entry = self.phys_reg_file.get(rat_entry.phys_reg);
                             if phys_reg_entry.has_value {
 
                                 //we got lucky, there is a value in the physical register.
@@ -449,9 +430,9 @@ impl Backend {
                 let instr_sink = instr.sink[sink_index];
                 match instr_sink {
                     Operand::Register(arch_reg) => {
-                        let phys_reg = phys_reg_file.allocate();
+                        let phys_reg = self.phys_reg_file.allocate();
                         // update the RAT entry to point to the newest phys_reg
-                        let rat_entry = rat.get_mut(arch_reg);
+                        let rat_entry = self.rat.get_mut(arch_reg);
                         rat_entry.phys_reg = phys_reg;
                         rat_entry.valid = true;
 
@@ -475,7 +456,7 @@ impl Backend {
 
             if rs.source_ready_cnt == rs.source_cnt {
                 rob_slot.state = ROBSlotState::DISPATCHED;
-                rs_table.enqueue_ready(rs_index);
+                self.rs_table.enqueue_ready(rs_index);
             }
         }
     }
