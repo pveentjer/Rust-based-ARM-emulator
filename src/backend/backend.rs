@@ -71,6 +71,7 @@ impl Backend {
     pub(crate) fn do_cycle(&mut self) {
         self.cycle_retire();
         self.cycle_eu_table();
+        self.cdb_broadcast();
         self.cycle_dispatch();
         self.cycle_issue();
     }
@@ -78,7 +79,6 @@ impl Backend {
     fn cycle_eu_table(&mut self) {
         let mut eu_table = self.eu_table.borrow_mut();
         let mut rs_table = self.rs_table.borrow_mut();
-        let rs_table_capacity = rs_table.capacity;
         let mut rob = self.rob.borrow_mut();
         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
@@ -151,13 +151,10 @@ impl Backend {
 
                     let rsp_value = rs.source[0].get_constant();
                     let new_rsp_value = rsp_value + 1;
-                    println!("call rsp_value: {}", rsp_value);
                     let code_address = rs.source[1].get_code_address();
 
                     // on the stack we store the current ip
                     self.stack[rsp_value as usize] = frontend_control.ip_next_fetch;
-                    println!("call: ip_next_fetch on stack {}", frontend_control.ip_next_fetch);
-                    println!("call: call address {}", code_address);
                     // update the rsp
                     rob_slot.result.push(new_rsp_value);
 
@@ -170,15 +167,13 @@ impl Backend {
                     let rsp_value = rs.source[0].get_constant();
 
                     let new_rsp_value = rsp_value - 1;
-                    println!("rsp_value {}", rsp_value);
-                    // the rbp-value is the last item on the stack.
                     let ip_next_fetch = self.stack[new_rsp_value as usize];
 
                     // update the rsp
                     rob_slot.result.push(new_rsp_value);
 
                     // because CALL is a control, the ip_next_fetch is still pointing to the CALL and so we need to bump it manually
-                    frontend_control.ip_next_fetch = ip_next_fetch+1;
+                    frontend_control.ip_next_fetch = ip_next_fetch + 1;
                     frontend_control.halted = false;
                 }
                 Opcode::PUSH => {
@@ -228,6 +223,13 @@ impl Backend {
 
             rob_slot.state = ROBSlotState::EXECUTED;
         }
+    }
+
+    fn cdb_broadcast(&mut self) {
+        let mut rs_table = self.rs_table.borrow_mut();
+        let mut rob = self.rob.borrow_mut();
+        let mut cdb_broadcast_buffer = &mut self.cdb_broadcast_buffer;
+        let rs_table_capacity = rs_table.capacity;
 
         for req in &mut *cdb_broadcast_buffer {
             // Iterate over all RS and replace every matching physical register, by the value
@@ -246,9 +248,9 @@ impl Backend {
                 let rs = rs_table.get_mut(rob_slot.rs_index);
                 for source_index in 0..rs.source_cnt as usize {
                     let source_rs = &mut rs.source[source_index];
-                    if let Operand::Register(phys_reg) = source_rs{
+                    if let Operand::Register(phys_reg) = source_rs {
                         if *phys_reg == req.phys_reg {
-                            rs.source[source_index]=Operand::Immediate(req.value);
+                            rs.source[source_index] = Operand::Immediate(req.value);
                             rs.source_ready_cnt += 1;
                         }
                     }
@@ -310,7 +312,6 @@ impl Backend {
         }
     }
 
-    // the problem is with the dispatch
     fn cycle_dispatch(&mut self) {
         let mut rs_table = self.rs_table.borrow_mut();
         let mut rob = self.rob.borrow_mut();
@@ -412,8 +413,8 @@ impl Backend {
             rs.source_ready_cnt = 0;
 
             for source_index in 0..instr.source_cnt as usize {
-                let instr_source = &instr.source[source_index as usize];
-                let rs_source = &rs.source[source_index as usize];
+                let instr_source = &instr.source[source_index];
+                let rs_source = &rs.source[source_index];
                 match instr_source {
                     Operand::Register(arch_reg) => {
                         let rat_entry = rat.get(*arch_reg);
@@ -445,7 +446,7 @@ impl Backend {
 
             rs.sink_cnt = instr.sink_cnt;
             for sink_index in 0..instr.sink_cnt as usize {
-                let instr_sink = instr.sink[sink_index as usize];
+                let instr_sink = instr.sink[sink_index];
                 match instr_sink {
                     Operand::Register(arch_reg) => {
                         let phys_reg = phys_reg_file.allocate();
@@ -479,4 +480,3 @@ impl Backend {
         }
     }
 }
-
