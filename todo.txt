@@ -1,8 +1,8 @@
 TODO
 
-- function calls
+- Operand: Indexed
 
-- fix function call: push the instruction pointer in the stack (what about rbp)
+- Operand: Indirect
 
 - store to load forwarding: currently the store in the sb isn't seen
 
@@ -11,6 +11,10 @@ TODO
 - loader: MOV direct value
 
 - memory access should not just be a variable, but could be some expression with one or more registers
+
+- loader: access to RSP
+
+- loader: access to RBP
 
 - loader: register validation
 
@@ -30,13 +34,18 @@ TODO
 
 - metrics: ipc last cycle
 
-- program termination
-
 - implement print of memory
 
 - print string
 
 DONE
+
+- program termination
+
+- function calls
+
+- fix function call: push the instruction pointer in the stack (what about rbp)
+
 
 - special registers like stack pointer, base pointer:
     ideally they are just like general purpose register; just a register and no special treatment

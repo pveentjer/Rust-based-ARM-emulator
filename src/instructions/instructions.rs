@@ -163,15 +163,6 @@ impl InstrQueue {
     }
 }
 
-// unused
-#[derive(Debug, Clone, Copy)]
-enum AddressingMode {
-    Immediate,
-    Direct,
-    Indirect,
-    Indexed,
-}
-
 // The maximum number of source (input) operands for an instruction.
 pub(crate) const MAX_SOURCE_COUNT: u8 = 3;
 pub(crate) const MAX_SINK_COUNT: u8 = 2;
@@ -211,13 +202,16 @@ impl fmt::Display for Instr {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Operand {
+
     Register(RegisterType),
     // The operand is directly specified in the instruction itself.
     Immediate(WordType),
     // todo: rename to direct?
-    MemoryAddress(MemoryAddressType),
+    Memory(MemoryAddressType),
 
-    CodeAddress(CodeAddressType),
+    Code(CodeAddressType),
+
+
     Unused,
 }
 
@@ -241,19 +235,18 @@ impl Operand{
 
     pub(crate) fn get_code_address(&self) -> CodeAddressType {
         match self {
-            Operand::CodeAddress(constant) => *constant,
+            Operand::Code(constant) => *constant,
             _ => panic!("Operand is not a Code but of type {:?}", self),
         }
     }
 
     pub(crate) fn get_memory_addr(&self) -> MemoryAddressType {
         match self {
-            Operand::MemoryAddress(addr) => *addr,
+            Operand::Memory(addr) => *addr,
             _ => panic!("Operand is not a Memory but of type {:?}", self),
         }
     }
 }
-
 
 pub(crate) struct Data {
     pub(crate) value: WordType,

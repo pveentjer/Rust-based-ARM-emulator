@@ -214,12 +214,12 @@ impl Backend {
                         phys_reg_entry.value = result;
                         cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
                     }
-                    Operand::MemoryAddress(addr) => {
+                    Operand::Memory(addr) => {
                         let result = rob_slot.result[sink_index as usize];
                         // a store to memory
                         memory_subsystem.sb.store(rs.sb_pos, addr, result);
                     }
-                    Operand::Immediate(_) | Operand::CodeAddress(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
+                    Operand::Immediate(_) | Operand::Code(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
                 }
             }
 
@@ -434,7 +434,7 @@ impl Backend {
                             rs.source_ready_cnt += 1;
                         }
                     }
-                    Operand::MemoryAddress(_) | Operand::Immediate(_) | Operand::CodeAddress(_) => {
+                    Operand::Memory(_) | Operand::Immediate(_) | Operand::Code(_) => {
                         rs.source[source_index] = *instr_source;
                         rs.source_ready_cnt += 1;
                     }
@@ -457,7 +457,7 @@ impl Backend {
                         // Update the sink on the RS.
                         rs.sink[sink_index] = Operand::Register(phys_reg);
                     }
-                    Operand::MemoryAddress(_) => {
+                    Operand::Memory(_) => {
                         rs.sink[sink_index] = instr_sink;
                         // since the instructions are issued in program order, a slot is allocated in the
                         // sb in program order. And since sb will commit to the coherent cache
@@ -465,7 +465,7 @@ impl Backend {
                         // in program order.
                         rs.sb_pos = memory_subsystem.sb.allocate();
                     }
-                    Operand::Unused | Operand::Immediate(_) | Operand::CodeAddress(_) => {
+                    Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
                         panic!("Illegal sink {:?}", instr_sink)
                     }
                 }

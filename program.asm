@@ -6,11 +6,11 @@
 .code
     LOAD [a] R0
 loop:
-    CALL procedure_banana
+    CALL some_procedure
     DEC R0
     INC R1
     JNZ R0 loop
     EXIT
-procedure_banana:
+some_procedure:
     PRINTR R1
     RET

@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use crate::cpu::CPUConfig;
 use crate::instructions::instructions::{InstrQueue, is_control, Opcode, Program};
 
+
 pub(crate) struct FrontendControl {
     pub(crate) ip_next_fetch: i64,
     pub(crate) halted: bool,

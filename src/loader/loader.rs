@@ -7,7 +7,7 @@ use pest_derive::Parser;
 use regex::Regex;
 use crate::cpu::{ARCH_REG_RSP_OFFSET, CPUConfig};
 use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, Instr, MemoryAddressType, Opcode, Program, RegisterType, Operand, get_opcode};
-use crate::instructions::instructions::Operand::CodeAddress;
+use crate::instructions::instructions::Operand::Code;
 
 
 #[derive(Parser)]
@@ -88,9 +88,9 @@ impl Loader {
             if let Some(&address) = self.labels.get(&unresolved.label) {
                 for source_index in 0..instr.source_cnt as usize{
                     let source = &mut instr.source[source_index as usize];
-                    if let Operand::CodeAddress(code_address) = source{
+                    if let Operand::Code(code_address) = source{
                         if *code_address == 0 {
-                            instr.source[source_index] = CodeAddress(address as CodeAddressType);
+                            instr.source[source_index] = Code(address as CodeAddressType);
                         }
                     }
                 }
@@ -194,7 +194,7 @@ impl Loader {
             source_cnt: 1,
             source: [Operand::Register(src), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::MemoryAddress(addr), Operand::Unused],
+            sink: [Operand::Memory(addr), Operand::Unused],
             line,
             mem_stores: 1,
         });
@@ -221,7 +221,7 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::LOAD,
             source_cnt: 1,
-            source: [Operand::MemoryAddress(addr), Operand::Unused, Operand::Unused],
+            source: [Operand::Memory(addr), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
             sink: [Operand::Register(sink), Operand::Unused],
             line,
@@ -307,7 +307,7 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::CALL,
             source_cnt: 2,
-            source: [Operand::Register(rsp), Operand::CodeAddress(address as CodeAddressType), Operand::Unused],
+            source: [Operand::Register(rsp), Operand::Code(address as CodeAddressType), Operand::Unused],
             sink_cnt: 1,
             sink: [Operand::Register(rsp), Operand::Unused],
             line: line_column.0 as i32,
@@ -373,7 +373,7 @@ impl Loader {
             cycles: 1,
             opcode,
             source_cnt: 2,
-            source: [Operand::Register(register), Operand::CodeAddress(address as CodeAddressType), Operand::Unused],
+            source: [Operand::Register(register), Operand::Code(address as CodeAddressType), Operand::Unused],
             sink_cnt: 0,
             sink: [Operand::Unused, Operand::Unused],
             line: line_column.0 as i32,
