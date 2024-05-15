@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::cpu::{ArgRegFile, CPUConfig};
+use crate::cpu::{ArgRegFile, CPUConfig, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -11,7 +11,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::execution_unit::EUTable;
 use crate::backend::register_alias_table::RAT;
 
-struct CDBBroadcastRequest {
+struct CDBBroadcast {
     phys_reg: RegisterType,
     value: WordType,
 }
@@ -21,16 +21,16 @@ pub struct Backend {
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     frontend_control: Rc<RefCell<FrontendControl>>,
-    rs_table:RSTable,
+    rs_table: RSTable,
     phys_reg_file: PhysRegFile,
     rat: RAT,
     rob: ROB,
     eu_table: EUTable,
-    trace: bool,
+    trace: Trace,
     retire_n_wide: u8,
     dispatch_n_wide: u8,
     issue_n_wide: u8,
-    cdb_broadcast_buffer: Vec<CDBBroadcastRequest>,
+    cdb_broadcast_buffer: Vec<CDBBroadcast>,
     stack: Vec<WordType>,
     stack_capacity: u32,
     pub(crate) exit: bool,
@@ -48,21 +48,21 @@ impl Backend {
         }
 
         Backend {
-            trace: cpu_config.trace,
+            trace: cpu_config.trace.clone(),
             instr_queue,
             memory_subsystem,
             arch_reg_file,
             rs_table: RSTable::new(cpu_config.rs_count),
             phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
             rat: RAT::new(cpu_config.phys_reg_count),
-            rob:ROB::new(cpu_config.rob_capacity),
+            rob: ROB::new(cpu_config.rob_capacity),
             eu_table: EUTable::new(cpu_config.eu_count),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
             frontend_control,
-            stack: stack,
+            stack,
             stack_capacity: cpu_config.stack_capacity,
             exit: false,
         }
@@ -77,7 +77,7 @@ impl Backend {
     }
 
     fn cycle_eu_table(&mut self) {
-         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
         for eu_index in 0..self.eu_table.capacity {
             let mut eu = self.eu_table.get_mut(eu_index);
@@ -101,7 +101,7 @@ impl Backend {
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            if self.trace {
+            if self.trace.execute {
                 println!("Executing {}", instr);
             }
 
@@ -202,7 +202,7 @@ impl Backend {
                         phys_reg_entry.has_value = true;
                         let result = rob_slot.result[sink_index as usize];
                         phys_reg_entry.value = result;
-                        self.cdb_broadcast_buffer.push(CDBBroadcastRequest { phys_reg, value: result });
+                        self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: result });
                     }
                     Operand::Memory(addr) => {
                         let result = rob_slot.result[sink_index as usize];
@@ -259,7 +259,7 @@ impl Backend {
     }
 
     fn cycle_retire(&mut self) {
-         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
+        let mut arch_reg_file = self.arch_reg_file.borrow_mut();
 
         for _ in 0..self.retire_n_wide {
             if !self.rob.head_has_executed() {
@@ -276,7 +276,7 @@ impl Backend {
                 self.exit = true;
             }
 
-            if self.trace {
+            if self.trace.retire {
                 println!("Retiring {}", instr);
             }
 
@@ -325,7 +325,7 @@ impl Backend {
             eu.rs_index = rs_index;
             eu.cycles_remaining = instr.cycles;
 
-            if self.trace {
+            if self.trace.dispatch {
                 println!("Dispatched [{}]", instr);
             }
         }
@@ -350,7 +350,7 @@ impl Backend {
             let rob_slot_index = self.rob.allocate();
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
-            if self.trace {
+            if self.trace.issue {
                 println!("issue: Issued [{}]", instr);
             }
 
@@ -378,7 +378,7 @@ impl Backend {
             let rs_index = self.rs_table.allocate();
             let mut rs = self.rs_table.get_mut(rs_index);
 
-            if self.trace {
+            if self.trace.issue {
                 println!("issue: Issued found RS [{}]", instr);
             }
             rob_slot.state = ROBSlotState::ISSUED;

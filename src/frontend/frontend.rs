@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use crate::cpu::CPUConfig;
+use crate::cpu::{CPUConfig, Trace};
 use crate::instructions::instructions::{InstrQueue, is_control, Opcode, Program};
 
 
@@ -14,7 +14,7 @@ pub(crate) struct Frontend {
     n_wide: u8,
     frontend_control: Rc<RefCell<FrontendControl>>,
     program_option: Option<Rc<Program>>,
-    trace: bool,
+    trace: Trace,
     exit: bool,
 }
 
@@ -27,7 +27,7 @@ impl Frontend {
             instr_queue,
             n_wide: cpu_config.frontend_n_wide,
             program_option: None,
-            trace: cpu_config.trace,
+            trace: cpu_config.trace.clone(),
             frontend_control,
             exit: false,
         }
@@ -67,7 +67,7 @@ impl Frontend {
                     }
 
                     let instr = program.get_instr(frontend_control.ip_next_fetch as usize);
-                    if self.trace {
+                    if self.trace.decode {
                         println!("Frontend: ip_next_fetch: {} decoded {}", frontend_control.ip_next_fetch, instr);
                     }
                     let opcode = instr.opcode;

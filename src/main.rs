@@ -6,7 +6,8 @@ mod instructions;
 mod memory_subsystem;
 
 use std::rc::Rc;
-use crate::cpu::{CPU, CPUConfig};
+use std::task::ready;
+use crate::cpu::{CPU, CPUConfig, Trace};
 use crate::loader::loader::load;
 
 fn main() {
@@ -22,7 +23,7 @@ fn main() {
         lfb_count: 8,
         rob_capacity: 32,
         eu_count: 16,
-        trace: false,
+        trace: Trace{decode:false,issue:false,dispatch:false,execute:true,retire:false,cycle:true},
         retire_n_wide: 1,
         dispatch_n_wide: 1,
         issue_n_wide: 1,

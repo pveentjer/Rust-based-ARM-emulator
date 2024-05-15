@@ -7,6 +7,15 @@ use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
+#[derive(Clone)]
+pub(crate) struct Trace{
+    pub decode: bool,
+    pub issue: bool,
+    pub dispatch: bool,
+    pub execute: bool,
+    pub retire: bool,
+    pub cycle: bool,
+}
 
 #[derive(Clone)]
 pub(crate) struct CPUConfig {
@@ -35,7 +44,7 @@ pub(crate) struct CPUConfig {
     // the number of execution units
     pub(crate) eu_count: u8,
     // if processing of a single instruction should be traced (printed)
-    pub(crate) trace: bool,
+    pub(crate) trace: Trace,
     // the number of instructions that can retire per clock cycle
     pub(crate) retire_n_wide: u8,
     // the number of instructions that can be dispatched (send to execution units) every clock cycle.
@@ -53,7 +62,7 @@ pub(crate) struct CPU {
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     cycle_cnt: u64,
     cycle_period: Duration,
-    trace: bool,
+    trace: Trace,
 }
 
 impl CPU {
@@ -94,7 +103,7 @@ impl CPU {
             arch_reg_file,
             cycle_cnt: 0,
             cycle_period: Duration::from_micros(1_000_000 / cpu_config.frequency_hz),
-            trace: cpu_config.trace,
+            trace: cpu_config.trace.clone(),
         }
     }
 
@@ -106,7 +115,7 @@ impl CPU {
         while !self.backend.exit{
             self.cycle_cnt += 1;
 
-            if self.trace {
+            if self.trace.cycle {
                 println!("=======================================================================");
                 println!("Cycle {}", self.cycle_cnt);
             }

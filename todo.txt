@@ -40,12 +40,13 @@ TODO
 
 DONE
 
+- more control on which parts of the CPU to trace
+
 - program termination
 
 - function calls
 
 - fix function call: push the instruction pointer in the stack (what about rbp)
-
 
 - special registers like stack pointer, base pointer:
     ideally they are just like general purpose register; just a register and no special treatment
