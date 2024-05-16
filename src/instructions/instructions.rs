@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::ptr::write;
 use std::rc::Rc;
+use crate::cpu::ARCH_REG_SP;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Opcode {
@@ -229,7 +230,13 @@ pub(crate) enum Operand {
 impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Operand::Register(reg) => write!(f, "R{}", reg),
+            Operand::Register(reg) => {
+                if *reg == ARCH_REG_SP as RegisterType {
+                    write!(f, "SP")
+                } else {
+                    write!(f, "R{}", reg)
+                }
+            }
             Operand::Immediate(val) => write!(f, "{}", val),
             Operand::Memory(addr) => write!(f, "[{}]", addr),
             Operand::Code(addr) => write!(f, "[{}]", addr),

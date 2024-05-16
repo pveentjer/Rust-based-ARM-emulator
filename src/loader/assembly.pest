@@ -16,7 +16,7 @@ comment = _{ ";" ~ (!"\n" ~ ANY)* }
 
 memory_access = {"[" ~ ( variable_name | register )  ~ "]"}
 
-register = { ( "R" | "r" ) ~ integer}
+register = { ( ^"r" ~ integer) | ^"sp" }
 
 label_name = { (alpha | digit | "_" )+ }
 
@@ -65,30 +65,30 @@ instr = _{  ( instr_LDR
             )}
 
 
-instr_ADD       = {"ADD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ (register|immediate)       }
-instr_SUB       = {"SUB"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_NEG       = {"NEG"    ~ whitespace ~ register ~ whitespace ~ register                                     }
-instr_SDIV      = {"SDIV"   ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_MUL       = {"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_ADD       = {^"ADD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ (register|immediate)       }
+instr_SUB       = {^"SUB"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_NEG       = {^"NEG"    ~ whitespace ~ register ~ whitespace ~ register                                     }
+instr_SDIV      = {^"SDIV"   ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_MUL       = {^"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
 // bitwise logical instructions
-instr_AND       = {"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_ORR       = {"ORR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_EOR       = {"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_NOT       = {"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register                   }
+instr_AND       = {^"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_ORR       = {^"ORR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_EOR       = {^"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_NOT       = {^"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register                   }
 // conditional jumps
-instr_JNZ       = {"JNZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
-instr_JZ        = {"JZ"     ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
+instr_JNZ       = {^"JNZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
+instr_JZ        = {^"JZ"     ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
 // stack operations
-instr_PUSH      = {"PUSH"   ~ whitespace ~ register                                                             }
-instr_POP       = {"POP"    ~ whitespace ~ register                                                             }
+instr_PUSH      = {^"PUSH"   ~ whitespace ~ register                                                             }
+instr_POP       = {^"POP"    ~ whitespace ~ register                                                             }
 // various
-instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                                             }
-instr_NOP       = {"NOP"                                                                                        }
-instr_EXIT      = {"EXIT"                                                                                       }
+instr_PRINTR    = {^"PRINTR" ~ whitespace ~ register                                                             }
+instr_NOP       = {^"NOP"                                                                                        }
+instr_EXIT      = {^"EXIT"                                                                                       }
 // memory & register copying
-instr_LDR       = {"LDR"   ~ whitespace ~ register  ~ arg_sep ~ memory_access                                   }
-instr_STR       = {"STR"   ~ whitespace ~ register ~ arg_sep ~ memory_access                                    }
-instr_MOV       = {"MOV"   ~ whitespace ~ register ~ arg_sep ~  (register|immediate)                            }
+instr_LDR       = {^"LDR"   ~ whitespace ~ register  ~ arg_sep ~ memory_access                                   }
+instr_STR       = {^"STR"   ~ whitespace ~ register ~ arg_sep ~ memory_access                                    }
+instr_MOV       = {^"MOV"   ~ whitespace ~ register ~ arg_sep ~  (register|immediate)                            }
 // procedure call
-instr_CALL      = {"CALL"  ~ whitespace ~ label_name                                                            }
-instr_RET       = {"RET"                                                                                        }
+instr_CALL      = {^"CALL"  ~ whitespace ~ label_name                                                            }
+instr_RET       = {^"RET"                                                                                        }

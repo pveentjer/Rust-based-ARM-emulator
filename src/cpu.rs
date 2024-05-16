@@ -35,8 +35,6 @@ impl PerfCounters {
 
 #[derive(Clone)]
 pub(crate) struct CPUConfig {
-    // the number of architectural registers
-    pub(crate) arch_reg_count: u16,
     // the number of physical registers
     pub(crate) phys_reg_count: u16,
     // the number of instructions the frontend can fetch/decode per clock cycle.
@@ -91,7 +89,7 @@ impl CPU {
             MemorySubsystem::new(cpu_config)));
 
         let arch_reg_file = Rc::new(RefCell::new(
-            ArgRegFile::new(cpu_config.arch_reg_count + RESERVED_ARG_REGS_CNT)));
+            ArgRegFile::new(GENERAL_ARG_REG_CNT + SPECIAL_ARG_REGS_CNT)));
 
         let mut frontend_control = Rc::new(RefCell::new(
             FrontendControl { ip_next_fetch: -1, halted: false }));
@@ -157,9 +155,10 @@ impl CPU {
     }
 }
 
-pub const RESERVED_ARG_REGS_CNT: u16 = 2;
-pub const ARCH_REG_RSP_OFFSET: u16 = 0;
-pub const ARCH_REG_RBP_OFFSET: u16 = 1;
+pub const GENERAL_ARG_REG_CNT: u16 = 31;
+pub const SPECIAL_ARG_REGS_CNT: u16 = 2;
+pub const ARCH_REG_SP: u16 = GENERAL_ARG_REG_CNT;
+pub const ARCH_REG_FP: u16 = ARCH_REG_SP + 1;
 
 struct ArgRegEntry {
     pub(crate) value: WordType,

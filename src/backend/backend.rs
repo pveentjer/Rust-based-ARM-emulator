@@ -145,14 +145,14 @@ impl Backend {
                 Opcode::CALL => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
 
-                    let rsp_value = rs.source[0].get_constant();
-                    let new_rsp_value = rsp_value + 1;
+                    let sp_value = rs.source[0].get_constant();
+                    let new_sp_value = sp_value + 1;
                     let code_address = rs.source[1].get_code_address();
 
                     // on the stack we store the current ip
-                    self.stack[rsp_value as usize] = frontend_control.ip_next_fetch;
-                    // update the rsp
-                    rob_slot.result.push(new_rsp_value);
+                    self.stack[sp_value as usize] = frontend_control.ip_next_fetch;
+                    // update the sp
+                    rob_slot.result.push(new_sp_value);
 
                     frontend_control.ip_next_fetch = code_address as i64;
                     frontend_control.halted = false;
@@ -160,13 +160,13 @@ impl Backend {
                 Opcode::RET => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
 
-                    let rsp_value = rs.source[0].get_constant();
+                    let sp_value = rs.source[0].get_constant();
 
-                    let new_rsp_value = rsp_value - 1;
-                    let ip_next_fetch = self.stack[new_rsp_value as usize];
+                    let new_sp_value = sp_value - 1;
+                    let ip_next_fetch = self.stack[new_sp_value as usize];
 
                     // update the rsp
-                    rob_slot.result.push(new_rsp_value);
+                    rob_slot.result.push(new_sp_value);
 
                     // because CALL is a control, the ip_next_fetch is still pointing to the CALL and so we need to bump it manually
                     frontend_control.ip_next_fetch = ip_next_fetch + 1;
@@ -174,20 +174,20 @@ impl Backend {
                 }
                 Opcode::PUSH => {
                     let value = rs.source[0].get_constant();
-                    let rsp_value = rs.source[1].get_constant();
+                    let sp_value = rs.source[1].get_constant();
 
-                    if rsp_value as usize == self.stack_capacity as usize {
+                    if sp_value as usize == self.stack_capacity as usize {
                         panic!("Ran out of stack");
                     }
 
-                    self.stack[rsp_value as usize] = value;
-                    rob_slot.result.push(rsp_value + 1);
+                    self.stack[sp_value as usize] = value;
+                    rob_slot.result.push(sp_value + 1);
                 }
                 Opcode::POP => {
-                    let rsp_value = (rs.source[0].get_constant() - 1) as WordType;
+                    let sp_value = (rs.source[0].get_constant() - 1) as WordType;
 
-                    rob_slot.result.push(self.stack[rsp_value as usize]);
-                    rob_slot.result.push(rsp_value);
+                    rob_slot.result.push(self.stack[sp_value as usize]);
+                    rob_slot.result.push(sp_value);
                 }
                 Opcode::EXIT => {}
             }

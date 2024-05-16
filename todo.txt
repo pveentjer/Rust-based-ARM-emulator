@@ -1,17 +1,5 @@
 TODO
 
-- remove INC
-
-- remove DEC
-
-- good Display for SP
-
-- loader: access to RSP
-
-- loader: register validation
-
-- number of architectural registers should be fixed.
-
 - Operand: Indexed
 
 - Operand: Indirect
@@ -33,6 +21,18 @@ TODO
 - implement print of memory
 
 DONE
+
+- remove INC
+
+- remove DEC
+
+- loader: register validation
+
+- good Display for SP
+
+- loader: access to RSP
+
+- number of architectural registers should be fixed.
 
 - loader: many operators can now deal with direct value direct value
 

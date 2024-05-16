@@ -12,7 +12,6 @@ mod memory_subsystem;
 
 fn main() {
     let cpu_config = CPUConfig {
-        arch_reg_count: 16,
         phys_reg_count: 64,
         frontend_n_wide: 4,
         instr_queue_capacity: 8,

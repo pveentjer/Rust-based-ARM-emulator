@@ -7,7 +7,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
 
-use crate::cpu::{ARCH_REG_RSP_OFFSET, CPUConfig};
+use crate::cpu::{ARCH_REG_SP, CPUConfig, GENERAL_ARG_REG_CNT};
 use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, get_opcode, Instr, MemoryAddressType, Opcode, Operand, Program, RegisterType, WordType};
 use crate::instructions::instructions::Operand::Code;
 
@@ -190,7 +190,7 @@ impl Loader {
 
         let data_option = self.data_section.get(&name);
         if data_option.is_none() {
-            panic!("Unknown variable '{}' at [{}:{}]", name, line_column.0,line_column.1);
+            panic!("Unknown variable '{}' at [{}:{}]", name, line_column.0, line_column.1);
         }
 
         let data = data_option.unwrap();
@@ -219,7 +219,7 @@ impl Loader {
 
         let data_option = self.data_section.get(&variable_or_register);
         if data_option.is_none() {
-            panic!("Unknown variable '{}' at [{}:{}]", variable_or_register, line_column.0,line_column.1);
+            panic!("Unknown variable '{}' at [{}:{}]", variable_or_register, line_column.0, line_column.1);
         }
 
         let data = data_option.unwrap();
@@ -262,15 +262,14 @@ impl Loader {
 
 
         let register = self.parse_register(&inner_pairs.next().unwrap());
-        let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
 
         self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::PUSH,
             source_cnt: 2,
-            source: [Operand::Register(register), Operand::Register(rsp), Operand::Unused],
+            source: [Operand::Register(register), Operand::Register(ARCH_REG_SP), Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(rsp), Operand::Unused],
+            sink: [Operand::Register(ARCH_REG_SP), Operand::Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
         });
@@ -282,15 +281,14 @@ impl Loader {
 
 
         let register = self.parse_register(&inner_pairs.next().unwrap());
-        let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
 
         self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::POP,
             source_cnt: 1,
-            source: [Operand::Register(rsp), Operand::Unused, Operand::Unused],
+            source: [Operand::Register(ARCH_REG_SP), Operand::Unused, Operand::Unused],
             sink_cnt: 2,
-            sink: [Operand::Register(register), Operand::Register(rsp)],
+            sink: [Operand::Register(register), Operand::Register(ARCH_REG_SP)],
             line: line_column.0 as i32,
             mem_stores: 0,
         });
@@ -310,15 +308,13 @@ impl Loader {
             }
         };
 
-        let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
-
         self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::CALL,
             source_cnt: 2,
-            source: [Operand::Register(rsp), Operand::Code(address as CodeAddressType), Operand::Unused],
+            source: [Operand::Register(ARCH_REG_SP), Operand::Code(address as CodeAddressType), Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(rsp), Operand::Unused],
+            sink: [Operand::Register(ARCH_REG_SP), Operand::Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
         });
@@ -327,15 +323,13 @@ impl Loader {
     fn parse_RET(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
 
-        let rsp = self.cpu_config.arch_reg_count + ARCH_REG_RSP_OFFSET;
-
         self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::RET,
             source_cnt: 1,
-            source: [Operand::Register(rsp), Operand::Unused, Operand::Unused],
+            source: [Operand::Register(ARCH_REG_SP), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(rsp), Operand::Unused],
+            sink: [Operand::Register(ARCH_REG_SP), Operand::Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
         });
@@ -397,12 +391,12 @@ impl Loader {
 
         let variable_name = String::from(var_pair.as_str());
         if !is_valid_variable_name(&variable_name) {
-            panic!("Illegal variable name '{}' at {}:{}", variable_name, line_column.0, line_column.1);
+            panic!("Illegal variable name '{}' at [{}:{}]", variable_name, line_column.0, line_column.1);
         }
 
         let value: i64 = self.parse_integer(&value_pair);
         if self.data_section.contains_key(&variable_name) {
-            panic!("Duplicate variable declaration '{}' at {}:{}", variable_name, line_column.0, line_column.1);
+            panic!("Duplicate variable declaration '{}' at [{}:{}]", variable_name, line_column.0, line_column.1);
         }
         self.data_section.insert(variable_name.clone(), Rc::new(Data { value, offset: self.heap_size }));
         self.heap_size += 1;
@@ -419,12 +413,18 @@ impl Loader {
     }
 
     fn parse_register(&mut self, pair: &Pair<Rule>) -> u16 {
+        let line_column = self.get_line_column(&pair);
         let s = pair.as_str();
-        let register = s[1..].parse().unwrap();
-        // if register>=self.cpu_config.phys_reg_count{
-        //
-        // }
-        return register;
+        if s == "sp" {
+            return ARCH_REG_SP;
+        } else {
+            let reg_name = &s[1..];
+            let reg = reg_name.parse().unwrap();
+            if reg >= GENERAL_ARG_REG_CNT {
+                panic!("Illegal register '{}' at [{}:{}]", &s, line_column.0, line_column.1);
+            }
+            return reg;
+        }
     }
 
     fn parse_immediate(&mut self, pair: &Pair<Rule>) -> WordType {
