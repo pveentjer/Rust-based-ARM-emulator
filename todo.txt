@@ -1,6 +1,6 @@
 TODO
 
-- rename XOR to EOR
+- rename DIV to SDIV
 
 - Operand: Indexed
 
@@ -33,6 +33,10 @@ TODO
 - print string
 
 DONE
+
+- remove MOD
+
+- rename XOR to EOR
 
 - rename OR to ORR
 

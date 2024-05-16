@@ -115,7 +115,6 @@ impl Backend {
                 Opcode::SUB => rob_slot.result.push(rs.source[0].get_constant() - rs.source[1].get_constant()),
                 Opcode::MUL => rob_slot.result.push(rs.source[0].get_constant() * rs.source[1].get_constant()),
                 Opcode::DIV => rob_slot.result.push(rs.source[0].get_constant() / rs.source[1].get_constant()),
-                Opcode::MOD => rob_slot.result.push(rs.source[0].get_constant() % rs.source[1].get_constant()),
                 Opcode::INC => rob_slot.result.push(rs.source[0].get_constant() + 1),
                 Opcode::DEC => rob_slot.result.push(rs.source[0].get_constant() - 1),
                 Opcode::NEG => rob_slot.result.push(-rs.source[0].get_constant()),

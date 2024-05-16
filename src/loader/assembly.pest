@@ -52,7 +52,6 @@ instr = _{  ( instr_LDR
             | instr_SUB
             | instr_MUL
             | instr_DIV
-            | instr_MOD
             | instr_PRINTR
             | instr_NOP
             | instr_EXIT
@@ -74,7 +73,6 @@ instr_SUB       = {"SUB"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_s
 instr_NEG       = {"NEG"    ~ whitespace ~ register                                                     }
 instr_DIV       = {"DIV"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
 instr_MUL       = {"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_MOD       = {"MOD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
 // bitwise logical instructions
 instr_AND       = {"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
 instr_ORR       = {"ORR"     ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }

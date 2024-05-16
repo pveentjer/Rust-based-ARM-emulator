@@ -11,8 +11,6 @@ pub enum Opcode {
     // remove
     DIV,
     // remove
-    MOD,
-    // remove
     INC,
     // remove
     DEC,
@@ -55,7 +53,6 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::SUB => "SUB",
         Opcode::MUL => "MUL",
         Opcode::DIV => "DIV",
-        Opcode::MOD => "MOD",
         Opcode::NEG => "NEG",
         Opcode::LDR => "LDR",
         Opcode::STR => "STR",
@@ -84,7 +81,6 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "SUB" => Some(Opcode::SUB),
         "MUL" => Some(Opcode::MUL),
         "DIV" => Some(Opcode::DIV),
-        "MOD" => Some(Opcode::MOD),
         "NEG" => Some(Opcode::NEG),
         "LOAD" => Some(Opcode::LDR),
         "STORE" => Some(Opcode::STR),
@@ -194,7 +190,7 @@ impl fmt::Display for Instr {
         write!(f, "{} ", mnemonic(self.opcode))?;
 
         match self.opcode {
-            Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::DIV | Opcode::MOD | Opcode::AND | Opcode::ORR | Opcode::EOR =>
+            Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::DIV | Opcode::AND | Opcode::ORR | Opcode::EOR =>
                 write!(f, "{},{},{}", self.sink[0], self.source[0], self.source[1])?,
             Opcode::LDR =>
                 write!(f, "{},{}", self.sink[0], self.source[0])?,

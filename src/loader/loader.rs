@@ -53,8 +53,6 @@ impl Loader {
                         Rule::instr_ADD => self.parse_register_bi_instr(pair, Opcode::ADD),
                         Rule::instr_SUB => self.parse_register_bi_instr(pair, Opcode::SUB),
                         Rule::instr_MUL => self.parse_register_bi_instr(pair, Opcode::MUL),
-                        Rule::instr_DIV => self.parse_register_bi_instr(pair, Opcode::DIV),
-                        Rule::instr_MOD => self.parse_register_bi_instr(pair, Opcode::MOD),
                         Rule::instr_INC => self.parse_reg_self_instr(pair, Opcode::INC),
                         Rule::instr_DEC => self.parse_reg_self_instr(pair, Opcode::DEC),
                         Rule::instr_NEG => self.parse_reg_self_instr(pair, Opcode::NEG),
