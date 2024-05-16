@@ -125,7 +125,7 @@ impl Backend {
                 Opcode::NOT => rob_slot.result.push(!rs.source[0].get_constant()),
                 Opcode::MOV => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::LOAD => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_memory_addr() as usize]),
-                Opcode::STORE => {}
+                Opcode::STORE => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::PRINTR => {
                     println!("PRINTR R{}={}", instr.source[0].get_register(), rs.source[0].get_constant());
                 }

@@ -1,5 +1,15 @@
 TODO
 
+- fix:
+Executing STORE Register(2) Memory(2) line=9
+thread 'main' panicked at src/backend/backend.rs:212:53:
+index out of bounds: the len is 0 but the index is 0
+stack backtrace:
+
+- LOAD to LDR
+
+- STORE to STR
+
 - Operand: Indexed
 
 - Operand: Indirect
