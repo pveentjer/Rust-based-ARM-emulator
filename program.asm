@@ -2,11 +2,10 @@
     a DCD 10
 .global
 _start:
-    MOV R31, sp
     printr R2
     LDR R0, [a]
 loop:
-    CALL some_procedure
+    BL some_procedure
     SUB R0, R0, #1
     ADD R1, R1, #1
     JNZ R0, loop

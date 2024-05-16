@@ -68,7 +68,7 @@ impl Loader {
                         Rule::instr_POP => self.parse_POP(pair),
                         Rule::instr_JNZ => self.parse_cond_jump(pair, Opcode::JNZ),
                         Rule::instr_JZ => self.parse_cond_jump(pair, Opcode::JZ),
-                        Rule::instr_CALL => self.parse_CALL(pair),
+                        Rule::instr_BL => self.parse_BL(pair),
                         Rule::instr_RET => self.parse_RET(pair),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
@@ -294,7 +294,7 @@ impl Loader {
         });
     }
 
-    fn parse_CALL(&mut self, pair: Pair<Rule>) {
+    fn parse_BL(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
@@ -310,7 +310,7 @@ impl Loader {
 
         self.code.push(Instr {
             cycles: 1,
-            opcode: Opcode::CALL,
+            opcode: Opcode::BL,
             source_cnt: 2,
             source: [Operand::Register(ARCH_REG_SP), Operand::Code(address as CodeAddressType), Operand::Unused],
             sink_cnt: 1,

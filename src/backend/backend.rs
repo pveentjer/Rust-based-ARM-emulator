@@ -142,7 +142,7 @@ impl Backend {
                     }
                     frontend_control.halted = false;
                 }
-                Opcode::CALL => {
+                Opcode::BL => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
 
                     let sp_value = rs.source[0].get_constant();

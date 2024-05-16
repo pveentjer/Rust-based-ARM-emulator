@@ -1,5 +1,11 @@
 TODO
 
+- call --> BL
+
+- remove 'exit'
+
+- .global should have a start label
+
 - Operand: Indexed
 
 - Operand: Indirect
@@ -10,7 +16,7 @@ TODO
 
 - memory access should not just be a variable, but could be some expression with one or more registers
 
-- loader: access to RBP
+- loader: access to FP
 
 - loader: validate memory access
 

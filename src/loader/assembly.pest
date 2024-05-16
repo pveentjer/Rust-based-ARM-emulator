@@ -60,7 +60,7 @@ instr = _{  ( instr_LDR
             | instr_PUSH
             | instr_POP
             | instr_NOT
-            | instr_CALL
+            | instr_BL
             | instr_RET
             )}
 
@@ -90,5 +90,5 @@ instr_LDR       = {^"LDR"   ~ whitespace ~ register  ~ arg_sep ~ memory_access  
 instr_STR       = {^"STR"   ~ whitespace ~ register ~ arg_sep ~ memory_access                                    }
 instr_MOV       = {^"MOV"   ~ whitespace ~ register ~ arg_sep ~  (register|immediate)                            }
 // procedure call
-instr_CALL      = {^"CALL"  ~ whitespace ~ label_name                                                            }
+instr_BL        = {^"BL"  ~ whitespace ~ label_name                                                              }
 instr_RET       = {^"RET"                                                                                        }

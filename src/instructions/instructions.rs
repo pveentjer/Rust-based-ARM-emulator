@@ -29,8 +29,7 @@ pub enum Opcode {
     EOR,
     // remove
     NOT,
-    // called differently
-    CALL,
+    BL,
     // called differently
     RET,
     // remove
@@ -40,7 +39,7 @@ pub enum Opcode {
 pub(crate) fn is_control(opcode: Opcode) -> bool {
     return match opcode {
         Opcode::JNZ => true,
-        Opcode::CALL => true,
+        Opcode::BL => true,
         Opcode::RET => true,
         _ => false,
     };
@@ -66,7 +65,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::ORR => "ORR",
         Opcode::EOR => "EOR",
         Opcode::NOT => "NOT",
-        Opcode::CALL => "CALL",
+        Opcode::BL => "BL",
         Opcode::RET => "RET",
         Opcode::EXIT => "EXIT",
     }
@@ -92,7 +91,7 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "ORR" => Some(Opcode::ORR),
         "EOR" => Some(Opcode::EOR),
         "NOT" => Some(Opcode::NOT),
-        "CALL" => Some(Opcode::CALL),
+        "BL" => Some(Opcode::BL),
         "RET" => Some(Opcode::RET),
         "EXIT" => Some(Opcode::RET),
         _ => None,
@@ -201,7 +200,7 @@ impl fmt::Display for Instr {
             Opcode::POP => {}
             Opcode::NEG => {}
             Opcode::NOT => {}
-            Opcode::CALL => {}
+            Opcode::BL => {}
             Opcode::EXIT => {}
             Opcode::RET => {}
         }
