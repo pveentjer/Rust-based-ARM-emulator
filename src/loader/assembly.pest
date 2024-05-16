@@ -14,7 +14,7 @@ memory_access = {"[" ~ ( variable_name | register )  ~ "]"}
 
 register = { ( "R" | "r" ) ~ integer}
 
-label_name = { alpha ~ (alpha | digit | "_" )* }
+label_name = { (alpha | digit | "_" )+ }
 
 variable_name = { alpha ~ (alpha | digit| "_" )* }
 
