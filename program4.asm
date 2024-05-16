@@ -1,11 +1,11 @@
 .data
     a DCD 10
-    b DCD 10
-    c DCD 0
+    b DCD 0
 .global
 _start:
-    LDR R1, [a]
-    LDR R2, [b]
+    MOV R1, #1
+    MOV R2, #2
     ADD R3, R1, R2
-    STR R3, [c]
+    PRINTR R3
+    STR R2, [b]
     EXIT

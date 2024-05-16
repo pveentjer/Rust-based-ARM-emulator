@@ -24,6 +24,8 @@ variable_name = { alpha ~ (alpha | digit| "_" )* }
 
 integer = { digit+ }
 
+immediate = { "#" ~ digit+ }
+
 file = _{ SOI ~ assembly ~ EOI }
 
 assembly = _{ empty_line* ~ data_section? ~ global_section }
@@ -46,8 +48,6 @@ instr = _{  ( instr_LDR
             | instr_AND
             | instr_ORR
             | instr_EOR
-            | instr_DEC
-            | instr_INC
             | instr_ADD
             | instr_SUB
             | instr_MUL
@@ -64,34 +64,31 @@ instr = _{  ( instr_LDR
             | instr_RET
             )}
 
-// the order for all arguments is source and then sink. E.g. 'ADD R1 R2 R3' means R3=R1+R2'.
-// math operations
-instr_INC       = {"INC"    ~ whitespace ~ register                                                     }
-instr_DEC       = {"DEC"    ~ whitespace ~ register                                                     }
-instr_ADD       = {"ADD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_SUB       = {"SUB"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_NEG       = {"NEG"    ~ whitespace ~ register                                                     }
-instr_SDIV       = {"SDIV"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_MUL       = {"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
+
+instr_ADD       = {"ADD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ (register|immediate)       }
+instr_SUB       = {"SUB"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_NEG       = {"NEG"    ~ whitespace ~ register ~ whitespace ~ register                                     }
+instr_SDIV      = {"SDIV"   ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_MUL       = {"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
 // bitwise logical instructions
-instr_AND       = {"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_ORR       = {"ORR"     ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_EOR       = {"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_NOT       = {"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
+instr_AND       = {"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_ORR       = {"ORR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_EOR       = {"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
+instr_NOT       = {"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register                   }
 // conditional jumps
-instr_JNZ       = {"JNZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                           }
-instr_JZ        = {"JZ"     ~ whitespace ~ register ~ arg_sep ~ label_name                           }
+instr_JNZ       = {"JNZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
+instr_JZ        = {"JZ"     ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
 // stack operations
-instr_PUSH      = {"PUSH"   ~ whitespace ~ register                                                     }
-instr_POP       = {"POP"    ~ whitespace ~ register                                                     }
+instr_PUSH      = {"PUSH"   ~ whitespace ~ register                                                             }
+instr_POP       = {"POP"    ~ whitespace ~ register                                                             }
 // various
-instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                                     }
-instr_NOP       = {"NOP"                                                                                }
-instr_EXIT      = {"EXIT"                                                                               }
+instr_PRINTR    = {"PRINTR" ~ whitespace ~ register                                                             }
+instr_NOP       = {"NOP"                                                                                        }
+instr_EXIT      = {"EXIT"                                                                                       }
 // memory & register copying
-instr_LDR       = {"LDR"   ~ whitespace ~ register  ~ arg_sep ~ memory_access                        }
-instr_STR       = {"STR"   ~ whitespace ~ register ~ arg_sep ~ memory_access                         }
-instr_MOV       = {"MOV"    ~ whitespace ~ register ~ arg_sep ~ register                             }
+instr_LDR       = {"LDR"   ~ whitespace ~ register  ~ arg_sep ~ memory_access                                   }
+instr_STR       = {"STR"   ~ whitespace ~ register ~ arg_sep ~ memory_access                                    }
+instr_MOV       = {"MOV"   ~ whitespace ~ register ~ arg_sep ~  (register|immediate)                            }
 // procedure call
-instr_CALL      = {"CALL"  ~ whitespace ~ label_name                                                    }
-instr_RET       = {"RET"                                                                                }
+instr_CALL      = {"CALL"  ~ whitespace ~ label_name                                                            }
+instr_RET       = {"RET"                                                                                        }

@@ -37,7 +37,7 @@ fn main() {
         stack_capacity: 32,
     };
 
-    let path = "program2.asm";
+    let path = "program.asm";
     println!("Loading {}",path);
     let program = Rc::new(load(cpu_config.clone(), path));
 

@@ -1,6 +1,16 @@
 TODO
 
-- rename DIV to SDIV
+- remove INC
+
+- remove DEC
+
+- good Display for SP
+
+- loader: access to RSP
+
+- loader: register validation
+
+- number of architectural registers should be fixed.
 
 - Operand: Indexed
 
@@ -10,15 +20,9 @@ TODO
 
 - loader: every instruction should have an optional label in front of it
 
-- loader: MOV direct value
-
 - memory access should not just be a variable, but could be some expression with one or more registers
 
-- loader: access to RSP
-
 - loader: access to RBP
-
-- loader: register validation
 
 - loader: validate memory access
 
@@ -26,13 +30,15 @@ TODO
 
 - loader: should not panic on error, but propagate the error to the main
 
-- metrics: ipc last cycle
-
 - implement print of memory
 
-- print string
-
 DONE
+
+- loader: many operators can now deal with direct value direct value
+
+- NEG <destination>, <source>
+
+- rename DIV to SDIV
 
 - remove MOD
 

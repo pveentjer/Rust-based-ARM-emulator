@@ -8,7 +8,7 @@ use pest_derive::Parser;
 use regex::Regex;
 
 use crate::cpu::{ARCH_REG_RSP_OFFSET, CPUConfig};
-use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, get_opcode, Instr, MemoryAddressType, Opcode, Operand, Program, RegisterType};
+use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, get_opcode, Instr, MemoryAddressType, Opcode, Operand, Program, RegisterType, WordType};
 use crate::instructions::instructions::Operand::Code;
 
 #[derive(Parser)]
@@ -53,16 +53,14 @@ impl Loader {
                         Rule::instr_ADD => self.parse_register_bi_instr(pair, Opcode::ADD),
                         Rule::instr_SUB => self.parse_register_bi_instr(pair, Opcode::SUB),
                         Rule::instr_MUL => self.parse_register_bi_instr(pair, Opcode::MUL),
-                        Rule::instr_INC => self.parse_reg_self_instr(pair, Opcode::INC),
-                        Rule::instr_DEC => self.parse_reg_self_instr(pair, Opcode::DEC),
-                        Rule::instr_NEG => self.parse_reg_self_instr(pair, Opcode::NEG),
+                        Rule::instr_NEG => self.parse_reg_mono_instr(pair, Opcode::NEG),
                         Rule::instr_AND => self.parse_register_bi_instr(pair, Opcode::AND),
                         Rule::instr_ORR => self.parse_register_bi_instr(pair, Opcode::ORR),
                         Rule::instr_EOR => self.parse_register_bi_instr(pair, Opcode::EOR),
                         Rule::instr_NOT => self.parse_reg_self_instr(pair, Opcode::NOT),
                         Rule::instr_NOP => self.parse_NOP(pair),
                         Rule::instr_EXIT => self.parse_EXIT(pair),
-                        Rule::instr_MOV => self.parse_MOV(pair),
+                        Rule::instr_MOV => self.parse_reg_mono_instr(pair, Opcode::MOV),
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
                         Rule::instr_LDR => self.parse_LDR(pair),
                         Rule::instr_STR => self.parse_STR(pair),
@@ -120,14 +118,20 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
         let sink = self.parse_register(&inner_pairs.next().unwrap());
-        let src_1 = self.parse_register(&inner_pairs.next().unwrap());
-        let src_2 = self.parse_register(&inner_pairs.next().unwrap());
+        let src_1 = Operand::Register(self.parse_register(&inner_pairs.next().unwrap()));
+        let src2_pair = &inner_pairs.next().unwrap();
+        let src2 = match src2_pair.as_rule() {
+            Rule::register => Operand::Register(self.parse_register(src2_pair)),
+            Rule::immediate => Operand::Immediate(self.parse_immediate(src2_pair)),
+            _ => panic!("Unknown rule encountered")
+        };
+
         let line = line_column.0 as i32;
         self.code.push(Instr {
             cycles: 1,
             opcode,
             source_cnt: 2,
-            source: [Operand::Register(src_1), Operand::Register(src_2), Operand::Unused],
+            source: [src_1, src2, Operand::Unused],
             sink_cnt: 1,
             sink: [Operand::Register(sink), Operand::Unused],
             line,
@@ -155,14 +159,21 @@ impl Loader {
     fn parse_reg_mono_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
-        let src = self.parse_register(&inner_pairs.next().unwrap());
         let dst = self.parse_register(&inner_pairs.next().unwrap());
+
+        let src_pair = &inner_pairs.next().unwrap();
+        let src = match src_pair.as_rule() {
+            Rule::register => Operand::Register(self.parse_register(src_pair)),
+            Rule::immediate => Operand::Immediate(self.parse_immediate(src_pair)),
+            _ => panic!("Unknown rule encountered")
+        };
+
         let line = line_column.0 as i32;
         self.code.push(Instr {
             cycles: 1,
             opcode,
             source_cnt: 1,
-            source: [Operand::Register(src), Operand::Unused, Operand::Unused],
+            source: [src, Operand::Unused, Operand::Unused],
             sink_cnt: 1,
             sink: [Operand::Register(dst), Operand::Unused],
             line,
@@ -179,8 +190,7 @@ impl Loader {
 
         let data_option = self.data_section.get(&name);
         if data_option.is_none() {
-            // todo: add line
-            panic!("Unknown variable '{}'", name);
+            panic!("Unknown variable '{}' at [{}:{}]", name, line_column.0,line_column.1);
         }
 
         let data = data_option.unwrap();
@@ -199,26 +209,6 @@ impl Loader {
         });
     }
 
-    fn parse_MOV(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let dst = self.parse_register(&inner_pairs.next().unwrap());
-        let src = self.parse_register(&inner_pairs.next().unwrap());
-
-        let src = dst as RegisterType;
-        let line = line_column.0 as i32;
-        self.code.push(Instr {
-            cycles: 1,
-            opcode: Opcode::MOV,
-            source_cnt: 1,
-            source: [Operand::Register(src), Operand::Unused, Operand::Unused],
-            sink_cnt: 1,
-            sink: [Operand::Register(dst), Operand::Unused],
-            line,
-            mem_stores: 1,
-        });
-    }
 
     fn parse_LDR(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
@@ -229,8 +219,7 @@ impl Loader {
 
         let data_option = self.data_section.get(&variable_or_register);
         if data_option.is_none() {
-            // todo: add line
-            panic!("Unknown variable '{}'", variable_or_register);
+            panic!("Unknown variable '{}' at [{}:{}]", variable_or_register, line_column.0,line_column.1);
         }
 
         let data = data_option.unwrap();
@@ -436,6 +425,11 @@ impl Loader {
         //
         // }
         return register;
+    }
+
+    fn parse_immediate(&mut self, pair: &Pair<Rule>) -> WordType {
+        let s = pair.as_str();
+        return s[1..].parse().unwrap();
     }
 
     fn parse_variable_reference(&mut self, pair: &Pair<Rule>) -> String {

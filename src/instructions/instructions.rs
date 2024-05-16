@@ -8,31 +8,29 @@ pub enum Opcode {
     ADD,
     SUB,
     MUL,
-    // remove
     SDIV,
-    // remove
-    INC,
-    // remove
-    DEC,
     LDR,
     STR,
     NOP,
     PRINTR,
     MOV,
+    // remove
     JNZ,
+    // remove
     JZ,
     // remove
     PUSH,
     // remove
     POP,
-    // exist?
     NEG,
     AND,
     ORR,
     EOR,
     // remove
     NOT,
+    // called differently
     CALL,
+    // called differently
     RET,
     // remove
     EXIT,
@@ -57,8 +55,6 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::LDR => "LDR",
         Opcode::STR => "STR",
         Opcode::NOP => "NOP",
-        Opcode::INC => "INC",
-        Opcode::DEC => "DEC",
         Opcode::PRINTR => "PRINTR",
         Opcode::MOV => "PRINTR",
         Opcode::JNZ => "JNZ",
@@ -85,8 +81,6 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "LOAD" => Some(Opcode::LDR),
         "STORE" => Some(Opcode::STR),
         "NOP" => Some(Opcode::NOP),
-        "INC" => Some(Opcode::INC),
-        "DEC" => Some(Opcode::DEC),
         "PRINTR" => Some(Opcode::PRINTR),
         "MOV" => Some(Opcode::MOV),
         "JNZ" => Some(Opcode::JNZ),
@@ -198,8 +192,6 @@ impl fmt::Display for Instr {
                 write!(f, "{},{}", self.source[0], self.sink[0])?,
             Opcode::MOV =>
                 write!(f, "{},{}", self.sink[0], self.source[0])?,
-            Opcode::INC => {}
-            Opcode::DEC => {}
             Opcode::NOP => {}
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
             Opcode::JNZ => {}

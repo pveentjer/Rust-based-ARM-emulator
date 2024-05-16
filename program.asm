@@ -5,8 +5,8 @@ _start:
     LDR R0, [a]
 loop:
     CALL some_procedure
-    DEC R0
-    INC R1
+    SUB R0, R0, #1
+    ADD R1, R1, #1
     JNZ R0, loop
     EXIT
 some_procedure:
