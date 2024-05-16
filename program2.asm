@@ -1,6 +1,8 @@
 .data
 a 10
-.code
+.global _start
+
+_start
 LOAD [a] R0
 again:
 PRINTR R0

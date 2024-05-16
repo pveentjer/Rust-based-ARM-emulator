@@ -1,5 +1,9 @@
 TODO
 
+- ugly debug string
+Executing LDR Memory(1) Register(2) line=8
+Executing LDR Memory(0) Register(1) line=7
+
 - Operand: Indexed
 
 - Operand: Indirect
@@ -31,51 +35,3 @@ TODO
 - print string
 
 DONE
-
-- metrics: instructions issued
-
-- metrics: cycles
-
-- metrics: instructions retired
-
-- metrics: overall ipc
-
-- more control on which parts of the CPU to trace
-
-- program termination
-
-- function calls
-
-- fix function call: push the instruction pointer in the stack (what about rbp)
-
-- special registers like stack pointer, base pointer:
-    ideally they are just like general purpose register; just a register and no special treatment
-
-- add constructor functions for operand to make it less tedious to write.
-
-- add push
-
-- add pop
-
-- support for stack
-
-- splitting of backend into separate files.
-
-- loader: a variable can't have the same name as a register.
-
-- printr has no access to its arch reg
-
-- implement AND
-
-- implement OR
-
-- implement XOR
-
-- implement NOT
-
-- loader: should be a struct
-
-- added JZ
-
-- JNZ working
-

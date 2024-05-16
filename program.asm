@@ -3,7 +3,9 @@
     b 0
     c 2
     d 0
-.code
+.global _start
+
+_start
     LOAD [a] R0
 loop:
     CALL some_procedure

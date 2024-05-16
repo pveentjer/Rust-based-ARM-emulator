@@ -66,8 +66,8 @@ impl Loader {
                         Rule::instr_EXIT => self.parse_EXIT(pair),
                         Rule::instr_MOV => self.parse_reg_mono_instr(pair, Opcode::MOV),
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
-                        Rule::instr_LOAD => self.parse_LOAD(pair),
-                        Rule::instr_STORE => self.parse_STORE(pair),
+                        Rule::instr_LDR => self.parse_LDR(pair),
+                        Rule::instr_STR => self.parse_STR(pair),
                         Rule::instr_PUSH => self.parse_PUSH(pair),
                         Rule::instr_POP => self.parse_POP(pair),
                         Rule::instr_JNZ => self.parse_cond_jump(pair, Opcode::JNZ),
@@ -121,9 +121,9 @@ impl Loader {
     fn parse_register_bi_instr(&mut self, pair: Pair<Rule>, opcode: Opcode) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
+        let sink = self.parse_register(&inner_pairs.next().unwrap());
         let src_1 = self.parse_register(&inner_pairs.next().unwrap());
         let src_2 = self.parse_register(&inner_pairs.next().unwrap());
-        let sink = self.parse_register(&inner_pairs.next().unwrap());
         let line = line_column.0 as i32;
         self.code.push(Instr {
             cycles: 1,
@@ -172,7 +172,7 @@ impl Loader {
         });
     }
 
-    fn parse_STORE(&mut self, pair: Pair<Rule>) {
+    fn parse_STR(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
@@ -191,7 +191,7 @@ impl Loader {
         let line = line_column.0 as i32;
         self.code.push(Instr {
             cycles: 1,
-            opcode: Opcode::STORE,
+            opcode: Opcode::STR,
             source_cnt: 1,
             source: [Operand::Register(src), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
@@ -201,12 +201,12 @@ impl Loader {
         });
     }
 
-    fn parse_LOAD(&mut self, pair: Pair<Rule>) {
+    fn parse_LDR(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 
-        let variable_or_register = self.parse_variable_reference(&inner_pairs.next().unwrap());
         let register = self.parse_register(&inner_pairs.next().unwrap());
+        let variable_or_register = self.parse_variable_reference(&inner_pairs.next().unwrap());
 
         let data_option = self.data_section.get(&variable_or_register);
         if data_option.is_none() {
@@ -220,7 +220,7 @@ impl Loader {
         let line = line_column.0 as i32;
         self.code.push(Instr {
             cycles: 1,
-            opcode: Opcode::LOAD,
+            opcode: Opcode::LDR,
             source_cnt: 1,
             source: [Operand::Memory(addr), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
@@ -332,7 +332,6 @@ impl Loader {
             mem_stores: 0,
         });
     }
-
 
     fn parse_NOP(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
