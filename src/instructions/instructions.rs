@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::ptr::write;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -7,9 +8,13 @@ pub enum Opcode {
     ADD,
     SUB,
     MUL,
+    // remove
     DIV,
+    // remove
     MOD,
+    // remove
     INC,
+    // remove
     DEC,
     LDR,
     STR,
@@ -18,15 +23,20 @@ pub enum Opcode {
     MOV,
     JNZ,
     JZ,
+    // remove
     PUSH,
+    // remove
     POP,
+    // exist?
     NEG,
     AND,
     OR,
     XOR,
+    // remove
     NOT,
     CALL,
     RET,
+    // remove
     EXIT,
 }
 
@@ -181,19 +191,34 @@ pub(crate) struct Instr {
 
 impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", mnemonic(self.opcode))?;
+        write!(f, "{} ", mnemonic(self.opcode))?;
 
-        for k in 0..self.source_cnt {
-            write!(f, " {:?}", self.source[k as usize])?;
-        }
-
-
-        for k in 0..self.sink_cnt {
-            write!(f, " {:?}", self.sink[k as usize])?;
+        match self.opcode {
+            Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::DIV | Opcode::MOD | Opcode::AND | Opcode::OR | Opcode::XOR =>
+                write!(f, "{},{},{}", self.sink[0], self.source[0], self.source[1])?,
+            Opcode::LDR =>
+                write!(f, "{},{}", self.sink[0], self.source[0])?,
+            Opcode::STR =>
+                write!(f, "{},{}", self.source[0], self.sink[0])?,
+            Opcode::MOV =>
+                write!(f, "{},{}", self.sink[0], self.source[0])?,
+            Opcode::INC => {}
+            Opcode::DEC => {}
+            Opcode::NOP => {}
+            Opcode::PRINTR => write!(f, "{}", self.source[0])?,
+            Opcode::JNZ => {}
+            Opcode::JZ => {}
+            Opcode::PUSH => {}
+            Opcode::POP => {}
+            Opcode::NEG => {}
+            Opcode::NOT => {}
+            Opcode::CALL => {}
+            Opcode::EXIT => {}
+            Opcode::RET => {}
         }
 
         if self.line > 0 {
-            write!(f, " line={}", self.line)?;
+            write!(f, " ; line={}", self.line)?;
         }
 
         Ok(())
@@ -211,6 +236,18 @@ pub(crate) enum Operand {
     Code(CodeAddressType),
 
     Unused,
+}
+
+impl fmt::Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Operand::Register(reg) => write!(f, "R{}", reg),
+            Operand::Immediate(val) => write!(f, "{}", val),
+            Operand::Memory(addr) => write!(f, "[{}]", addr),
+            Operand::Code(addr) => write!(f, "[{}]", addr),
+            Operand::Unused => write!(f, "Unused"),
+        }
+    }
 }
 
 //Indexed(u8, i16),   // Indexed addressing mode (base register and offset).

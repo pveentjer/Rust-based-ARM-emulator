@@ -64,7 +64,7 @@ impl Loader {
                         Rule::instr_NOT => self.parse_reg_self_instr(pair, Opcode::NOT),
                         Rule::instr_NOP => self.parse_NOP(pair),
                         Rule::instr_EXIT => self.parse_EXIT(pair),
-                        Rule::instr_MOV => self.parse_reg_mono_instr(pair, Opcode::MOV),
+                        Rule::instr_MOV => self.parse_MOV(pair),
                         Rule::instr_PRINTR => self.parse_PRINTR(pair),
                         Rule::instr_LDR => self.parse_LDR(pair),
                         Rule::instr_STR => self.parse_STR(pair),
@@ -196,6 +196,27 @@ impl Loader {
             source: [Operand::Register(src), Operand::Unused, Operand::Unused],
             sink_cnt: 1,
             sink: [Operand::Memory(addr), Operand::Unused],
+            line,
+            mem_stores: 1,
+        });
+    }
+
+    fn parse_MOV(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let dst = self.parse_register(&inner_pairs.next().unwrap());
+        let src = self.parse_register(&inner_pairs.next().unwrap());
+
+        let src = dst as RegisterType;
+        let line = line_column.0 as i32;
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::MOV,
+            source_cnt: 1,
+            source: [Operand::Register(src), Operand::Unused, Operand::Unused],
+            sink_cnt: 1,
+            sink: [Operand::Register(dst), Operand::Unused],
             line,
             mem_stores: 1,
         });

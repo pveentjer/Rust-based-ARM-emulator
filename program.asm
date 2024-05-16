@@ -1,17 +1,16 @@
 .data
-    a 10
-    b 0
-    c 2
-    d 0
-.global _start
-
-_start
-    LOAD [a] R0
+    a DCD 10
+    b DCD 0
+    c DCD 2
+    d DCD 0
+.global
+_start:
+    LDR R0, [a]
 loop:
     CALL some_procedure
     DEC R0
     INC R1
-    JNZ R0 loop
+    JNZ R0, loop
     EXIT
 some_procedure:
     PRINTR R1
