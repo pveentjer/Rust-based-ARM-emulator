@@ -1,6 +1,8 @@
 TODO
 
-- call --> BL
+- add B
+
+- fix 'RET'
 
 - remove 'exit'
 
@@ -27,6 +29,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- call --> BL
 
 - remove INC
 

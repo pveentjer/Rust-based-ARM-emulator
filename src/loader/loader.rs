@@ -66,6 +66,7 @@ impl Loader {
                         Rule::instr_STR => self.parse_STR(pair),
                         Rule::instr_PUSH => self.parse_PUSH(pair),
                         Rule::instr_POP => self.parse_POP(pair),
+                        Rule::instr_B => self.parse_B(pair),
                         Rule::instr_JNZ => self.parse_cond_jump(pair, Opcode::JNZ),
                         Rule::instr_JZ => self.parse_cond_jump(pair, Opcode::JZ),
                         Rule::instr_BL => self.parse_BL(pair),
@@ -376,6 +377,32 @@ impl Loader {
             opcode,
             source_cnt: 2,
             source: [Operand::Register(register), Operand::Code(address as CodeAddressType), Operand::Unused],
+            sink_cnt: 0,
+            sink: [Operand::Unused, Operand::Unused],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+        });
+    }
+
+    fn parse_B(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let label = String::from(inner_pairs.next().unwrap().as_str());
+
+        let address = match self.labels.get(&label) {
+            Some(code_address) => *code_address,
+            None => {
+                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
+                0
+            }
+        };
+
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::B,
+            source_cnt: 1,
+            source: [ Operand::Code(address as CodeAddressType), Operand::Unused, Operand::Unused],
             sink_cnt: 0,
             sink: [Operand::Unused, Operand::Unused],
             line: line_column.0 as i32,

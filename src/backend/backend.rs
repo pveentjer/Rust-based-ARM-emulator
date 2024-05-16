@@ -142,6 +142,12 @@ impl Backend {
                     }
                     frontend_control.halted = false;
                 }
+                Opcode::B => {
+                    let mut frontend_control = self.frontend_control.borrow_mut();
+
+                    frontend_control.ip_next_fetch = rs.source[0].get_code_address() as i64;
+                    frontend_control.halted = false;
+                }
                 Opcode::BL => {
                     let mut frontend_control = self.frontend_control.borrow_mut();
 

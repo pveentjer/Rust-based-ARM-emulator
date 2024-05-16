@@ -15,6 +15,7 @@ pub enum Opcode {
     NOP,
     PRINTR,
     MOV,
+    B,
     // remove
     JNZ,
     // remove
@@ -41,6 +42,7 @@ pub(crate) fn is_control(opcode: Opcode) -> bool {
         Opcode::JNZ => true,
         Opcode::BL => true,
         Opcode::RET => true,
+        Opcode::B => true,
         _ => false,
     };
 }
@@ -57,6 +59,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::NOP => "NOP",
         Opcode::PRINTR => "PRINTR",
         Opcode::MOV => "PRINTR",
+        Opcode::B => "B",
         Opcode::JNZ => "JNZ",
         Opcode::JZ => "JZ",
         Opcode::PUSH => "PUSH",
@@ -83,6 +86,7 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "NOP" => Some(Opcode::NOP),
         "PRINTR" => Some(Opcode::PRINTR),
         "MOV" => Some(Opcode::MOV),
+        "B" => Some(Opcode::B),
         "JNZ" => Some(Opcode::JNZ),
         "JZ" => Some(Opcode::JZ),
         "PUSH" => Some(Opcode::PUSH),
@@ -184,16 +188,19 @@ impl fmt::Display for Instr {
         write!(f, "{} ", mnemonic(self.opcode))?;
 
         match self.opcode {
-            Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::SDIV | Opcode::AND | Opcode::ORR | Opcode::EOR =>
-                write!(f, "{},{},{}", self.sink[0], self.source[0], self.source[1])?,
-            Opcode::LDR =>
-                write!(f, "{},{}", self.sink[0], self.source[0])?,
-            Opcode::STR =>
-                write!(f, "{},{}", self.source[0], self.sink[0])?,
-            Opcode::MOV =>
-                write!(f, "{},{}", self.sink[0], self.source[0])?,
+            Opcode::ADD |
+            Opcode::SUB |
+            Opcode::MUL |
+            Opcode::SDIV |
+            Opcode::AND |
+            Opcode::ORR |
+            Opcode::EOR => write!(f, "{},{},{}", self.sink[0], self.source[0], self.source[1])?,
+            Opcode::LDR => write!(f, "{},{}", self.sink[0], self.source[0])?,
+            Opcode::STR => write!(f, "{},{}", self.source[0], self.sink[0])?,
+            Opcode::MOV => write!(f, "{},{}", self.sink[0], self.source[0])?,
             Opcode::NOP => {}
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
+            Opcode::B => write!(f, "{}", self.source[0])?,
             Opcode::JNZ => {}
             Opcode::JZ => {}
             Opcode::PUSH => {}

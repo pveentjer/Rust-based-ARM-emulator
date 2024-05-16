@@ -26,9 +26,9 @@ fn main() {
             decode: false,
             issue: false,
             dispatch: false,
-            execute: true,
+            execute: false,
             retire: false,
-            cycle: true,
+            cycle: false,
         },
         retire_n_wide: 4,
         dispatch_n_wide: 4,
@@ -36,7 +36,7 @@ fn main() {
         stack_capacity: 32,
     };
 
-    let path = "program.asm";
+    let path = "program2.asm";
     println!("Loading {}",path);
     let program = Rc::new(load(cpu_config.clone(), path));
 

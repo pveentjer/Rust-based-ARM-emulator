@@ -62,6 +62,7 @@ instr = _{  ( instr_LDR
             | instr_NOT
             | instr_BL
             | instr_RET
+            | instr_B
             )}
 
 
@@ -76,6 +77,7 @@ instr_ORR       = {^"ORR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_
 instr_EOR       = {^"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
 instr_NOT       = {^"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register                   }
 // conditional jumps
+instr_B         = {^"B"    ~ whitespace ~ label_name                                                             }
 instr_JNZ       = {^"JNZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
 instr_JZ        = {^"JZ"     ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
 // stack operations
