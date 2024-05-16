@@ -30,8 +30,8 @@ pub enum Opcode {
     // exist?
     NEG,
     AND,
-    OR,
-    XOR,
+    ORR,
+    EOR,
     // remove
     NOT,
     CALL,
@@ -69,8 +69,8 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::PUSH => "PUSH",
         Opcode::POP => "POP",
         Opcode::AND => "AND",
-        Opcode::OR => "OR",
-        Opcode::XOR => "XOR",
+        Opcode::ORR => "ORR",
+        Opcode::EOR => "EOR",
         Opcode::NOT => "NOT",
         Opcode::CALL => "CALL",
         Opcode::RET => "RET",
@@ -98,8 +98,8 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "PUSH" => Some(Opcode::PUSH),
         "POP" => Some(Opcode::POP),
         "AND" => Some(Opcode::AND),
-        "OR" => Some(Opcode::OR),
-        "XOR" => Some(Opcode::XOR),
+        "ORR" => Some(Opcode::ORR),
+        "EOR" => Some(Opcode::EOR),
         "NOT" => Some(Opcode::NOT),
         "CALL" => Some(Opcode::CALL),
         "RET" => Some(Opcode::RET),
@@ -194,7 +194,7 @@ impl fmt::Display for Instr {
         write!(f, "{} ", mnemonic(self.opcode))?;
 
         match self.opcode {
-            Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::DIV | Opcode::MOD | Opcode::AND | Opcode::OR | Opcode::XOR =>
+            Opcode::ADD | Opcode::SUB | Opcode::MUL | Opcode::DIV | Opcode::MOD | Opcode::AND | Opcode::ORR | Opcode::EOR =>
                 write!(f, "{},{},{}", self.sink[0], self.source[0], self.source[1])?,
             Opcode::LDR =>
                 write!(f, "{},{}", self.sink[0], self.source[0])?,

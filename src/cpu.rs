@@ -33,7 +33,6 @@ impl PerfCounters {
     }
 }
 
-
 #[derive(Clone)]
 pub(crate) struct CPUConfig {
     // the number of architectural registers
@@ -137,15 +136,16 @@ impl CPU {
             self.perf_counters.borrow_mut().cycle_cnt += 1;
 
             if self.trace.cycle {
-                println!("=======================================================================");
                 let perf_counters = self.perf_counters.borrow_mut();
-                println!("Cycle Count {}", perf_counters.cycle_cnt);
-                println!("Decode Count {}", perf_counters.decode_cnt);
-                println!("Issue Count {}", perf_counters.issue_cnt);
-                println!("Dispatch Count {}", perf_counters.dispatch_cnt);
-                println!("Execute Count {}", perf_counters.execute_cnt);
-                println!("Retired Count {}", perf_counters.retire_cnt);
-                println!("IPC {}", perf_counters.retire_cnt as f32 / perf_counters.cycle_cnt as f32);
+                println!("[Cycles:{}][Decoded={}][Issued={}][Dispatched={}][Executed={}][Retired={}][IPC={:.2}]",
+                         perf_counters.cycle_cnt,
+                         perf_counters.decode_cnt,
+                         perf_counters.issue_cnt,
+                         perf_counters.dispatch_cnt,
+                         perf_counters.execute_cnt,
+                         perf_counters.retire_cnt,
+                         perf_counters.retire_cnt as f32 / perf_counters.cycle_cnt as f32
+                );
             }
             self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.do_cycle();

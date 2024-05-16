@@ -1,8 +1,5 @@
 .data
     a DCD 10
-    b DCD 0
-    c DCD 2
-    d DCD 0
 .global
 _start:
     LDR R0, [a]

@@ -1,8 +1,6 @@
 TODO
 
-- ugly debug string
-Executing LDR Memory(1) Register(2) line=8
-Executing LDR Memory(0) Register(1) line=7
+- rename XOR to EOR
 
 - Operand: Indexed
 
@@ -35,3 +33,11 @@ Executing LDR Memory(0) Register(1) line=7
 - print string
 
 DONE
+
+- rename OR to ORR
+
+- ugly debug string
+Executing LDR Memory(1) Register(2) line=8
+Executing LDR Memory(0) Register(1) line=7
+
+- More ARM like syntax

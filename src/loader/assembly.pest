@@ -44,8 +44,8 @@ instr = _{  ( instr_LDR
             | instr_STR
             | instr_MOV
             | instr_AND
-            | instr_OR
-            | instr_XOR
+            | instr_ORR
+            | instr_EOR
             | instr_DEC
             | instr_INC
             | instr_ADD
@@ -77,8 +77,8 @@ instr_MUL       = {"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_s
 instr_MOD       = {"MOD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
 // bitwise logical instructions
 instr_AND       = {"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_OR        = {"OR"     ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
-instr_XOR       = {"XOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
+instr_ORR       = {"ORR"     ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
+instr_EOR       = {"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
 instr_NOT       = {"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register     }
 // conditional jumps
 instr_JNZ       = {"JNZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                           }
