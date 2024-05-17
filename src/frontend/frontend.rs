@@ -1,11 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::cpu::{CPUConfig, PerfCounters, Trace};
-use crate::instructions::instructions::{InstrQueue, is_control, Opcode, Program};
+use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
+use crate::instructions::instructions::{InstrQueue, Opcode, Program, WordType};
 
 pub(crate) struct FrontendControl {
-    pub(crate) ip_next_fetch: i64,
     pub(crate) halted: bool,
 }
 
@@ -17,6 +16,7 @@ pub(crate) struct Frontend {
     trace: Trace,
     exit: bool,
     perf_counters: Rc<RefCell<PerfCounters>>,
+    arch_reg_file: Rc<RefCell<ArgRegFile>>,
 }
 
 impl Frontend {
@@ -24,6 +24,7 @@ impl Frontend {
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>,
+                      arch_registers: Rc<RefCell<ArgRegFile>>,
     ) -> Frontend {
         Frontend {
             instr_queue,
@@ -33,25 +34,28 @@ impl Frontend {
             frontend_control,
             exit: false,
             perf_counters,
+            arch_reg_file: arch_registers,
         }
     }
 
     pub(crate) fn init(&mut self, program: &Rc<Program>) {
         self.program_option = Some(Rc::clone(program));
-        self.frontend_control.borrow_mut().ip_next_fetch = 0;
+        self.arch_reg_file.borrow_mut().set_value(PC, 0);
     }
 
     pub(crate) fn do_cycle(&mut self) {
         match &self.program_option {
             None => return,
             Some(program) => {
-                if self.frontend_control.borrow_mut().halted {
-                    return;
-                }
-
                 let mut instr_queue = self.instr_queue.borrow_mut();
                 let mut frontend_control = self.frontend_control.borrow_mut();
                 let mut perf_counters = self.perf_counters.borrow_mut();
+                let mut arch_reg_file = self.arch_reg_file.borrow_mut();
+
+                if frontend_control.halted {
+                    return;
+                }
+
                 for _ in 0..self.n_wide {
                     if self.exit {
                         return;
@@ -61,33 +65,34 @@ impl Frontend {
                         break;
                     }
 
-                    if program.code.len() == frontend_control.ip_next_fetch as usize {
+                    let pc_value = arch_reg_file.get_value(PC) as usize;
+                    if program.code.len() == pc_value {
                         // at the end of the program
                         return;
                     }
 
-                    if frontend_control.ip_next_fetch == -1 {
-                        break;
+                    let instr = program.get_instr(pc_value);
+                    if self.trace.decode {
+                        println!("Frontend: ip_next_fetch: {} decoded {}", pc_value, instr);
                     }
 
-                    let instr = program.get_instr(frontend_control.ip_next_fetch as usize);
-                    if self.trace.decode {
-                        println!("Frontend: ip_next_fetch: {} decoded {}", frontend_control.ip_next_fetch, instr);
-                    }
-                    let opcode = instr.opcode;
-                    if opcode == Opcode::EXIT {
+                    if instr.opcode == Opcode::EXIT {
                         self.exit = true;
                     }
+
+                    let control = instr.control;
 
                     // todo: what about cloning?
                     instr_queue.enqueue(instr);
 
-                    if is_control(opcode) {
+                    // move the PC to the next instruction.
+                    arch_reg_file.set_value(PC, (pc_value + 1) as WordType);
+                    perf_counters.decode_cnt += 1;
+
+                    if control {
                         frontend_control.halted = true;
                         return;
                     }
-                    frontend_control.ip_next_fetch += 1;
-                    perf_counters.decode_cnt += 1;
                 }
             }
         }

@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::ptr::write;
+
 use std::rc::Rc;
-use crate::cpu::ARCH_REG_SP;
+use crate::cpu::SP;
+use crate::cpu::LR;
+use crate::cpu::PC;
+
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Opcode {
@@ -16,10 +19,10 @@ pub enum Opcode {
     PRINTR,
     MOV,
     B,
+    BX,
+    BL,
     // remove
-    JNZ,
-    // remove
-    JZ,
+    EXIT,
     // remove
     PUSH,
     // remove
@@ -30,21 +33,7 @@ pub enum Opcode {
     EOR,
     // remove
     NOT,
-    BL,
-    // called differently
-    RET,
-    // remove
-    EXIT,
-}
 
-pub(crate) fn is_control(opcode: Opcode) -> bool {
-    return match opcode {
-        Opcode::JNZ => true,
-        Opcode::BL => true,
-        Opcode::RET => true,
-        Opcode::B => true,
-        _ => false,
-    };
 }
 
 pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
@@ -60,8 +49,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::PRINTR => "PRINTR",
         Opcode::MOV => "PRINTR",
         Opcode::B => "B",
-        Opcode::JNZ => "JNZ",
-        Opcode::JZ => "JZ",
+        Opcode::BX => "BX",
         Opcode::PUSH => "PUSH",
         Opcode::POP => "POP",
         Opcode::AND => "AND",
@@ -69,7 +57,6 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::EOR => "EOR",
         Opcode::NOT => "NOT",
         Opcode::BL => "BL",
-        Opcode::RET => "RET",
         Opcode::EXIT => "EXIT",
     }
 }
@@ -87,8 +74,7 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "PRINTR" => Some(Opcode::PRINTR),
         "MOV" => Some(Opcode::MOV),
         "B" => Some(Opcode::B),
-        "JNZ" => Some(Opcode::JNZ),
-        "JZ" => Some(Opcode::JZ),
+        "BX" => Some(Opcode::BX),
         "PUSH" => Some(Opcode::PUSH),
         "POP" => Some(Opcode::POP),
         "AND" => Some(Opcode::AND),
@@ -96,8 +82,7 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "EOR" => Some(Opcode::EOR),
         "NOT" => Some(Opcode::NOT),
         "BL" => Some(Opcode::BL),
-        "RET" => Some(Opcode::RET),
-        "EXIT" => Some(Opcode::RET),
+        "EXIT" => Some(Opcode::EXIT),
         _ => None,
     }
 }
@@ -181,6 +166,7 @@ pub(crate) struct Instr {
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
     pub(crate) line: i32,
     pub(crate) mem_stores: u8,
+    pub(crate) control: bool,
 }
 
 impl fmt::Display for Instr {
@@ -200,16 +186,14 @@ impl fmt::Display for Instr {
             Opcode::MOV => write!(f, "{},{}", self.sink[0], self.source[0])?,
             Opcode::NOP => {}
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
-            Opcode::B => write!(f, "{}", self.source[0])?,
-            Opcode::JNZ => {}
-            Opcode::JZ => {}
+            Opcode::B |
+            Opcode::BX |
+            Opcode::BL => write!(f, "{}", self.source[0])?,
             Opcode::PUSH => {}
             Opcode::POP => {}
             Opcode::NEG => {}
             Opcode::NOT => {}
-            Opcode::BL => {}
             Opcode::EXIT => {}
-            Opcode::RET => {}
         }
 
         if self.line > 0 {
@@ -237,12 +221,13 @@ impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Operand::Register(reg) => {
-                if *reg == ARCH_REG_SP as RegisterType {
-                    write!(f, "SP")
-                } else {
-                    write!(f, "R{}", reg)
+                match *reg as u16 {
+                    LR => write!(f, "FP"),
+                    SP => write!(f, "SP"),
+                    PC => write!(f, "PC"),
+                    _ => write!(f, "R{}", reg),
                 }
-            }
+            }  // Add a comma here
             Operand::Immediate(val) => write!(f, "{}", val),
             Operand::Memory(addr) => write!(f, "[{}]", addr),
             Operand::Code(addr) => write!(f, "[{}]", addr),
@@ -314,5 +299,6 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         sink: [Operand::Unused, Operand::Unused],
         line,
         mem_stores: 0,
+        control: false
     }
 }

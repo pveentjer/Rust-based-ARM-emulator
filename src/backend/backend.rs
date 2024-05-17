@@ -6,7 +6,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
-use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
+use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -124,59 +124,24 @@ impl Backend {
                 Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_memory_addr() as usize]),
                 Opcode::STR => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::PRINTR => {
-                    println!("PRINTR R{}={}", instr.source[0].get_register(), rs.source[0].get_constant());
-                }
-                Opcode::JNZ | Opcode::JZ => {
-                    let mut frontend_control = self.frontend_control.borrow_mut();
-                    let value = rs.source[0].get_constant();
-                    let take_branch = match rs.opcode {
-                        Opcode::JNZ => value != 0,
-                        Opcode::JZ => value == 0,
-                        _ => unreachable!(),
-                    };
-
-                    if take_branch {
-                        frontend_control.ip_next_fetch = rs.source[1].get_code_address() as i64;
-                    } else {
-                        frontend_control.ip_next_fetch += 1;
-                    }
-                    frontend_control.halted = false;
+                    println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_constant());
                 }
                 Opcode::B => {
-                    let mut frontend_control = self.frontend_control.borrow_mut();
-
-                    frontend_control.ip_next_fetch = rs.source[0].get_code_address() as i64;
-                    frontend_control.halted = false;
+                    // update the PC
+                    rob_slot.result.push(rs.source[0].get_code_address() as i64);
+                }
+                Opcode::BX => {
+                    // update the PC
+                    rob_slot.result.push(rs.source[0].get_constant() as i64);
                 }
                 Opcode::BL => {
-                    let mut frontend_control = self.frontend_control.borrow_mut();
+                    let code_address = rs.source[0].get_code_address();
+                    let pc = rs.source[1].get_constant();
 
-                    let sp_value = rs.source[0].get_constant();
-                    let new_sp_value = sp_value + 1;
-                    let code_address = rs.source[1].get_code_address();
-
-                    // on the stack we store the current ip
-                    self.stack[sp_value as usize] = frontend_control.ip_next_fetch;
-                    // update the sp
-                    rob_slot.result.push(new_sp_value);
-
-                    frontend_control.ip_next_fetch = code_address as i64;
-                    frontend_control.halted = false;
-                }
-                Opcode::RET => {
-                    let mut frontend_control = self.frontend_control.borrow_mut();
-
-                    let sp_value = rs.source[0].get_constant();
-
-                    let new_sp_value = sp_value - 1;
-                    let ip_next_fetch = self.stack[new_sp_value as usize];
-
-                    // update the rsp
-                    rob_slot.result.push(new_sp_value);
-
-                    // because CALL is a control, the ip_next_fetch is still pointing to the CALL and so we need to bump it manually
-                    frontend_control.ip_next_fetch = ip_next_fetch + 1;
-                    frontend_control.halted = false;
+                    // update LR
+                    rob_slot.result.push(pc);
+                    // update the PC
+                    rob_slot.result.push(code_address as i64);
                 }
                 Opcode::PUSH => {
                     let value = rs.source[0].get_constant();
@@ -269,6 +234,7 @@ impl Backend {
     fn cycle_retire(&mut self) {
         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
         let mut perf_monitors = self.perf_counters.borrow_mut();
+        let mut frontend_control = self.frontend_control.borrow_mut();
 
         for _ in 0..self.retire_n_wide {
             if !self.rob.head_has_executed() {
@@ -287,6 +253,10 @@ impl Backend {
 
             if self.trace.retire {
                 println!("Retiring {}", instr);
+            }
+
+            if instr.control{
+                frontend_control.halted = false;
             }
 
             perf_monitors.retire_cnt += 1;

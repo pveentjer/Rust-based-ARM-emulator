@@ -1,10 +1,24 @@
 TODO
 
-- add B
+- any control instruction should only modify the IP when retiring; not earlier.
 
-- fix 'RET'
+- there should be detection if an instruction is interacting with the PC register
 
-- remove 'exit'
+- BL should update LR + PC
+
+- B should update PC
+
+- BX should update PC
+
+- frontend should use the PC for tracking the instruction pointer.
+
+- implement CMP
+
+- implement BE
+
+- implement BNE
+
+- remove 'exit': there should not be need for exit; if program has reached last line.. then exit is implied
 
 - .global should have a start label
 
@@ -18,8 +32,6 @@ TODO
 
 - memory access should not just be a variable, but could be some expression with one or more registers
 
-- loader: access to FP
-
 - loader: validate memory access
 
 - loader: validate variable declaration that it fits in memory
@@ -29,6 +41,24 @@ TODO
 - implement print of memory
 
 DONE
+
+- remove JE
+
+- remove JNZ
+
+- loader: access to FP
+
+- add BX
+
+- fix 'RET'
+
+- SP should point to R13
+
+- LR should point to R14
+
+- PC should point to R15
+
+- add 'B' for unconditional branch
 
 - call --> BL
 

@@ -6,8 +6,9 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
+use Operand::{Register, Unused};
 
-use crate::cpu::{ARCH_REG_SP, CPUConfig, GENERAL_ARG_REG_CNT};
+use crate::cpu::{SP, CPUConfig, GENERAL_ARG_REG_CNT, PC, LR};
 use crate::instructions::instructions::{CodeAddressType, create_NOP, Data, get_opcode, Instr, MemoryAddressType, Opcode, Operand, Program, RegisterType, WordType};
 use crate::instructions::instructions::Operand::Code;
 
@@ -67,10 +68,8 @@ impl Loader {
                         Rule::instr_PUSH => self.parse_PUSH(pair),
                         Rule::instr_POP => self.parse_POP(pair),
                         Rule::instr_B => self.parse_B(pair),
-                        Rule::instr_JNZ => self.parse_cond_jump(pair, Opcode::JNZ),
-                        Rule::instr_JZ => self.parse_cond_jump(pair, Opcode::JZ),
+                        Rule::instr_BX => self.parse_B(pair),
                         Rule::instr_BL => self.parse_BL(pair),
-                        Rule::instr_RET => self.parse_RET(pair),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
                 }
@@ -81,6 +80,11 @@ impl Loader {
             }
         };
 
+        self.process_unresolved();
+        self.fix_control_flag();
+    }
+
+    fn process_unresolved(&mut self) {
         for unresolved in &self.unresolved_vec {
             let mut instr = &mut self.code[unresolved.index];
             if let Some(&address) = self.labels.get(&unresolved.label) {
@@ -96,6 +100,40 @@ impl Loader {
                 panic!("Can't find label {} for instruction at line {}", unresolved.label, instr.line);
             }
         }
+    }
+
+    fn fix_control_flag(&mut self) {
+        for instr_index in 0..self.code.len() {
+            let mut instr = self.code.get_mut(instr_index).unwrap();
+
+            if instr.control {
+                continue;
+            }
+
+            instr.control = Self::is_control(instr);
+        }
+    }
+
+    fn is_control(instr: &Instr) -> bool {
+        for source_index in 0..instr.source_cnt as usize {
+            if Self::is_control_operand(&instr.source[source_index]) {
+                return true;
+            }
+        }
+
+        for sink_index in 0..instr.sink_cnt as usize {
+            if Self::is_control_operand(&instr.sink[sink_index]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn is_control_operand(op: &Operand) -> bool {
+        return match *op {
+            Register(register) => register == PC,
+            _ => false,
+        };
     }
 
     fn parse_label(&mut self, pair: Pair<Rule>) {
@@ -119,10 +157,10 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
         let sink = self.parse_register(&inner_pairs.next().unwrap());
-        let src_1 = Operand::Register(self.parse_register(&inner_pairs.next().unwrap()));
+        let src_1 = Register(self.parse_register(&inner_pairs.next().unwrap()));
         let src2_pair = &inner_pairs.next().unwrap();
         let src2 = match src2_pair.as_rule() {
-            Rule::register => Operand::Register(self.parse_register(src2_pair)),
+            Rule::register => Register(self.parse_register(src2_pair)),
             Rule::immediate => Operand::Immediate(self.parse_immediate(src2_pair)),
             _ => panic!("Unknown rule encountered")
         };
@@ -132,11 +170,12 @@ impl Loader {
             cycles: 1,
             opcode,
             source_cnt: 2,
-            source: [src_1, src2, Operand::Unused],
+            source: [src_1, src2, Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(sink), Operand::Unused],
+            sink: [Register(sink), Unused],
             line,
             mem_stores: 0,
+            control: false,
         });
     }
 
@@ -149,11 +188,12 @@ impl Loader {
             cycles: 1,
             opcode,
             source_cnt: 1,
-            source: [Operand::Register(reg), Operand::Unused, Operand::Unused],
+            source: [Register(reg), Unused, Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(reg), Operand::Unused],
+            sink: [Register(reg), Unused],
             line,
             mem_stores: 0,
+            control: false,
         });
     }
 
@@ -164,7 +204,7 @@ impl Loader {
 
         let src_pair = &inner_pairs.next().unwrap();
         let src = match src_pair.as_rule() {
-            Rule::register => Operand::Register(self.parse_register(src_pair)),
+            Rule::register => Register(self.parse_register(src_pair)),
             Rule::immediate => Operand::Immediate(self.parse_immediate(src_pair)),
             _ => panic!("Unknown rule encountered")
         };
@@ -174,11 +214,12 @@ impl Loader {
             cycles: 1,
             opcode,
             source_cnt: 1,
-            source: [src, Operand::Unused, Operand::Unused],
+            source: [src, Unused, Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(dst), Operand::Unused],
+            sink: [Register(dst), Unused],
             line,
             mem_stores: 0,
+            control: false,
         });
     }
 
@@ -202,14 +243,14 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::STR,
             source_cnt: 1,
-            source: [Operand::Register(src), Operand::Unused, Operand::Unused],
+            source: [Register(src), Unused, Unused],
             sink_cnt: 1,
-            sink: [Operand::Memory(addr), Operand::Unused],
+            sink: [Operand::Memory(addr), Unused],
             line,
             mem_stores: 1,
+            control: false,
         });
     }
-
 
     fn parse_LDR(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
@@ -231,11 +272,12 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::LDR,
             source_cnt: 1,
-            source: [Operand::Memory(addr), Operand::Unused, Operand::Unused],
+            source: [Operand::Memory(addr), Unused, Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(sink), Operand::Unused],
+            sink: [Register(sink), Unused],
             line,
             mem_stores: 0,
+            control: false,
         });
     }
 
@@ -249,11 +291,12 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::PRINTR,
             source_cnt: 1,
-            source: [Operand::Register(reg), Operand::Unused, Operand::Unused],
+            source: [Register(reg), Unused, Unused],
             sink_cnt: 0,
-            sink: [Operand::Unused, Operand::Unused],
+            sink: [Unused, Unused],
             line,
             mem_stores: 0,
+            control: false,
         });
     }
 
@@ -268,11 +311,12 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::PUSH,
             source_cnt: 2,
-            source: [Operand::Register(register), Operand::Register(ARCH_REG_SP), Operand::Unused],
+            source: [Register(register), Register(SP), Unused],
             sink_cnt: 1,
-            sink: [Operand::Register(ARCH_REG_SP), Operand::Unused],
+            sink: [Register(SP), Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
+            control: false,
         });
     }
 
@@ -287,52 +331,12 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::POP,
             source_cnt: 1,
-            source: [Operand::Register(ARCH_REG_SP), Operand::Unused, Operand::Unused],
+            source: [Register(SP), Unused, Unused],
             sink_cnt: 2,
-            sink: [Operand::Register(register), Operand::Register(ARCH_REG_SP)],
+            sink: [Register(register), Register(SP)],
             line: line_column.0 as i32,
             mem_stores: 0,
-        });
-    }
-
-    fn parse_BL(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let label = String::from(inner_pairs.next().unwrap().as_str());
-
-        let address = match self.labels.get(&label) {
-            Some(code_address) => *code_address,
-            None => {
-                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
-                0
-            }
-        };
-
-        self.code.push(Instr {
-            cycles: 1,
-            opcode: Opcode::BL,
-            source_cnt: 2,
-            source: [Operand::Register(ARCH_REG_SP), Operand::Code(address as CodeAddressType), Operand::Unused],
-            sink_cnt: 1,
-            sink: [Operand::Register(ARCH_REG_SP), Operand::Unused],
-            line: line_column.0 as i32,
-            mem_stores: 0,
-        });
-    }
-
-    fn parse_RET(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
-
-        self.code.push(Instr {
-            cycles: 1,
-            opcode: Opcode::RET,
-            source_cnt: 1,
-            source: [Operand::Register(ARCH_REG_SP), Operand::Unused, Operand::Unused],
-            sink_cnt: 1,
-            sink: [Operand::Register(ARCH_REG_SP), Operand::Unused],
-            line: line_column.0 as i32,
-            mem_stores: 0,
+            control: false,
         });
     }
 
@@ -341,46 +345,18 @@ impl Loader {
         self.code.push(create_NOP(line_column.0 as i32));
     }
 
-
     fn parse_EXIT(&mut self, pair: Pair<Rule>) {
         let line_column = self.get_line_column(&pair);
         self.code.push(Instr {
             cycles: 1,
             opcode: Opcode::EXIT,
             source_cnt: 0,
-            source: [Operand::Unused, Operand::Unused, Operand::Unused],
+            source: [Unused, Unused, Unused],
             sink_cnt: 0,
-            sink: [Operand::Unused, Operand::Unused],
+            sink: [Unused, Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
-        });
-    }
-
-    fn parse_cond_jump(&mut self, pair: Pair<Rule>, opcode: Opcode) {
-        let line_column = self.get_line_column(&pair);
-        let mut inner_pairs = pair.into_inner();
-
-        let register = self.parse_register(&inner_pairs.next().unwrap());
-
-        let label = String::from(inner_pairs.next().unwrap().as_str());
-
-        let address = match self.labels.get(&label) {
-            Some(code_address) => *code_address,
-            None => {
-                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
-                0
-            }
-        };
-
-        self.code.push(Instr {
-            cycles: 1,
-            opcode,
-            source_cnt: 2,
-            source: [Operand::Register(register), Operand::Code(address as CodeAddressType), Operand::Unused],
-            sink_cnt: 0,
-            sink: [Operand::Unused, Operand::Unused],
-            line: line_column.0 as i32,
-            mem_stores: 0,
+            control: false,
         });
     }
 
@@ -402,11 +378,57 @@ impl Loader {
             cycles: 1,
             opcode: Opcode::B,
             source_cnt: 1,
-            source: [ Operand::Code(address as CodeAddressType), Operand::Unused, Operand::Unused],
-            sink_cnt: 0,
-            sink: [Operand::Unused, Operand::Unused],
+            source: [Code(address as CodeAddressType), Unused, Unused],
+            sink_cnt: 1,
+            sink: [Register(PC), Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
+            control: true,
+        });
+    }
+
+    fn parse_BX(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+        let register = self.parse_register(&inner_pairs.next().unwrap());
+
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::BX,
+            source_cnt: 1,
+            source: [Register(register), Unused, Unused],
+            sink_cnt: 0,
+            sink: [Register(PC), Unused],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+            control: true,
+        });
+    }
+
+    fn parse_BL(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let label = String::from(inner_pairs.next().unwrap().as_str());
+
+        let address = match self.labels.get(&label) {
+            Some(code_address) => *code_address,
+            None => {
+                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
+                0
+            }
+        };
+
+        self.code.push(Instr {
+            cycles: 1,
+            opcode: Opcode::BL,
+            source_cnt: 2,
+            source: [Code(address as CodeAddressType), Register(PC), Unused],
+            sink_cnt: 2,
+            sink: [Register(LR), Register(PC)],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+            control: true,
         });
     }
 
@@ -441,17 +463,21 @@ impl Loader {
 
     fn parse_register(&mut self, pair: &Pair<Rule>) -> u16 {
         let line_column = self.get_line_column(&pair);
-        let s = pair.as_str();
-        if s == "sp" {
-            return ARCH_REG_SP;
+        let s = pair.as_str().to_lowercase();
+        return if s == "sp" {
+            SP
+        } else if s == "fp" {
+            LR
+        } else if s == "pc" {
+            PC
         } else {
             let reg_name = &s[1..];
             let reg = reg_name.parse().unwrap();
             if reg >= GENERAL_ARG_REG_CNT {
                 panic!("Illegal register '{}' at [{}:{}]", &s, line_column.0, line_column.1);
             }
-            return reg;
-        }
+            reg
+        };
     }
 
     fn parse_immediate(&mut self, pair: &Pair<Rule>) -> WordType {

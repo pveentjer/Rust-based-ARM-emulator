@@ -89,10 +89,10 @@ impl CPU {
             MemorySubsystem::new(cpu_config)));
 
         let arch_reg_file = Rc::new(RefCell::new(
-            ArgRegFile::new(GENERAL_ARG_REG_CNT + SPECIAL_ARG_REGS_CNT)));
+            ArgRegFile::new(GENERAL_ARG_REG_CNT)));
 
         let mut frontend_control = Rc::new(RefCell::new(
-            FrontendControl { ip_next_fetch: -1, halted: false }));
+            FrontendControl { halted: false }));
 
         let backend = Backend::new(
             cpu_config,
@@ -108,6 +108,7 @@ impl CPU {
             Rc::clone(&instr_queue),
             Rc::clone(&frontend_control),
             Rc::clone(&perf_counters),
+            Rc::clone(&arch_reg_file),
         );
 
 
@@ -156,9 +157,9 @@ impl CPU {
 }
 
 pub const GENERAL_ARG_REG_CNT: u16 = 31;
-pub const SPECIAL_ARG_REGS_CNT: u16 = 2;
-pub const ARCH_REG_SP: u16 = GENERAL_ARG_REG_CNT;
-pub const ARCH_REG_FP: u16 = ARCH_REG_SP + 1;
+pub const SP: u16 = 13;
+pub const LR: u16 = 14;
+pub const PC: u16 = 15;
 
 struct ArgRegEntry {
     pub(crate) value: WordType,
