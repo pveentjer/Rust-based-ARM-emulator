@@ -12,11 +12,11 @@ alpha = { 'a'..'z' | 'A'..'Z' }
 
 digit = { '0'..'9' }
 
-comment = _{ ";" ~ (!"\n" ~ ANY)* }
+comment = _{ "@" ~ (!"\n" ~ ANY)* }
 
 memory_access = {"[" ~ ( variable_name | register )  ~ "]"}
 
-register = { ( ^"r" ~ integer) | ^"sp" | ^"lr" | ^"pc" }
+register = { ( ^"r" ~ integer) | ^"sp" | ^"lr" | ^"pc" | ^"fp" }
 
 label_name = { (alpha | digit | "_" )+ }
 
@@ -28,17 +28,21 @@ immediate = { "#" ~ digit+ }
 
 file = _{ SOI ~ assembly ~ EOI }
 
-assembly = _{ empty_line* ~ data_section? ~ global_section }
+assembly = _{ empty_line* ~ data_section? ~ text_section }
 
-data_section = _{ whitespace? ~ ^".data" ~ whitespace? ~ comment? ~ data_line*}
+text_section = _{ new_line ~ whitespace? ~ ^".text" ~ whitespace? ~ comment? ~ global_section ~ (text_line | empty_line)* }
+
+data_section = _{whitespace? ~ ^".data" ~ whitespace? ~ comment? ~ data_line*}
 
 data_line = _{ new_line ~ whitespace? ~ data ~ whitespace? ~ comment?}
 
-data = { variable_name ~ whitespace ~ ^"dcd" ~ whitespace ~ integer}
+data = { variable_name ~ ":" ~whitespace ~ ^".word" ~ whitespace ~ integer}
 
-global_section = _{ new_line ~  whitespace? ~ ^".global" ~ whitespace? ~ comment? ~ (global_line | empty_line)* }
+global_section = _{ new_line ~ whitespace? ~ global_section_header }
 
-global_line = _{ new_line ~ whitespace? ~ ( instr | label ) ~ whitespace? ~ comment? }
+global_section_header = {^".global" ~ whitespace? ~ label_name ~ whitespace? ~ comment? }
+
+text_line = _{ new_line ~ whitespace? ~ ( instr | label ) ~ whitespace? ~ comment? }
 
 label = { label_name ~ ":" }
 

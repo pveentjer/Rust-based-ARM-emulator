@@ -24,7 +24,7 @@ impl Frontend {
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>,
-                      arch_registers: Rc<RefCell<ArgRegFile>>,
+                      arch_reg_file: Rc<RefCell<ArgRegFile>>,
     ) -> Frontend {
         Frontend {
             instr_queue,
@@ -34,13 +34,13 @@ impl Frontend {
             frontend_control,
             exit: false,
             perf_counters,
-            arch_reg_file: arch_registers,
+            arch_reg_file,
         }
     }
 
     pub(crate) fn init(&mut self, program: &Rc<Program>) {
         self.program_option = Some(Rc::clone(program));
-        self.arch_reg_file.borrow_mut().set_value(PC, 0);
+        self.arch_reg_file.borrow_mut().set_value(PC, program.entry_point as WordType);
     }
 
     pub(crate) fn do_cycle(&mut self) {

@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::cpu::SP;
 use crate::cpu::LR;
 use crate::cpu::PC;
+use crate::cpu::FP;
 
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -196,7 +197,7 @@ impl fmt::Display for Instr {
             Opcode::BX |
             Opcode::BL => write!(f, "{}", self.source[0])?,
             Opcode::CBZ |
-            Opcode::CBNZ => write!(f, "{},{}", self.source[0],self.source[1])?,
+            Opcode::CBNZ => write!(f, "{},{}", self.source[0], self.source[1])?,
             Opcode::PUSH => {}
             Opcode::POP => {}
             Opcode::NEG => {}
@@ -230,6 +231,7 @@ impl fmt::Display for Operand {
         match self {
             Operand::Register(reg) => {
                 match *reg as u16 {
+                    FP => write!(f, "FP"),
                     LR => write!(f, "LR"),
                     SP => write!(f, "SP"),
                     PC => write!(f, "PC"),
@@ -285,13 +287,10 @@ pub(crate) struct Data {
 pub(crate) struct Program {
     pub(crate) data_items: HashMap::<String, Rc<Data>>,
     pub(crate) code: Vec<Rc<Instr>>,
+    pub(crate) entry_point: usize,
 }
 
 impl Program {
-    pub fn new(code: Vec<Rc<Instr>>, data_items: HashMap::<String, Rc<Data>>) -> Self {
-        Self { code, data_items }
-    }
-
     pub fn get_instr(&self, pos: usize) -> Rc<Instr> {
         Rc::clone(&self.code[pos])
     }
@@ -307,6 +306,6 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         sink: [Operand::Unused, Operand::Unused],
         line,
         mem_stores: 0,
-        is_control: false
+        is_control: false,
     }
 }

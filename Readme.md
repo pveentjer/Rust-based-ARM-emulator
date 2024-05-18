@@ -2,7 +2,7 @@
 
 ## About The Project
 The primary aim of this project is to provide a possible implementation of modern
-processors in Software (Rust) for the ARM instruction set.
+processors in software (Rust) for the ARM instruction set.
 
 The goal of the project is to provide some insights in how modern processors potentially
 could work.
@@ -22,14 +22,15 @@ for concurrency control so that I get a better understanding of ownership.
 * Super scalar execution
 * Out of Order Execution using Tomasulo's algorithm. So only RAW dependencies are preserved.
 * Store buffer
+* Performance monitor (although not exposed itself through registers).
 
 ### Planned CPU features
 * Better support for different data types
 * Speculative execution
 * One way fences like LDAR, STLR, LDAPR. 
 * Two way fences like DMB
-* Serializing instructions 
-* Exclusive access instructions like LDXR, STXR, LDAXR, STXLR
+* Serializing instructions like DSB
+* Exclusive access instructions like LDXR, STXR, LDAXR, STLXR
 * SMT (aka hyper-threading)
 * CMP (aka multicore)
 * Working cache (MESI based)
@@ -57,7 +58,7 @@ for concurrency control so that I get a better understanding of ownership.
 * NOP
 
 And some none official ones:
-* PRINTR
+* PRINTR: prints the value of a register.
 
 
 More instructions will be added over time.

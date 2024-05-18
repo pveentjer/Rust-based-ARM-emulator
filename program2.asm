@@ -1,6 +1,7 @@
 .data
-    a DCD 10
-.global
+    a: .word 10
+.text
+.global _start
 
 _start:
     ADD R0, R0, #1

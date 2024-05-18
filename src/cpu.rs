@@ -157,6 +157,7 @@ impl CPU {
 }
 
 pub const GENERAL_ARG_REG_CNT: u16 = 31;
+pub const FP: u16 = 11;
 pub const SP: u16 = 13;
 pub const LR: u16 = 14;
 pub const PC: u16 = 15;

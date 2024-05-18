@@ -1,8 +1,21 @@
 TODO
 
+- .data section should be optional
+
+- add label operand: so that the label can be replaced later, instead of immediate?
+    - the problem is that you don't loose track of the label later.
+    - perhaps code operand should have both a value and a label? This way we can initially set the label
+      and later fix the address.
+
 - instruction print should use labels
 
 - instructions should keep their labels
+
+- how does the 'exit' work; you don't want to roll to the next instruction which could be e.g. a function label
+
+- remove 'exit': there should not be need for exit; if program has reached last line.. then exit is implied
+
+- loader: every instruction should have an optional label in front of it
 
 - implement CMP
 
@@ -10,19 +23,11 @@ TODO
 
 - implement BNE
 
-- how does the 'exit' work; you don't want to roll to the next instruction which could be e.g. a function label
-
-- remove 'exit': there should not be need for exit; if program has reached last line.. then exit is implied
-
-- .global should have a start label
-
 - Operand: Indexed
 
 - Operand: Indirect
 
 - store to load forwarding: currently the store in the sb isn't seen
-
-- loader: every instruction should have an optional label in front of it
 
 - memory access should not just be a variable, but could be some expression with one or more registers
 
@@ -35,6 +40,15 @@ TODO
 - implement print of memory
 
 DONE
+.section .text
+
+- program should have start label
+
+- loader: validate label of .global
+
+- change comment from ; to @
+
+- .global should have a start label
 
 - add CBZ
 
