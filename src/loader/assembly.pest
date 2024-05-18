@@ -78,6 +78,8 @@ instr_NOT       = { ^"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg
 instr_B         = { ^"B"      ~ whitespace ~ label_name                                                           }
 instr_BL        = { ^"BL"     ~ whitespace ~ label_name                                                           }
 instr_BX        = { ^"BX"     ~ whitespace ~ register                                                             }
+instr_CBZ       = { ^"CBZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
+instr_CBNZ      = { ^"CBNZ"   ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
 // stack operations
 instr_PUSH      = { ^"PUSH"   ~ whitespace ~ register                                                             }
 instr_POP       = { ^"POP"    ~ whitespace ~ register                                                             }

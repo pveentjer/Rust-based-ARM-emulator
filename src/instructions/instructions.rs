@@ -21,6 +21,8 @@ pub enum Opcode {
     B,
     BX,
     BL,
+    CBZ,
+    CBNZ,
     // remove
     EXIT,
     // remove
@@ -33,7 +35,6 @@ pub enum Opcode {
     EOR,
     // remove
     NOT,
-
 }
 
 pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
@@ -50,13 +51,15 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::MOV => "PRINTR",
         Opcode::B => "B",
         Opcode::BX => "BX",
+        Opcode::BL => "BL",
+        Opcode::CBZ => "CBZ",
+        Opcode::CBNZ => "CBNZ",
         Opcode::PUSH => "PUSH",
         Opcode::POP => "POP",
         Opcode::AND => "AND",
         Opcode::ORR => "ORR",
         Opcode::EOR => "EOR",
         Opcode::NOT => "NOT",
-        Opcode::BL => "BL",
         Opcode::EXIT => "EXIT",
     }
 }
@@ -75,6 +78,8 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "MOV" => Some(Opcode::MOV),
         "B" => Some(Opcode::B),
         "BX" => Some(Opcode::BX),
+        "CBZ" => Some(Opcode::CBZ),
+        "CBNZ" => Some(Opcode::CBZ),
         "PUSH" => Some(Opcode::PUSH),
         "POP" => Some(Opcode::POP),
         "AND" => Some(Opcode::AND),
@@ -190,6 +195,8 @@ impl fmt::Display for Instr {
             Opcode::B |
             Opcode::BX |
             Opcode::BL => write!(f, "{}", self.source[0])?,
+            Opcode::CBZ |
+            Opcode::CBNZ => write!(f, "{},{}", self.source[0],self.source[1])?,
             Opcode::PUSH => {}
             Opcode::POP => {}
             Opcode::NEG => {}

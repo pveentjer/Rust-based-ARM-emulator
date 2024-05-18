@@ -67,6 +67,8 @@ impl Loader {
                         Rule::instr_STR => self.parse_STR(pair),
                         Rule::instr_PUSH => self.parse_PUSH(pair),
                         Rule::instr_POP => self.parse_POP(pair),
+                        Rule::instr_CBZ => self.parse_CB(pair, Opcode::CBZ),
+                        Rule::instr_CBNZ => self.parse_CB(pair, Opcode::CBNZ),
                         Rule::instr_B => self.parse_B(pair),
                         Rule::instr_BX => self.parse_BX(pair),
                         Rule::instr_BL => self.parse_BL(pair),
@@ -381,6 +383,36 @@ impl Loader {
             opcode: Opcode::B,
             source_cnt: 1,
             source: [Code(address as CodeAddressType), Unused, Unused],
+            sink_cnt: 1,
+            sink: [Register(PC), Unused],
+            line: line_column.0 as i32,
+            mem_stores: 0,
+            is_control: true,
+        });
+    }
+
+    fn parse_CB(&mut self, pair: Pair<Rule>, opcode:Opcode) {
+        let line_column = self.get_line_column(&pair);
+        let mut inner_pairs = pair.into_inner();
+
+        let register = self.parse_register(&inner_pairs.next().unwrap());
+
+
+        let label = String::from(inner_pairs.next().unwrap().as_str());
+
+        let address = match self.labels.get(&label) {
+            Some(code_address) => *code_address,
+            None => {
+                self.unresolved_vec.push(Unresolved { instr_index: self.code.len(), label: label.clone() });
+                0
+            }
+        };
+
+        self.code.push(Instr {
+            cycles: 1,
+            opcode,
+            source_cnt: 2,
+            source: [Code(address as CodeAddressType), Register(register), Register(PC)],
             sink_cnt: 1,
             sink: [Register(PC), Unused],
             line: line_column.0 as i32,
