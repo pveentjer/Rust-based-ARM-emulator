@@ -1,16 +1,9 @@
 TODO
 
-- any control instruction should only modify the IP when retiring; not earlier.
+- fix bug in BX
+     - so the next instruction doesn't get picked up by the frontend.
 
-- there should be detection if an instruction is interacting with the PC register
-
-- BL should update LR + PC
-
-- B should update PC
-
-- BX should update PC
-
-- frontend should use the PC for tracking the instruction pointer.
+- instructions should keep their labels
 
 - implement CMP
 
@@ -41,6 +34,18 @@ TODO
 - implement print of memory
 
 DONE
+
+- frontend should use the PC for tracking the instruction pointer.
+
+- any control instruction should only modify the IP when retiring; not earlier.
+
+- there should be detection if an instruction is interacting with the PC register
+
+- BL should update LR + PC
+
+- B should update PC
+
+- BX should update PC
 
 - remove JE
 

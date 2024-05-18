@@ -166,7 +166,8 @@ pub(crate) struct Instr {
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
     pub(crate) line: i32,
     pub(crate) mem_stores: u8,
-    pub(crate) control: bool,
+    // True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
+    pub(crate) is_control: bool,
 }
 
 impl fmt::Display for Instr {
@@ -222,7 +223,7 @@ impl fmt::Display for Operand {
         match self {
             Operand::Register(reg) => {
                 match *reg as u16 {
-                    LR => write!(f, "FP"),
+                    LR => write!(f, "LR"),
                     SP => write!(f, "SP"),
                     PC => write!(f, "PC"),
                     _ => write!(f, "R{}", reg),
@@ -299,6 +300,6 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         sink: [Operand::Unused, Operand::Unused],
         line,
         mem_stores: 0,
-        control: false
+        is_control: false
     }
 }

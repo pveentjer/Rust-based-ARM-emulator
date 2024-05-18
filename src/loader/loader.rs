@@ -27,7 +27,7 @@ struct Loader {
 }
 
 struct Unresolved {
-    index: usize,
+    instr_index: usize,
     label: String,
 }
 
@@ -68,7 +68,7 @@ impl Loader {
                         Rule::instr_PUSH => self.parse_PUSH(pair),
                         Rule::instr_POP => self.parse_POP(pair),
                         Rule::instr_B => self.parse_B(pair),
-                        Rule::instr_BX => self.parse_B(pair),
+                        Rule::instr_BX => self.parse_BX(pair),
                         Rule::instr_BL => self.parse_BL(pair),
                         _ => panic!("Unknown rule encountered: '{:?}'", pair.as_rule())
                     }
@@ -85,8 +85,10 @@ impl Loader {
     }
 
     fn process_unresolved(&mut self) {
+
+
         for unresolved in &self.unresolved_vec {
-            let mut instr = &mut self.code[unresolved.index];
+            let mut instr = &mut self.code[unresolved.instr_index];
             if let Some(&address) = self.labels.get(&unresolved.label) {
                 for source_index in 0..instr.source_cnt as usize {
                     let source = &mut instr.source[source_index as usize];
@@ -97,7 +99,7 @@ impl Loader {
                     }
                 }
             } else {
-                panic!("Can't find label {} for instruction at line {}", unresolved.label, instr.line);
+                panic!("Can't find label {} for instruction [{}] at line {}", unresolved.label, instr, instr.line);
             }
         }
     }
@@ -106,11 +108,11 @@ impl Loader {
         for instr_index in 0..self.code.len() {
             let mut instr = self.code.get_mut(instr_index).unwrap();
 
-            if instr.control {
+            if instr.is_control {
                 continue;
             }
 
-            instr.control = Self::is_control(instr);
+            instr.is_control = Self::is_control(instr);
         }
     }
 
@@ -175,7 +177,7 @@ impl Loader {
             sink: [Register(sink), Unused],
             line,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -193,7 +195,7 @@ impl Loader {
             sink: [Register(reg), Unused],
             line,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -219,7 +221,7 @@ impl Loader {
             sink: [Register(dst), Unused],
             line,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -248,7 +250,7 @@ impl Loader {
             sink: [Operand::Memory(addr), Unused],
             line,
             mem_stores: 1,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -277,7 +279,7 @@ impl Loader {
             sink: [Register(sink), Unused],
             line,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -296,7 +298,7 @@ impl Loader {
             sink: [Unused, Unused],
             line,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -316,7 +318,7 @@ impl Loader {
             sink: [Register(SP), Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -336,7 +338,7 @@ impl Loader {
             sink: [Register(register), Register(SP)],
             line: line_column.0 as i32,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -356,7 +358,7 @@ impl Loader {
             sink: [Unused, Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
-            control: false,
+            is_control: false,
         });
     }
 
@@ -369,7 +371,7 @@ impl Loader {
         let address = match self.labels.get(&label) {
             Some(code_address) => *code_address,
             None => {
-                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
+                self.unresolved_vec.push(Unresolved { instr_index: self.code.len(), label: label.clone() });
                 0
             }
         };
@@ -383,7 +385,7 @@ impl Loader {
             sink: [Register(PC), Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
-            control: true,
+            is_control: true,
         });
     }
 
@@ -397,11 +399,11 @@ impl Loader {
             opcode: Opcode::BX,
             source_cnt: 1,
             source: [Register(register), Unused, Unused],
-            sink_cnt: 0,
+            sink_cnt: 1,
             sink: [Register(PC), Unused],
             line: line_column.0 as i32,
             mem_stores: 0,
-            control: true,
+            is_control: true,
         });
     }
 
@@ -414,7 +416,7 @@ impl Loader {
         let address = match self.labels.get(&label) {
             Some(code_address) => *code_address,
             None => {
-                self.unresolved_vec.push(Unresolved { index: self.code.len(), label: label.clone() });
+                self.unresolved_vec.push(Unresolved { instr_index: self.code.len(), label: label.clone() });
                 0
             }
         };
@@ -428,7 +430,7 @@ impl Loader {
             sink: [Register(LR), Register(PC)],
             line: line_column.0 as i32,
             mem_stores: 0,
-            control: true,
+            is_control: true,
         });
     }
 
@@ -466,7 +468,7 @@ impl Loader {
         let s = pair.as_str().to_lowercase();
         return if s == "sp" {
             SP
-        } else if s == "fp" {
+        } else if s == "lr" {
             LR
         } else if s == "pc" {
             PC

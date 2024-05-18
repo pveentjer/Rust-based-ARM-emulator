@@ -148,7 +148,7 @@ impl Backend {
                     let sp_value = rs.source[1].get_constant();
 
                     if sp_value as usize == self.stack_capacity as usize {
-                        panic!("Ran out of stack");
+                        panic!("Stackoverflow");
                     }
 
                     self.stack[sp_value as usize] = value;
@@ -255,7 +255,7 @@ impl Backend {
                 println!("Retiring {}", instr);
             }
 
-            if instr.control{
+            if instr.is_control {
                 frontend_control.halted = false;
             }
 

@@ -80,7 +80,7 @@ impl Frontend {
                         self.exit = true;
                     }
 
-                    let control = instr.control;
+                    let is_control = instr.is_control;
 
                     // todo: what about cloning?
                     instr_queue.enqueue(instr);
@@ -89,7 +89,7 @@ impl Frontend {
                     arch_reg_file.set_value(PC, (pc_value + 1) as WordType);
                     perf_counters.decode_cnt += 1;
 
-                    if control {
+                    if is_control {
                         frontend_control.halted = true;
                         return;
                     }
