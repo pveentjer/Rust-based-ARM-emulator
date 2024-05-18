@@ -13,22 +13,28 @@ code generation using binary translation would be orders of magnitude faster.
 ## Warning
 
 This project is toy project. I want to upgrade my Rust skills and I needed a serious
-enough challenge to work that can start out single threaded, and eventually could become
-multithreaded. This way I can increase Rust specific complexity in a controlled rate.
+enough challenge to work on. Also the challenge should initially be without the need 
+for concurrency control so that I get a better understanding of ownership. 
 
 ### CPU features 
 
 * Pipelined execution
 * Super scalar execution
-* Out of Order Execution using the Tomasulo algorithm
+* Out of Order Execution using Tomasulo's algorithm. So only RAW dependencies are preserved.
+* Store buffer
 
 ### Planned CPU features
 * Better support for different data types
 * Speculative execution
-* Fences
+* One way fences like LDAR, STLR, LDAPR. 
+* Two way fences like DMB
+* Serializing instructions 
+* Exclusive access instructions like LDXR, STXR, LDAXR, STXLR
 * SMT (aka hyper-threading)
 * CMP (aka multicore)
 * Working cache (MESI based)
+* Write coalescing
+* Store buffer out of order commit to the cache
 
 ## Supported instructions
 
@@ -38,8 +44,6 @@ multithreaded. This way I can increase Rust specific complexity in a controlled 
 * SDIV
 * LDR
 * STR
-* NOP
-* PRINTR
 * MOV
 * B
 * BX
@@ -50,5 +54,10 @@ multithreaded. This way I can increase Rust specific complexity in a controlled 
 * AND
 * ORR
 * EOR
+* NOP
+
+And some none official ones:
+* PRINTR
+
 
 More instructions will be added over time.
