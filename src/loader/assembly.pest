@@ -1,98 +1,47 @@
-whitespace = _{ (" " | "\t")+ }
+// ARM Assembly Pest Grammar
 
-new_line = _{ "\n" }
-
+whitespace = _{ " " | "\t" }
+newline = _{ "\n" }
 comma = _{ "," }
-
-arg_sep = _{ whitespace? ~ comma ~ whitespace?}
-
-empty_line = _{ whitespace? ~ comment? ~ new_line }
+arg_sep = _{ whitespace* ~ comma ~ whitespace* }
+comment = _{ "@" ~ (!newline ~ ANY)* }
+empty_line = _{ newline ~ whitespace* ~ comment? }
 
 alpha = { 'a'..'z' | 'A'..'Z' }
-
 digit = { '0'..'9' }
 
-comment = _{ "@" ~ (!"\n" ~ ANY)* }
+register = { (^"r" ~ digit+ | ^"sp" | ^"lr" | ^"pc" | ^"fp") }
+label_name = { (alpha | digit | "_")+ }
 
-memory_access = {"[" ~ ( variable_name | register )  ~ "]"}
-
-register = { ( ^"r" ~ integer) | ^"sp" | ^"lr" | ^"pc" | ^"fp" }
-
-label_name = { (alpha | digit | "_" )+ }
-
-variable_name = { alpha ~ (alpha | digit| "_" )* }
-
+// todo: we should not need variable name since it is just a label
+variable_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
 integer = { digit+ }
+immediate = { "#" ~ integer }
+variable_address = { "=" ~ label_name }
 
-immediate = { "#" ~ digit+ }
+memory_access = { "[" ~ register ~ ("," ~ whitespace* ~ (register | immediate) ~ whitespace*)? ~ "]" }
 
 file = _{ SOI ~ assembly ~ EOI }
+assembly = _{ ( directive_line | data_line| text_line )* }
 
-assembly = _{ empty_line* ~ data_section? ~ text_section }
+// Directive
+directive_line = _{ newline ~ whitespace* ~ directive ~ whitespace* ~ comment? }
+directive_name = { "." ~ alpha+ }
+directive = { directive_name ~ whitespace* ~ (label_name | integer)?  }
 
-text_section = _{ new_line ~ whitespace? ~ ^".text" ~ whitespace? ~ comment? ~ global_section ~ (text_line | empty_line)* }
+// Data
+data_line = _{ newline ~ whitespace* ~ data ~ whitespace* ~ comment? }
+// todo: variable name should be label name
+data = { variable_name ~ ":" ~ whitespace+ ~ ".word" ~ whitespace+ ~ integer }
 
-data_section = _{whitespace? ~ ^".data" ~ whitespace? ~ comment? ~ data_line*}
 
-data_line = _{ new_line ~ whitespace? ~ data ~ whitespace? ~ comment?}
 
-data = { variable_name ~ ":" ~whitespace ~ ^".word" ~ whitespace ~ integer}
-
-global_section = _{ new_line ~ whitespace? ~ global_section_header }
-
-global_section_header = {^".global" ~ whitespace? ~ label_name ~ whitespace? ~ comment? }
-
-text_line = _{ new_line ~ whitespace? ~ ( instr | label ) ~ whitespace? ~ comment? }
+text_line = { newline ~ whitespace* ~ (instr | label) ~ whitespace* ~ comment? }
 
 label = { label_name ~ ":" }
 
-instr = _{  ( instr_LDR
-            | instr_STR
-            | instr_MOV
-            | instr_AND
-            | instr_ORR
-            | instr_EOR
-            | instr_ADD
-            | instr_SUB
-            | instr_MUL
-            | instr_SDIV
-            | instr_PRINTR
-            | instr_NOP
-            | instr_EXIT
-            | instr_PUSH
-            | instr_POP
-            | instr_NOT
-            | instr_B
-            | instr_BL
-            | instr_BX
-            )}
-
-
-instr_ADD       = { ^"ADD"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_SUB       = { ^"SUB"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_NEG       = { ^"NEG"    ~ whitespace ~ register ~ whitespace ~ register                                     }
-instr_SDIV      = { ^"SDIV"   ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_MUL       = { ^"MUL"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-// bitwise logical instructions
-instr_AND       = { ^"AND"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_ORR       = { ^"ORR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_EOR       = { ^"EOR"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~  (register|immediate)      }
-instr_NOT       = { ^"NOT"    ~ whitespace ~ register ~ arg_sep ~ register ~ arg_sep ~ register                   }
-// conditional jumps
-instr_B         = { ^"B"      ~ whitespace ~ label_name                                                           }
-instr_BL        = { ^"BL"     ~ whitespace ~ label_name                                                           }
-instr_BX        = { ^"BX"     ~ whitespace ~ register                                                             }
-instr_CBZ       = { ^"CBZ"    ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
-instr_CBNZ      = { ^"CBNZ"   ~ whitespace ~ register ~ arg_sep ~ label_name                                      }
-// stack operations
-instr_PUSH      = { ^"PUSH"   ~ whitespace ~ register                                                             }
-instr_POP       = { ^"POP"    ~ whitespace ~ register                                                             }
-// various
-instr_PRINTR    = { ^"PRINTR" ~ whitespace ~ register                                                             }
-instr_NOP       = { ^"NOP"                                                                                        }
-instr_EXIT      = { ^"EXIT"                                                                                       }
-// memory & register copying
-instr_LDR       = { ^"LDR"   ~ whitespace ~ register  ~ arg_sep ~ memory_access                                   }
-instr_STR       = { ^"STR"   ~ whitespace ~ register ~ arg_sep ~ memory_access                                    }
-instr_MOV       = { ^"MOV"   ~ whitespace ~ register ~ arg_sep ~  (register|immediate)                            }
-// procedure call
+// Define the single instr rule
+instr = { mnemonic ~ whitespace+ ~ operand_list }
+mnemonic = { alpha+ }  // Matches the instruction name
+operand_list = { operand ~ (arg_sep ~ operand)* }
+operand = { register | immediate | memory_access | variable_address | label_name }

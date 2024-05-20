@@ -96,8 +96,6 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
 pub(crate) const NOP: Instr = create_NOP(-1);
 
 pub(crate) type RegisterType = u16;
-pub(crate) type MemoryAddressType = u64;
-pub(crate) type CodeAddressType = u64;
 pub(crate) type WordType = i64;
 
 // The InstrQueue sits between frontend and backend
@@ -219,9 +217,9 @@ pub(crate) enum Operand {
     // The operand is directly specified in the instruction itself.
     Immediate(WordType),
     // todo: rename to direct?
-    Memory(MemoryAddressType),
+    Memory(WordType),
 
-    Code(CodeAddressType),
+    Code(WordType),
 
     Unused,
 }
@@ -264,14 +262,14 @@ impl Operand {
         }
     }
 
-    pub(crate) fn get_code_address(&self) -> CodeAddressType {
+    pub(crate) fn get_code_address(&self) -> WordType {
         match self {
             Operand::Code(constant) => *constant,
             _ => panic!("Operand is not a Code but of type {:?}", self),
         }
     }
 
-    pub(crate) fn get_memory_addr(&self) -> MemoryAddressType {
+    pub(crate) fn get_memory_addr(&self) -> WordType {
         match self {
             Operand::Memory(addr) => *addr,
             _ => panic!("Operand is not a Memory but of type {:?}", self),

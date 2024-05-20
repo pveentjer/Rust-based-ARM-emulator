@@ -8,7 +8,7 @@ use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{CodeAddressType, Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
+use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
@@ -129,7 +129,7 @@ impl Backend {
                 Opcode::CBZ|Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_constant();
                     let branch_target = rs.source[1].get_code_address();
-                    let pc_value = rs.source[2].get_constant() as CodeAddressType;
+                    let pc_value = rs.source[2].get_constant();
                     let target = match instr.opcode {
                         Opcode::CBZ => {
                             if reg_value == 0 {

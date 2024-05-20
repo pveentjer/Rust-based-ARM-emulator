@@ -36,7 +36,7 @@ fn main() {
         stack_capacity: 32,
     };
 
-    let path = "program4.asm";
+    let path = "rubbish.asm";
     println!("Loading {}",path);
     let program = Rc::new(load(cpu_config.clone(), path));
 
