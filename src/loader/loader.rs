@@ -135,6 +135,8 @@ impl Loader {
     }
 
     fn parse_instr(&mut self, pair: Pair<Rule>) {
+        println!("Parse instr");
+
         let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
 

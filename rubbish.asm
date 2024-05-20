@@ -5,6 +5,8 @@
 .global _start
     _start:
     NOP
+    ADD r16
+    SUB
     ADD r0,r1, r2
     ADR r0, r0
     LDR r1, [r1]

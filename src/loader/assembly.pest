@@ -19,7 +19,7 @@ integer = { digit+ }
 file = _{ SOI ~ assembly ~ EOI }
 
 assembly = _{ ( preamble | section) ~ (newline ~ section)* }
-preamble = _ {directive_line ~ ( newline ~ directive_line)* }
+preamble = _{ directive_line ~ ( newline ~ directive_line)* }
 section = _{(data_section | text_section)}
 
 empty_line = {whitespace* ~ comment?}
