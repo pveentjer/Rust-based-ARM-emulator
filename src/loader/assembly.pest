@@ -16,23 +16,24 @@ label_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
 variable_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
 integer = { digit+ }
 
-
-
 file = _{ SOI ~ assembly ~ EOI }
-assembly = _{ assembly_line ~ (newline ~ assembly_line )* }
 
-assembly_line = _{ (directive_line | data_line | text_line | empty_line )}
+assembly = _{ ( preamble | section) ~ (newline ~ section)* }
+preamble = _ {directive_line ~ ( newline ~ directive_line)* }
+section = _{(data_section | text_section)}
 
 empty_line = {whitespace* ~ comment?}
 
 // Directive
-directive_name = { "." ~ alpha+ }
+directive_name = { !".section" ~ "." ~ alpha+ }
 directive_line = { whitespace* ~  directive_name ~ whitespace* ~ (label_name | integer)? ~ whitespace* ~ comment? }
 
 // Data
-data_line = { whitespace* ~ variable_name ~ ":" ~ whitespace+ ~ ".word" ~ whitespace+ ~ integer ~ whitespace* ~ comment?}
+data_section = _{^".section" ~whitespace+ ~ ^".data" ~ whitespace* ~ comment? ~ (newline ~ (data_line | directive_line ))* }
+data_line = { whitespace* ~ variable_name ~ ":" ~ whitespace+ ~ ^".word" ~ whitespace+ ~ integer ~ whitespace* ~ comment?}
 
-text_line = _{whitespace* ~ (instr | label)~ whitespace* ~ comment? }
+text_section = _{^".section" ~whitespace+ ~ ^".text" ~ whitespace* ~ comment? ~ (newline ~ (text_line | directive_line))* }
+text_line = _{whitespace* ~ (instr | label) ~ whitespace* ~ comment? }
 
 label = { label_name ~ ":" }
 

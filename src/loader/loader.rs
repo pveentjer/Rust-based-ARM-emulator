@@ -66,7 +66,6 @@ impl Loader {
             match pair.as_rule() {
                 Rule::label => self.parse_label(pair),
                 Rule::data_line => self.parse_data(pair),
-                Rule::directive_line => self.parse_directive(pair),
                 Rule::instr => { self.instr_cnt += 1 }
                 _ => {}
             }
@@ -78,7 +77,7 @@ impl Loader {
             match pair.as_rule() {
                 Rule::label => {}
                 Rule::data_line => {}
-                Rule::directive_line => { },
+                Rule::directive_line => self.parse_directive(pair),
                 Rule::instr => self.parse_instr(pair),
                 _ => {}
             }
