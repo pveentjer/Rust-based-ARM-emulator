@@ -3,7 +3,7 @@
 whitespace = _{ " " | "\t" }
 newline = _{ "\n" }
 comma = _{ "," }
-arg_sep = _{ whitespace* ~ comma ~ whitespace* }
+
 comment = _{ "@" ~ (!newline ~ ANY)* }
 
 
@@ -32,16 +32,16 @@ directive_line = { whitespace* ~  directive_name ~ whitespace* ~ (label_name | i
 // Data
 data_line = { whitespace* ~ variable_name ~ ":" ~ whitespace+ ~ ".word" ~ whitespace+ ~ integer ~ whitespace* ~ comment?}
 
-text_line = {whitespace* ~ (instr | label)~ whitespace* ~ comment? }
+text_line = _{whitespace* ~ (instr | label)~ whitespace* ~ comment? }
 
 label = { label_name ~ ":" }
 
 // Define the single instr rule
-instr = { mnemonic ~ whitespace+ ~ operand_list }
+instr = { mnemonic ~ (whitespace+ ~ operand ~ (operand_sep ~ operand)*)? }
 mnemonic = { alpha+ }  // Matches the instruction name
-operand_list = { operand ~ (arg_sep ~ operand)* }
 
 immediate = { "#" ~ integer }
 memory_access = { "[" ~ register ~ ("," ~ whitespace* ~ (register | immediate) ~ whitespace*)? ~ "]" }
 variable_address = { "=" ~ label_name }
-operand = { register | immediate | memory_access | variable_address | label_name }
+operand_sep = _{ whitespace* ~ comma ~ whitespace* }
+operand = _{ register | immediate | memory_access | variable_address | label_name }

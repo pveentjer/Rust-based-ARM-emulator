@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use std::rc::Rc;
-use crate::cpu::SP;
+use crate::cpu::{GENERAL_ARG_REG_CNT, SP};
 use crate::cpu::LR;
 use crate::cpu::PC;
 use crate::cpu::FP;
@@ -14,6 +14,7 @@ pub enum Opcode {
     SUB,
     MUL,
     SDIV,
+    ADR,
     LDR,
     STR,
     NOP,
@@ -45,6 +46,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::MUL => "MUL",
         Opcode::SDIV => "SDIV",
         Opcode::NEG => "NEG",
+        Opcode::ADR => "ADR",
         Opcode::LDR => "LDR",
         Opcode::STR => "STR",
         Opcode::NOP => "NOP",
@@ -65,15 +67,19 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
     }
 }
 
-pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
-    match name {
+pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
+    let string = mnemonic.to_uppercase();
+    let mnemonic_uppercased = string.as_str();
+
+    match mnemonic_uppercased {
         "ADD" => Some(Opcode::ADD),
         "SUB" => Some(Opcode::SUB),
         "MUL" => Some(Opcode::MUL),
         "SDIV" => Some(Opcode::SDIV),
         "NEG" => Some(Opcode::NEG),
-        "LOAD" => Some(Opcode::LDR),
-        "STORE" => Some(Opcode::STR),
+        "ADR" => Some(Opcode::ADR),
+        "LDR" => Some(Opcode::LDR),
+        "STR" => Some(Opcode::STR),
         "NOP" => Some(Opcode::NOP),
         "PRINTR" => Some(Opcode::PRINTR),
         "MOV" => Some(Opcode::MOV),
@@ -90,6 +96,26 @@ pub(crate) fn get_opcode(name: &str) -> Option<Opcode> {
         "BL" => Some(Opcode::BL),
         "EXIT" => Some(Opcode::EXIT),
         _ => None,
+    }
+}
+
+pub(crate) fn get_register(name:&str)->Option<u16>{
+    let name_uppercased = name.to_uppercase();
+
+    match name_uppercased.as_str() {
+        "SP" => Some(SP),
+        "LR" => Some(LR),
+        "PC" => Some(PC),
+        "FP" => Some(FP),
+        _ => {
+            let reg_name = &name_uppercased[1..];
+            let reg: u16 = reg_name.parse().unwrap();
+
+            if reg >= GENERAL_ARG_REG_CNT {
+                return None;
+            }
+            Some(reg)
+        }
     }
 }
 
@@ -190,6 +216,7 @@ impl fmt::Display for Instr {
             Opcode::STR => write!(f, "{},{}", self.source[0], self.sink[0])?,
             Opcode::MOV => write!(f, "{},{}", self.sink[0], self.source[0])?,
             Opcode::NOP => {}
+            Opcode::ADR => write!(f, "{},{}", self.sink[0], self.source[0])?,
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
             Opcode::B |
             Opcode::BX |

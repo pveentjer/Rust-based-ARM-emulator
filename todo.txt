@@ -1,5 +1,9 @@
 TODO
 
+- only in .data, can one have data lines
+
+- only in .text can one have text lines
+
 - loader: multiline comment
 
 - include file name in parse error
@@ -50,6 +54,9 @@ TODO
 - implement print of memory
 
 DONE
+
+
+- loader: control the directives.
 
 - loader: the current grammar rules expect a new line at the beginning which is a problem for the first grammar rule since it will match
 with the SOI

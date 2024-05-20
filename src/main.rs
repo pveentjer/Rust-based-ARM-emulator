@@ -40,6 +40,6 @@ fn main() {
     println!("Loading {}",path);
     let program = Rc::new(load(cpu_config.clone(), path));
 
-    let mut cpu = CPU::new(&cpu_config);
-    cpu.run(&program);
+    //let mut cpu = CPU::new(&cpu_config);
+    //cpu.run(&program);
 }

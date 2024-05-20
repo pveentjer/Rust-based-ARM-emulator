@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
@@ -9,7 +10,7 @@ use regex::Regex;
 use Operand::{Register, Unused};
 
 use crate::cpu::{SP, CPUConfig, GENERAL_ARG_REG_CNT, PC, LR, FP};
-use crate::instructions::instructions::{Data, get_opcode, Instr, Opcode, Operand, Program, WordType};
+use crate::instructions::instructions::{Data, get_opcode, get_register, Instr, Opcode, Operand, Program, WordType};
 use crate::instructions::instructions::Operand::Code;
 
 #[derive(Parser)]
@@ -64,8 +65,8 @@ impl Loader {
         for pair in root {
             match pair.as_rule() {
                 Rule::label => self.parse_label(pair),
-                Rule::data => self.parse_data(pair),
-                Rule::directive => self.parse_directive(pair),
+                Rule::data_line => self.parse_data(pair),
+                Rule::directive_line => self.parse_directive(pair),
                 Rule::instr => { self.instr_cnt += 1 }
                 _ => {}
             }
@@ -76,9 +77,8 @@ impl Loader {
         for pair in root {
             match pair.as_rule() {
                 Rule::label => {}
-                Rule::data => {}
-                // todo: directive is parsed twice
-                Rule::directive => self.parse_directive(pair),
+                Rule::data_line => {}
+                Rule::directive_line => { },
                 Rule::instr => self.parse_instr(pair),
                 _ => {}
             }
@@ -103,17 +103,22 @@ impl Loader {
     }
 
     fn parse_directive(&mut self, pair: Pair<Rule>) {
+        let line_column = self.get_line_column(&pair);
         let mut inner_pairs = pair.into_inner();
         let directive_name = inner_pairs.next().unwrap().as_str();
 
         println!("Directive name: {}",directive_name);
 
         match directive_name {
-            "global" => {
+            ".global" => {
                 let target = self.parse_label_ref(&inner_pairs.next().unwrap());
                 self.entry_point = target;
             }
-            _ => {}
+            ".data" => {
+            }
+            ".text" =>{
+            }
+            _ => panic!("Unknown directive '{}'at  [{},{}] ",directive_name,line_column.0,line_column.1)
         }
     }
 
@@ -135,14 +140,19 @@ impl Loader {
         let mut inner_pairs = pair.into_inner();
 
         let mnemonic = inner_pairs.next().unwrap().as_str();
-        let opcode = get_opcode(mnemonic).expect("Unknown opcode");
+        let opcode = get_opcode(mnemonic);
+
+        if opcode.is_none() {
+            panic!("Unknown mneumonic '{}' at [{}:{}]", mnemonic, line_column.0, line_column.1);
+
+        }
 
         let mut operands = Vec::new();
         for operand_pair in inner_pairs {
             operands.push(self.parse_operand(&operand_pair));
         }
 
-        let instr = self.create_instr(opcode, operands, line_column.0 as i32);
+        let instr = self.create_instr(opcode.unwrap(), operands, line_column.0 as i32);
         self.code.push(instr);
     }
 
@@ -173,32 +183,24 @@ impl Loader {
     }
 
     fn parse_operand(&self, pair: &Pair<Rule>) -> Operand {
+        let line_column = self.get_line_column(&pair);
+        let s = pair.as_str().to_lowercase();
         match pair.as_rule() {
             Rule::register => Register(self.parse_register(pair)),
             Rule::immediate => Operand::Immediate(self.parse_immediate(pair)),
             Rule::memory_access => Operand::Memory(self.parse_memory_access(pair)),
             Rule::variable_address => Operand::Memory(self.parse_variable_address(pair)),
             Rule::label_name => Code(self.parse_label_ref(pair) as WordType),
-            _ => panic!("Unknown operand encountered"),
+            _ => panic!("Unknown operand encountered {} at  at [{}:{}]",s,line_column.0,line_column.1),
         }
     }
 
     fn parse_register(&self, pair: &Pair<Rule>) -> u16 {
         let line_column = self.get_line_column(&pair);
-        let s = pair.as_str().to_lowercase();
-        match s.as_str() {
-            "sp" => SP,
-            "lr" => LR,
-            "pc" => PC,
-            "fp" => FP,
-            _ => {
-                let reg_name = &s[1..];
-                let reg: u16 = reg_name.parse().unwrap();
-                if reg >= GENERAL_ARG_REG_CNT {
-                    panic!("Illegal register '{}' at [{}:{}]", s, line_column.0, line_column.1);
-                }
-                reg
-            }
+        let name = pair.as_str();
+        match get_register(name){
+            None =>  panic!("Illegal register '{}' at [{}:{}]", name, line_column.0, line_column.1),
+            Some(reg) => reg,
         }
     }
 
