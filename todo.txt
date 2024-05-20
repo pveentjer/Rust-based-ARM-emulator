@@ -1,10 +1,5 @@
 TODO
 
-- loader: the current grammar rules expect a new line at the beginning which is a problem for the first grammar rule since it will match
-with the SOI
-
-- loader: empty lines are causing parse problems
-
 - loader: multiline comment
 
 - include file name in parse error
@@ -55,6 +50,11 @@ with the SOI
 - implement print of memory
 
 DONE
+
+- loader: the current grammar rules expect a new line at the beginning which is a problem for the first grammar rule since it will match
+with the SOI
+
+- loader: empty lines are causing parse problems
 
 - .data section should be optional
 

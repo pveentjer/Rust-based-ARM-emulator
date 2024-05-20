@@ -5,38 +5,34 @@ newline = _{ "\n" }
 comma = _{ "," }
 arg_sep = _{ whitespace* ~ comma ~ whitespace* }
 comment = _{ "@" ~ (!newline ~ ANY)* }
-empty_line = _{ newline ~ whitespace* ~ comment? }
+
 
 alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
 
 register = { (^"r" ~ digit+ | ^"sp" | ^"lr" | ^"pc" | ^"fp") }
-label_name = { (alpha | digit | "_")+ }
+label_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
 
-// todo: we should not need variable name since it is just a label
 variable_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
 integer = { digit+ }
-immediate = { "#" ~ integer }
-variable_address = { "=" ~ label_name }
 
-memory_access = { "[" ~ register ~ ("," ~ whitespace* ~ (register | immediate) ~ whitespace*)? ~ "]" }
+
 
 file = _{ SOI ~ assembly ~ EOI }
-assembly = _{ ( directive_line | data_line| text_line )* }
+assembly = _{ assembly_line ~ (newline ~ assembly_line )* }
+
+assembly_line = _{ (directive_line | data_line | text_line | empty_line )}
+
+empty_line = {whitespace* ~ comment?}
 
 // Directive
-directive_line = _{ newline ~ whitespace* ~ directive ~ whitespace* ~ comment? }
 directive_name = { "." ~ alpha+ }
-directive = { directive_name ~ whitespace* ~ (label_name | integer)?  }
+directive_line = { whitespace* ~  directive_name ~ whitespace* ~ (label_name | integer)? ~ whitespace* ~ comment? }
 
 // Data
-data_line = _{ newline ~ whitespace* ~ data ~ whitespace* ~ comment? }
-// todo: variable name should be label name
-data = { variable_name ~ ":" ~ whitespace+ ~ ".word" ~ whitespace+ ~ integer }
+data_line = { whitespace* ~ variable_name ~ ":" ~ whitespace+ ~ ".word" ~ whitespace+ ~ integer ~ whitespace* ~ comment?}
 
-
-
-text_line = { newline ~ whitespace* ~ (instr | label) ~ whitespace* ~ comment? }
+text_line = {whitespace* ~ (instr | label)~ whitespace* ~ comment? }
 
 label = { label_name ~ ":" }
 
@@ -44,4 +40,8 @@ label = { label_name ~ ":" }
 instr = { mnemonic ~ whitespace+ ~ operand_list }
 mnemonic = { alpha+ }  // Matches the instruction name
 operand_list = { operand ~ (arg_sep ~ operand)* }
+
+immediate = { "#" ~ integer }
+memory_access = { "[" ~ register ~ ("," ~ whitespace* ~ (register | immediate) ~ whitespace*)? ~ "]" }
+variable_address = { "=" ~ label_name }
 operand = { register | immediate | memory_access | variable_address | label_name }
