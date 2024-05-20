@@ -1,8 +1,10 @@
 TODO
 
-- only in .data, can one have data lines
+- loader: the implicit operands are not set like PC, SP etc.
 
-- only in .text can one have text lines
+- labels: unwanted behavior that labels need to start with an _ Even though it isn't part of a label name
+
+- loader: instruction loading
 
 - loader: multiline comment
 
@@ -55,6 +57,21 @@ TODO
 
 DONE
 
+- loader: has problems with labels vs variable names. So if you have 'ADR r1, '
+
+- loader: preamble and empty lines
+
+- loader: .data and empty lines
+
+- loader: .text and empty lines
+
+- loader: .text and .section .text are both fine
+
+- loader: .data and .section .data are both fine
+
+- loader: only in .data, can one have data lines
+
+- loader: only in .text can one have text lines
 
 - loader: control the directives.
 

@@ -1,19 +1,24 @@
-.data
-    a: .word 1
-    b: .word 1
-    c: .word 0
-.text
+.section .data
+    a1: .word 1
+    a2: .word 1
+    a3: .word 0
+
+.section .text
+.section .text
 .global _start
 _start:
-    LDR R0, [a]
-    LDR R1, [b]
+    ADR R0, =a1
+    LDR R0, [R0]
+    ADR R1, =a2
+    LDR R1, [R1]
 _loop:
-    BL add_numbers  @ add R0 and R1 and write to R2
+    BL _add_numbers  @ add R0 and R1 and write to R2
     PRINTR R2
-    STR R2, [c]
+    ADR R2, =a3
+    STR R2, [R2]
     MOV R0, R2      @ copy R2 into R0
     B _loop
-add_numbers:
+_add_numbers:
     NOP
     NOP
     NOP

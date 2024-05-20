@@ -15,7 +15,7 @@ fn main() {
         phys_reg_count: 64,
         frontend_n_wide: 4,
         instr_queue_capacity: 8,
-        frequency_hz: 40,
+        frequency_hz: 4,
         rs_count: 16,
         memory_size: 32,
         sb_capacity: 16,
@@ -23,11 +23,11 @@ fn main() {
         rob_capacity: 32,
         eu_count: 16,
         trace: Trace {
-            decode: false,
-            issue: false,
-            dispatch: false,
-            execute: false,
-            retire: false,
+            decode: true,
+            issue: true,
+            dispatch: true,
+            execute: true,
+            retire: true,
             cycle: true,
         },
         retire_n_wide: 4,
@@ -40,6 +40,6 @@ fn main() {
     println!("Loading {}",path);
     let program = Rc::new(load(cpu_config.clone(), path));
 
-    //let mut cpu = CPU::new(&cpu_config);
-    //cpu.run(&program);
+    let mut cpu = CPU::new(&cpu_config);
+    cpu.run(&program);
 }

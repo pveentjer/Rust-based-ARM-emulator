@@ -1,7 +1,7 @@
 // ARM Assembly Pest Grammar
 
 whitespace = _{ " " | "\t" }
-newline = _{ "\n" }
+newline =  _{ "\n" | "\r\n" }
 comma = _{ "," }
 
 comment = _{ "@" ~ (!newline ~ ANY)* }
@@ -11,29 +11,28 @@ alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
 
 register = { (^"r" ~ digit+ | ^"sp" | ^"lr" | ^"pc" | ^"fp") }
-label_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
+// due to pest, labels need to begin with _ This needs to be fixed.
+label_name = { "_" ~ (alpha | digit | "_")* }
 
 variable_name = { ( alpha| "_") ~ (alpha | digit | "_")* }
 integer = { digit+ }
 
 file = _{ SOI ~ assembly ~ EOI }
 
-assembly = _{ ( preamble | section) ~ (newline ~ section)* }
-preamble = _{ directive_line ~ ( newline ~ directive_line)* }
-section = _{(data_section | text_section)}
+assembly = _{ ( directive_line | empty_line )* ~ ( data_section | text_section ) * }
 
-empty_line = {whitespace* ~ comment?}
+empty_line =  _{whitespace* ~ comment? ~ newline }
 
 // Directive
-directive_name = { !".section" ~ "." ~ alpha+ }
-directive_line = { whitespace* ~  directive_name ~ whitespace* ~ (label_name | integer)? ~ whitespace* ~ comment? }
+directive_name = { !( ".section" | ".data" | ".text") ~ "." ~ alpha+ }
+directive_line = { whitespace* ~  directive_name ~ whitespace* ~ (label_name | integer)? ~ whitespace* ~ comment? ~ newline}
 
 // Data
-data_section = _{^".section" ~whitespace+ ~ ^".data" ~ whitespace* ~ comment? ~ (newline ~ (data_line | directive_line ))* }
-data_line = { whitespace* ~ variable_name ~ ":" ~ whitespace+ ~ ^".word" ~ whitespace+ ~ integer ~ whitespace* ~ comment?}
+data_section = _{ (^".section" ~ whitespace )? ~ whitespace* ~ ^".data" ~ whitespace* ~ comment? ~ newline ~ (empty_line | data_line | directive_line )* }
+data_line = { whitespace* ~ variable_name ~ ":" ~ whitespace+ ~ ^".word" ~ whitespace+ ~ integer ~ whitespace* ~ comment? ~ newline}
 
-text_section = _{^".section" ~whitespace+ ~ ^".text" ~ whitespace* ~ comment? ~ (newline ~ (text_line | directive_line))* }
-text_line = _{whitespace* ~ (instr | label) ~ whitespace* ~ comment? }
+text_section = _{ (^".section" ~ whitespace )? ~ whitespace* ~ ^".text" ~ whitespace* ~ comment? ~ newline ~ (empty_line | text_line | directive_line )* }
+text_line = _{whitespace* ~ (instr | label) ~ whitespace* ~ comment? ~ newline}
 
 label = { label_name ~ ":" }
 
@@ -43,6 +42,6 @@ mnemonic = { alpha+ }  // Matches the instruction name
 
 immediate = { "#" ~ integer }
 memory_access = { "[" ~ register ~ ("," ~ whitespace* ~ (register | immediate) ~ whitespace*)? ~ "]" }
-variable_address = { "=" ~ label_name }
+variable_address = { "=" ~ variable_name }
 operand_sep = _{ whitespace* ~ comma ~ whitespace* }
 operand = _{ register | immediate | memory_access | variable_address | label_name }

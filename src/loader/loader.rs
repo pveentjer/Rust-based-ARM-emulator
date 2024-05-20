@@ -31,12 +31,16 @@ struct Loader {
 impl Loader {
     fn load(&mut self) {
         let path = &self.path;
-        let input = match fs::read_to_string(path) {
+        let mut input = match fs::read_to_string(path) {
             Ok(content) => content,
             Err(err) => {
                 panic!("Error reading file: {}", err);
             }
         };
+
+        if !input.ends_with('\n') {
+            input.push('\n');
+        }
 
         // first pass
         match AssemblyParser::parse(Rule::file, &input) {
@@ -112,12 +116,14 @@ impl Loader {
             ".global" => {
                 let target = self.parse_label_ref(&inner_pairs.next().unwrap());
                 self.entry_point = target;
+
+                println!("Setting entry point to {}",target)
             }
             ".data" => {
             }
             ".text" =>{
             }
-            _ => panic!("Unknown directive '{}'at  [{},{}] ",directive_name,line_column.0,line_column.1)
+            _ => panic!("Unknown directive '{}'at  {},{} ",directive_name,line_column.0,line_column.1)
         }
     }
 
@@ -128,7 +134,7 @@ impl Loader {
         let label = String::from(inner_pairs.next().unwrap().as_str());
 
         if self.labels.contains_key(&label) {
-            panic!("Duplicate label '{}' at [{}:{}]", label, line_column.0, line_column.1);
+            panic!("Duplicate label '{}' at {}:{}", label, line_column.0, line_column.1);
         } else {
             self.labels.insert(label, self.instr_cnt);
         }
@@ -144,7 +150,7 @@ impl Loader {
         let opcode = get_opcode(mnemonic);
 
         if opcode.is_none() {
-            panic!("Unknown mneumonic '{}' at [{}:{}]", mnemonic, line_column.0, line_column.1);
+            panic!("Unknown mneumonic '{}' at {}:{}", mnemonic, line_column.0, line_column.1);
 
         }
 
@@ -170,6 +176,10 @@ impl Loader {
             is_control: false,
         };
 
+        // todo: the implicit operands
+        // todo:argument count/type checking
+        // todo: store_cnt
+
         for (i, operand) in operands.iter().enumerate() {
             if i < 3 {
                 instr.source[i] = operand.clone();
@@ -179,6 +189,8 @@ impl Loader {
                 instr.sink_cnt += 1;
             }
         }
+
+        instr.is_control = Self::is_control(&instr);
 
         instr
     }
@@ -192,7 +204,7 @@ impl Loader {
             Rule::memory_access => Operand::Memory(self.parse_memory_access(pair)),
             Rule::variable_address => Operand::Memory(self.parse_variable_address(pair)),
             Rule::label_name => Code(self.parse_label_ref(pair) as WordType),
-            _ => panic!("Unknown operand encountered {} at  at [{}:{}]",s,line_column.0,line_column.1),
+            _ => panic!("Unknown operand encountered {} at  at {}:{}",s,line_column.0,line_column.1),
         }
     }
 
@@ -200,7 +212,7 @@ impl Loader {
         let line_column = self.get_line_column(&pair);
         let name = pair.as_str();
         match get_register(name){
-            None =>  panic!("Illegal register '{}' at [{}:{}]", name, line_column.0, line_column.1),
+            None =>  panic!("Illegal register '{}' at {}:{}", name, line_column.0, line_column.1),
             Some(reg) => reg,
         }
     }
@@ -228,10 +240,12 @@ impl Loader {
 
     fn parse_variable_address(&self, pair: &Pair<Rule>) -> WordType {
         let variable_name = pair.as_str()[1..].to_string();
+        let line_column = self.get_line_column(&pair);
+
         if let Some(data) = self.data_section.get(&variable_name) {
             data.offset as WordType
         } else {
-            panic!("Unknown variable '{}'", variable_name);
+            panic!("Unknown variable '{}' at {}:{}", variable_name, line_column.0, line_column.1);
         }
     }
 
@@ -243,12 +257,12 @@ impl Loader {
 
         let variable_name = String::from(var_pair.as_str());
         if !is_valid_variable_name(&variable_name) {
-            panic!("Illegal variable name '{}' at [{}:{}]", variable_name, line_column.0, line_column.1);
+            panic!("Illegal variable name '{}' at {}:{}", variable_name, line_column.0, line_column.1);
         }
 
         let value: i64 = self.parse_integer(&value_pair);
         if self.data_section.contains_key(&variable_name) {
-            panic!("Duplicate variable declaration '{}' at [{}:{}]", variable_name, line_column.0, line_column.1);
+            panic!("Duplicate variable declaration '{}' at {}:{}", variable_name, line_column.0, line_column.1);
         }
         self.data_section.insert(variable_name.clone(), Rc::new(Data { value, offset: self.heap_size as u64 }));
         self.heap_size += 1;
@@ -270,7 +284,7 @@ impl Loader {
         match self.labels.get(&label) {
             Some(code_address) => *code_address,
             None => {
-                panic!("Unknown label '{}' at [{}:{}]", label, line_column.0, line_column.1)
+                panic!("Unknown label '{}' at {}:{}", label, line_column.0, line_column.1)
             }
         }
     }
