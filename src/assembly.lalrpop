@@ -1,5 +1,7 @@
 use std::str::FromStr;
-use crate::ast::{Operand, Instr, Data, Section, Assembly};
+use crate::ast::{Operand, Instr, Data, Section, Assembly, Directive, TextLine, DataLine, Label,Preamble};
+
+// https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
 grammar;
 
@@ -20,10 +22,13 @@ Operand_Sep: () = {
     ","  => (),
 }
 
-Newline: () = {
-    r"\n" => (),
-};
+LabelName: String = {
+    r"[a-zA-Z]+" => String::from(<>),
+}
 
+DirectiveName: String = {
+    r"\.[a-zA-Z]+" => String::from(<>),
+}
 
 Operand: Operand = {
     Register,
@@ -39,22 +44,13 @@ Immediate: Operand = {
     "#" <Integer> => Operand::Immediate(<>),
 };
 
-
-Instr: Instr = {
-   <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
-        => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3},
+Directive: Directive = {
+   ".global" <l:LabelName> => Directive::Global(l),
 }
 
-Data: Data = {
-    <n:VariableName> ":" ".word" <v:Integer> => Data{name:n,value:v}
-}
-
-DataSection:Section = {
-    ".data" <Data+> => Section::Data(<>),
-}
-
-TextSection: Section = {
-    ".text" <Instr+> => Section::Text(<>),
+DataLine: DataLine = {
+    Data => DataLine::Data(<>),
+    Directive => DataLine::Directive(<>)
 }
 
 Section:Section = {
@@ -62,6 +58,39 @@ Section:Section = {
     TextSection
 }
 
+Data: Data = {
+    <n:VariableName> ":" ".word" <v:Integer> => Data{name:n,value:v}
+}
+
+DataSection:Section = {
+    ".data" <DataLine+> => Section::Data(<>),
+    ".section" ".data" <DataLine+> => Section::Data(<>),
+}
+
+Label: Label = {
+    <n:LabelName> ":" => Label{name:n},
+}
+
+Instr: Instr = {
+   <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
+        => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3},
+}
+
+TextSection: Section = {
+    ".text" <TextLine+> => Section::Text(<>),
+    ".section" ".text" <TextLine+> => Section::Text(<>),
+}
+
+TextLine: TextLine = {
+    Instr => TextLine::Text(<>),
+    Directive => TextLine::Directive(<>),
+    Label => TextLine::Label(<>),
+}
+
+Preamble: Preamble ={
+    Directive* => Preamble{directives:<>},
+}
+
 pub Assembly:Assembly = {
-    Section* => Assembly{section:<>},
+    <p:Preamble> <s:Section*> => Assembly{preamble:p, sections:s},
 }

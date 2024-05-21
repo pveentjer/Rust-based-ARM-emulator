@@ -1,7 +1,8 @@
 use std::fs;
-use lalrpop_util::lalrpop_mod;
+use lalrpop_util::{lalrpop_mod, ParseError};
 
 use crate::cpu::{CPU, CPUConfig, Trace};
+use crate::instructions::instructions::SourceLocation;
 
 mod cpu;
 mod loader;
@@ -13,6 +14,23 @@ mod ast;
 
 
 lalrpop_mod!(pub assembly);
+
+fn get_line_and_column(input: &str, offset: usize) -> SourceLocation {
+    let mut line = 1;
+    let mut col = 1;
+    for (i, c) in input.char_indices() {
+        if i == offset {
+            break;
+        }
+        if c == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    SourceLocation{line:line, column:col}
+}
 
 fn main() {
     let cpu_config = CPUConfig {
@@ -50,15 +68,34 @@ fn main() {
         }
     };
 
+    let input_str = input.as_str();
+
     let parse_result = assembly::AssemblyParser::new()
-        .parse(input.as_str());
+        .parse(input_str);
 
     match parse_result {
         Ok(_)=>{
             println!("Parse success");
         }
-        Err(e)=>{
-            panic!("{}",e);
+        Err(err)=>{
+            match err {
+                ParseError::InvalidToken { location } => {
+                    let loc = get_line_and_column(input_str, location);
+                    println!("Invalid token at  at {}:{}", loc.line, loc.column);
+                }
+                ParseError::UnrecognizedToken { token, expected } => {
+                    let loc = get_line_and_column(input_str, token.0);
+                    println!("Unrecognized token '{}' at {}:{}. Expected: {:?}", token.1, loc.line, loc.column, expected);
+                }
+                ParseError::ExtraToken { token } => {
+                    let loc = get_line_and_column(input_str, token.0);
+                    println!("Extra token '{}' at {}:{}", token.1, loc.line, loc.column);
+                }
+                _ => println!("Error: {:?}", err),
+            }
+            //
+            // let loc = get_line_and_column(input.as_str(), e.)
+            // panic!("{}",e);
         }
     }
 }

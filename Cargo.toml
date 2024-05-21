@@ -3,7 +3,7 @@ name = "rust_cpu_emulator"
 version = "0.1.0"
 edition = "2021"
 
-[build-dependencies] # <-- We added this and everything after!
+[build-dependencies]
 lalrpop = "0.20.2"
 
 [dependencies]

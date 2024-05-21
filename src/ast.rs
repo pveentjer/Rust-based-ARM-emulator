@@ -19,11 +19,40 @@ pub struct Instr{
     pub op3: Operand,
 }
 
+pub enum Directive{
+    Global(String),
+}
+
+pub enum GlobalDirective{
+    Label(String),
+    Immediate()
+}
+
+pub enum DataLine{
+    Data(Data),
+    Directive(Directive),
+}
+
+pub struct  Label {
+    pub name: String,
+}
+
+pub enum TextLine{
+    Text(Instr),
+    Directive(Directive),
+    Label(Label),
+}
+
 pub enum Section{
-    Text(Vec<Instr>),
-    Data(Vec<Data>),
+    Text(Vec<TextLine>),
+    Data(Vec<DataLine>),
+}
+
+pub struct Preamble {
+    pub directives: Vec<Directive>,
 }
 
 pub struct Assembly{
-    pub section: Vec<Section>,
+    pub preamble: Preamble,
+    pub sections: Vec<Section>,
 }
