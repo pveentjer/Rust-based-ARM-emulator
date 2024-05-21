@@ -1,4 +1,6 @@
 use std::rc::Rc;
+use lalrpop_util::lalrpop_mod;
+use crate::ast::ast_Program;
 
 use crate::cpu::{CPU, CPUConfig, Trace};
 use crate::loader::loader::load;
@@ -9,6 +11,10 @@ mod frontend;
 mod backend;
 mod instructions;
 mod memory_subsystem;
+mod ast;
+
+
+lalrpop_mod!(pub assembly);
 
 fn main() {
     let cpu_config = CPUConfig {
@@ -37,9 +43,16 @@ fn main() {
     };
 
     let path = "rubbish.asm";
-    println!("Loading {}",path);
-    let program = Rc::new(load(cpu_config.clone(), path));
 
-    let mut cpu = CPU::new(&cpu_config);
-    cpu.run(&program);
+
+    let expr = ast_Program::new()
+        .parse("22 * 44 + 66")
+        .unwrap();
+    assert_eq!(&format!("{:?}", expr), "((22 * 44) + 66)");
+
+    // println!("Loading {}",path);
+    // let program = Rc::new(load(cpu_config.clone(), path));
+    //
+    // let mut cpu = CPU::new(&cpu_config);
+    // cpu.run(&program);
 }
