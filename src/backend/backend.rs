@@ -169,23 +169,6 @@ impl Backend {
                     // update the PC
                     rob_slot.result.push(target as i64);
                 }
-                Opcode::PUSH => {
-                    let value = rs.source[0].get_constant();
-                    let sp_value = rs.source[1].get_constant();
-
-                    if sp_value as usize == self.stack_capacity as usize {
-                        panic!("Stack overflow");
-                    }
-
-                    self.stack[sp_value as usize] = value;
-                    rob_slot.result.push(sp_value + 1);
-                }
-                Opcode::POP => {
-                    let sp_value = (rs.source[0].get_constant() - 1) as WordType;
-
-                    rob_slot.result.push(self.stack[sp_value as usize]);
-                    rob_slot.result.push(sp_value);
-                }
                 Opcode::EXIT => {}
             }
 

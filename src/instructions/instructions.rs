@@ -1,12 +1,18 @@
 use std::collections::HashMap;
 use std::fmt;
-
 use std::rc::Rc;
+use Operand::Memory;
 use crate::cpu::{GENERAL_ARG_REG_CNT, SP};
 use crate::cpu::LR;
 use crate::cpu::PC;
 use crate::cpu::FP;
+use crate::instructions::instructions::Operand::{Code, Immediate, Register, Unused};
 
+#[derive(Debug, Clone, Copy)]
+pub struct SourceLocation {
+    pub line: usize,
+    pub column: usize,
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Opcode {
@@ -27,10 +33,6 @@ pub enum Opcode {
     CBNZ,
     // remove
     EXIT,
-    // remove
-    PUSH,
-    // remove
-    POP,
     NEG,
     AND,
     ORR,
@@ -57,8 +59,6 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::BL => "BL",
         Opcode::CBZ => "CBZ",
         Opcode::CBNZ => "CBNZ",
-        Opcode::PUSH => "PUSH",
-        Opcode::POP => "POP",
         Opcode::AND => "AND",
         Opcode::ORR => "ORR",
         Opcode::EOR => "EOR",
@@ -87,8 +87,6 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "BX" => Some(Opcode::BX),
         "CBZ" => Some(Opcode::CBZ),
         "CBNZ" => Some(Opcode::CBZ),
-        "PUSH" => Some(Opcode::PUSH),
-        "POP" => Some(Opcode::POP),
         "AND" => Some(Opcode::AND),
         "ORR" => Some(Opcode::ORR),
         "EOR" => Some(Opcode::EOR),
@@ -99,7 +97,7 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
     }
 }
 
-pub(crate) fn get_register(name:&str)->Option<u16>{
+pub(crate) fn get_register(name: &str) -> Option<u16> {
     let name_uppercased = name.to_uppercase();
 
     match name_uppercased.as_str() {
@@ -119,7 +117,219 @@ pub(crate) fn get_register(name:&str)->Option<u16>{
     }
 }
 
-pub(crate) const NOP: Instr = create_NOP(-1);
+pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceLocation) -> Result<Instr, String> {
+    let mut instr = Instr {
+        cycles: 1,
+        opcode,
+        source_cnt: 0,
+        source: [Unused, Unused, Unused],
+        sink_cnt: 0,
+        sink: [Unused, Unused],
+        loc: Some(loc),
+        mem_stores: 0,
+        is_control: false,
+    };
+
+    // // todo: the implicit operands
+    // // todo:argument count/type checking
+    // // todo: store_cnt
+    //
+    match opcode {
+        Opcode::SUB |
+        Opcode::MUL |
+        Opcode::SDIV |
+        Opcode::AND |
+        Opcode::ORR |
+        Opcode::EOR |
+        Opcode::ADD => {
+            if operands.len() != 3 {
+                return Err(format!("{:?} expects 3 arguments, but {} are provided", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            instr.source_cnt = 2;
+
+            match operands[0] {
+                Register(_) => instr.sink[0] = operands[0],
+                _ => return Err(format!("{:?} expects a register as first argument", opcode)),
+            }
+
+            match operands[1] {
+                Register(_) => instr.source[0] = operands[1],
+                _ => return Err(format!("{:?} expects a register as second argument", opcode)),
+            }
+
+            match operands[2] {
+                Immediate(_) |
+                Register(_) => instr.source[1] = operands[2],
+                _ => return Err(format!("{:?} expects a register or immediate as third argument", opcode)),
+            }
+        }
+        Opcode::ADR => { panic!() }
+        Opcode::LDR => {
+            if operands.len() != 2 {
+                return Err(format!("{:?} expects 3 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            instr.source_cnt = 1;
+
+            match operands[0] {
+                Register(_) => instr.sink[0] = operands[0],
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+
+            match operands[1] {
+                Register(_) => instr.source[0] = operands[1],
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+        }
+        Opcode::STR => {
+            // verify 2 arguments
+            // fist should be register with value
+            // second should be register with the memory address.
+        }
+        Opcode::NOP => {
+            if operands.len() != 0 {
+                return Err(format!("{:?} expects 0 arguments, but {} are provided.", opcode, operands.len()));
+            }
+            // verify no arguments
+        }
+        Opcode::PRINTR => {
+            if operands.len() != 1 {
+                return Err(format!("{:?} expects 3 arguments, but {} are provided", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 0;
+            instr.source_cnt = 1;
+
+            match operands[0] {
+                Register(_) => instr.source[0] = operands[0],
+                _ => return Err(format!("{:?} expects a register as first argument", opcode)),
+            }
+        }
+        Opcode::MOV => {
+            if operands.len() != 2 {
+                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            instr.source_cnt = 1;
+
+            match operands[0] {
+                Register(_) => instr.sink[0] = operands[0],
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+
+            match operands[1] {
+                Immediate(_) |
+                Register(_) => instr.source[0] = operands[1],
+                _ => return Err(format!("{:?} expects a register or immediate as second argument.", opcode)),
+            }
+        }
+        Opcode::B => {
+            if operands.len() != 1 {
+                return Err(format!("{:?} expects 1 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            instr.source_cnt = 1;
+
+            match operands[0] {
+                Code(_) => instr.source[0] = operands[0],
+                _ => return Err(format!("{:?} expects a label as first argument.", opcode)),
+            }
+
+            instr.sink[0] = Register(PC);
+            instr.is_control = true;
+        }
+        Opcode::BX => {
+            if operands.len() != 1 {
+                return Err(format!("{:?} expects 1 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            instr.source_cnt = 1;
+
+            match operands[0] {
+                Register(_) => instr.source[0] = operands[0],
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+
+            instr.sink[0] = Register(PC);
+            instr.is_control = true;
+        }
+        Opcode::BL => {
+            if operands.len() != 1 {
+                return Err(format!("{:?} expects 1 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.source_cnt = 2;
+            match operands[0] {
+                Code(_) => instr.source[0] = operands[0],
+                _ => return Err(format!("{:?} expects a label as first argument.", opcode)),
+            }
+            instr.source[1] = Register(PC);
+            instr.sink_cnt = 2;
+            instr.sink[0] = Register(LR);
+            instr.sink[1] = Register(PC);
+            instr.is_control = true;
+        }
+        Opcode::CBZ |
+        Opcode::CBNZ => {
+            if operands.len() != 1 {
+                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.source_cnt = 1;
+            match operands[0] {
+                Register(_) => instr.source[0] = operands[0],
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+
+            // todo: bad arguments
+
+            instr.sink_cnt = 3;
+            match operands[1] {
+                Code(_) => instr.source[1] = operands[1],
+                _ => return Err(format!("{:?} expects a label as second argument.", opcode)),
+            }
+            instr.sink[2] = Register(PC);
+
+            instr.sink_cnt = 1;
+            instr.sink[0] = Register(PC);
+            instr.is_control = true;
+        }
+        Opcode::EXIT => {
+            if operands.len() != 0 {
+                return Err(format!("{:?} expects 0 arguments, but {} are provided.", opcode, operands.len()));
+            }
+            instr.is_control = true;
+        }
+        Opcode::NEG => {
+            // verify 2 arguments
+            // verify first a register
+            // verify secodn a register or immediate value
+        }
+        Opcode::NOT => {}
+    }
+
+    instr.is_control = is_control(&instr);
+    return Ok(instr);
+}
+
+
+fn is_control(instr: &Instr) -> bool {
+    instr.source.iter().any(|op| is_control_operand(op)) ||
+        instr.sink.iter().any(|op| is_control_operand(op))
+}
+
+fn is_control_operand(op: &Operand) -> bool {
+    matches!(op, Register(register) if *register == PC)
+}
+
+
+pub(crate) const NOP: Instr = create_NOP(None);
 
 pub(crate) type RegisterType = u16;
 pub(crate) type WordType = i64;
@@ -194,7 +404,7 @@ pub(crate) struct Instr {
     pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
     pub(crate) sink_cnt: u8,
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
-    pub(crate) line: i32,
+    pub(crate) loc: Option<SourceLocation>,
     pub(crate) mem_stores: u8,
     // True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
     pub(crate) is_control: bool,
@@ -223,15 +433,13 @@ impl fmt::Display for Instr {
             Opcode::BL => write!(f, "{}", self.source[0])?,
             Opcode::CBZ |
             Opcode::CBNZ => write!(f, "{},{}", self.source[0], self.source[1])?,
-            Opcode::PUSH => {}
-            Opcode::POP => {}
             Opcode::NEG => {}
             Opcode::NOT => {}
             Opcode::EXIT => {}
         }
 
-        if self.line > 0 {
-            write!(f, " ; line={}", self.line)?;
+        if let Some(loc) = self.loc {
+            write!(f, " ; {}:{}", loc.line,loc.column)?;
         }
 
         Ok(())
@@ -243,6 +451,7 @@ pub(crate) enum Operand {
     Register(RegisterType),
     // The operand is directly specified in the instruction itself.
     Immediate(WordType),
+
     // todo: rename to direct?
     Memory(WordType),
 
@@ -251,10 +460,11 @@ pub(crate) enum Operand {
     Unused,
 }
 
+
 impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Operand::Register(reg) => {
+            Register(reg) => {
                 match *reg as u16 {
                     FP => write!(f, "FP"),
                     LR => write!(f, "LR"),
@@ -263,10 +473,10 @@ impl fmt::Display for Operand {
                     _ => write!(f, "R{}", reg),
                 }
             }  // Add a comma here
-            Operand::Immediate(val) => write!(f, "{}", val),
-            Operand::Memory(addr) => write!(f, "[{}]", addr),
-            Operand::Code(addr) => write!(f, "[{}]", addr),
-            Operand::Unused => write!(f, "Unused"),
+            Immediate(val) => write!(f, "{}", val),
+            Memory(addr) => write!(f, "[{}]", addr),
+            Code(addr) => write!(f, "[{}]", addr),
+            Unused => write!(f, "Unused"),
         }
     }
 }
@@ -298,7 +508,7 @@ impl Operand {
 
     pub(crate) fn get_memory_addr(&self) -> WordType {
         match self {
-            Operand::Memory(addr) => *addr,
+            Memory(addr) => *addr,
             _ => panic!("Operand is not a Memory but of type {:?}", self),
         }
     }
@@ -321,7 +531,7 @@ impl Program {
     }
 }
 
-pub(crate) const fn create_NOP(line: i32) -> Instr {
+pub(crate) const fn create_NOP(loc:Option<SourceLocation>) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::NOP,
@@ -329,7 +539,7 @@ pub(crate) const fn create_NOP(line: i32) -> Instr {
         source: [Operand::Unused, Operand::Unused, Operand::Unused],
         sink_cnt: 0,
         sink: [Operand::Unused, Operand::Unused],
-        line,
+        loc,
         mem_stores: 0,
         is_control: false,
     }

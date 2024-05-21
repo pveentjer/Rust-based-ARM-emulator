@@ -1,4 +1,3 @@
-use std::any::type_name;
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
@@ -7,10 +6,10 @@ use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
-use Operand::{Register, Unused};
+use Operand::{Register};
 
-use crate::cpu::{SP, CPUConfig, GENERAL_ARG_REG_CNT, PC, LR, FP};
-use crate::instructions::instructions::{Data, get_opcode, get_register, Instr, Opcode, Operand, Program, WordType};
+use crate::cpu::{CPUConfig};
+use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, SourceLocation, WordType};
 use crate::instructions::instructions::Operand::Code;
 
 #[derive(Parser)]
@@ -61,8 +60,6 @@ impl Loader {
                 panic!("Parsing error: {}", err);
             }
         };
-
-        self.fix_control_flag();
     }
 
     fn first_pass(&mut self, root: Pairs<Rule>) {
@@ -88,53 +85,36 @@ impl Loader {
         }
     }
 
-    fn fix_control_flag(&mut self) {
-        for instr in &mut self.code {
-            if !instr.is_control {
-                instr.is_control = Self::is_control(instr);
-            }
-        }
-    }
 
-    fn is_control(instr: &Instr) -> bool {
-        instr.source.iter().any(|op| Self::is_control_operand(op)) ||
-            instr.sink.iter().any(|op| Self::is_control_operand(op))
-    }
-
-    fn is_control_operand(op: &Operand) -> bool {
-        matches!(op, Register(register) if *register == PC)
-    }
 
     fn parse_directive(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
         let mut inner_pairs = pair.into_inner();
         let directive_name = inner_pairs.next().unwrap().as_str();
 
-        println!("Directive name: {}",directive_name);
+        println!("Directive name: {}", directive_name);
 
         match directive_name {
             ".global" => {
                 let target = self.parse_label_ref(&inner_pairs.next().unwrap());
                 self.entry_point = target;
 
-                println!("Setting entry point to {}",target)
+                println!("Setting entry point to {}", target)
             }
-            ".data" => {
-            }
-            ".text" =>{
-            }
-            _ => panic!("Unknown directive '{}'at  {},{} ",directive_name,line_column.0,line_column.1)
+            ".data" => {}
+            ".text" => {}
+            _ => panic!("Unknown directive '{}'at  {},{} ", directive_name, loc.line, loc.column)
         }
     }
 
     fn parse_label(&mut self, pair: Pair<Rule>) {
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
         let mut inner_pairs = pair.into_inner();
 
         let label = String::from(inner_pairs.next().unwrap().as_str());
 
         if self.labels.contains_key(&label) {
-            panic!("Duplicate label '{}' at {}:{}", label, line_column.0, line_column.1);
+            panic!("Duplicate label '{}' at {}:{}", label, loc.line, loc.column);
         } else {
             self.labels.insert(label, self.instr_cnt);
         }
@@ -143,60 +123,35 @@ impl Loader {
     fn parse_instr(&mut self, pair: Pair<Rule>) {
         println!("Parse instr");
 
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
         let mut inner_pairs = pair.into_inner();
 
         let mnemonic = inner_pairs.next().unwrap().as_str();
-        let opcode = get_opcode(mnemonic);
+        let opcode_option = get_opcode(mnemonic);
 
-        if opcode.is_none() {
-            panic!("Unknown mneumonic '{}' at {}:{}", mnemonic, line_column.0, line_column.1);
-
+        if opcode_option.is_none() {
+            panic!("Unknown mnemonic '{}' at {}:{}", mnemonic, loc.line, loc.column);
         }
+
+        let opcode = opcode_option.unwrap();
 
         let mut operands = Vec::new();
         for operand_pair in inner_pairs {
             operands.push(self.parse_operand(&operand_pair));
         }
 
-        let instr = self.create_instr(opcode.unwrap(), operands, line_column.0 as i32);
-        self.code.push(instr);
-    }
-
-    fn create_instr(&self, opcode: Opcode, operands: Vec<Operand>, line: i32) -> Instr {
-        let mut instr = Instr {
-            cycles: 1,
-            opcode,
-            source_cnt: 0,
-            source: [Unused, Unused, Unused],
-            sink_cnt: 0,
-            sink: [Unused, Unused],
-            line,
-            mem_stores: 0,
-            is_control: false,
-        };
-
-        // todo: the implicit operands
-        // todo:argument count/type checking
-        // todo: store_cnt
-
-        for (i, operand) in operands.iter().enumerate() {
-            if i < 3 {
-                instr.source[i] = operand.clone();
-                instr.source_cnt += 1;
-            } else if i - 3 < 2 {
-                instr.sink[i - 3] = operand.clone();
-                instr.sink_cnt += 1;
+        match create_instr(opcode, &operands, loc){
+            Ok(instr) => {
+                self.code.push(instr);
+            }
+            Err(msg) => {
+                panic!("{} at {}:{}", msg, loc.line, loc.column);
             }
         }
-
-        instr.is_control = Self::is_control(&instr);
-
-        instr
     }
 
     fn parse_operand(&self, pair: &Pair<Rule>) -> Operand {
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
         let s = pair.as_str().to_lowercase();
         match pair.as_rule() {
             Rule::register => Register(self.parse_register(pair)),
@@ -204,15 +159,15 @@ impl Loader {
             Rule::memory_access => Operand::Memory(self.parse_memory_access(pair)),
             Rule::variable_address => Operand::Memory(self.parse_variable_address(pair)),
             Rule::label_name => Code(self.parse_label_ref(pair) as WordType),
-            _ => panic!("Unknown operand encountered {} at  at {}:{}",s,line_column.0,line_column.1),
+            _ => panic!("Unknown operand encountered {} at  at {}:{}", s, loc.line, loc.column),
         }
     }
 
     fn parse_register(&self, pair: &Pair<Rule>) -> u16 {
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
         let name = pair.as_str();
-        match get_register(name){
-            None =>  panic!("Illegal register '{}' at {}:{}", name, line_column.0, line_column.1),
+        match get_register(name) {
+            None => panic!("Illegal register '{}' at {}:{}", name, loc.line, loc.column),
             Some(reg) => reg,
         }
     }
@@ -240,37 +195,38 @@ impl Loader {
 
     fn parse_variable_address(&self, pair: &Pair<Rule>) -> WordType {
         let variable_name = pair.as_str()[1..].to_string();
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
 
         if let Some(data) = self.data_section.get(&variable_name) {
             data.offset as WordType
         } else {
-            panic!("Unknown variable '{}' at {}:{}", variable_name, line_column.0, line_column.1);
+            panic!("Unknown variable '{}' at {}:{}", variable_name, loc.line, loc.column);
         }
     }
 
     fn parse_data(&mut self, pair: Pair<Rule>) {
         let mut inner_pairs = pair.into_inner();
         let var_pair = inner_pairs.next().unwrap();
-        let line_column = self.get_line_column(&var_pair);
+        let loc = self.get_source_location(&var_pair);
         let value_pair = inner_pairs.next().unwrap();
 
         let variable_name = String::from(var_pair.as_str());
         if !is_valid_variable_name(&variable_name) {
-            panic!("Illegal variable name '{}' at {}:{}", variable_name, line_column.0, line_column.1);
+            panic!("Illegal variable name '{}' at {}:{}", variable_name, loc.line, loc.column);
         }
 
         let value: i64 = self.parse_integer(&value_pair);
         if self.data_section.contains_key(&variable_name) {
-            panic!("Duplicate variable declaration '{}' at {}:{}", variable_name, line_column.0, line_column.1);
+            panic!("Duplicate variable declaration '{}' at {}:{}", variable_name, loc.line, loc.column);
         }
         self.data_section.insert(variable_name.clone(), Rc::new(Data { value, offset: self.heap_size as u64 }));
         self.heap_size += 1;
     }
 
-    fn get_line_column(&self, pair: &Pair<Rule>) -> (usize, usize) {
+    fn get_source_location(&self, pair: &Pair<Rule>) -> SourceLocation {
         let start_pos = pair.as_span().start_pos();
-        start_pos.line_col()
+        let line_col = start_pos.line_col();
+        return SourceLocation{line:line_col.0, column:line_col.1};
     }
 
     fn parse_integer(&self, pair: &Pair<Rule>) -> i64 {
@@ -278,13 +234,13 @@ impl Loader {
     }
 
     fn parse_label_ref(&self, pair: &Pair<Rule>) -> usize {
-        let line_column = self.get_line_column(&pair);
+        let loc = self.get_source_location(&pair);
         let label = String::from(pair.as_str());
 
         match self.labels.get(&label) {
             Some(code_address) => *code_address,
             None => {
-                panic!("Unknown label '{}' at {}:{}", label, line_column.0, line_column.1)
+                panic!("Unknown label '{}' at {}:{}", label, loc.line, loc.column)
             }
         }
     }
