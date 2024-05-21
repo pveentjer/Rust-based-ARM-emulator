@@ -1,9 +1,7 @@
-use std::rc::Rc;
+use std::fs;
 use lalrpop_util::lalrpop_mod;
-use crate::ast::ast_Program;
 
 use crate::cpu::{CPU, CPUConfig, Trace};
-use crate::loader::loader::load;
 
 mod cpu;
 mod loader;
@@ -42,17 +40,25 @@ fn main() {
         stack_capacity: 32,
     };
 
-    let path = "rubbish.asm";
+    let path = "foo.asm";
 
 
-    let expr = ast_Program::new()
-        .parse("22 * 44 + 66")
-        .unwrap();
-    assert_eq!(&format!("{:?}", expr), "((22 * 44) + 66)");
+     let mut input = match fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(err) => {
+            panic!("Error reading file: {}", err);
+        }
+    };
 
-    // println!("Loading {}",path);
-    // let program = Rc::new(load(cpu_config.clone(), path));
-    //
-    // let mut cpu = CPU::new(&cpu_config);
-    // cpu.run(&program);
+    let parse_result = assembly::AssemblyParser::new()
+        .parse(input.as_str());
+
+    match parse_result {
+        Ok(_)=>{
+            println!("Parse success");
+        }
+        Err(e)=>{
+            panic!("{}",e);
+        }
+    }
 }

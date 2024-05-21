@@ -1,50 +1,29 @@
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub enum ast_Expr {
-    Number(i32),
-    Identifier(String),
-    Op(Box<ast_Expr>, ast_Opcode, Box<ast_Expr>),
+use std::fmt::{Debug, Error, Formatter};
+
+
+pub enum Operand {
+    Register(u64),
+    Immediate(u64),
+    //MemoryAccess(Operand::Register),
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub enum ast_Opcode {
-    Mul,
-    Div,
-    Add,
-    Sub,
+pub struct Data{
+    pub name: String,
+    pub value: u64,
 }
 
-pub struct ast_Program {
-    pub statements: Vec<ast_Statement>,
+pub struct Instr{
+    pub mnemonic: String,
+    pub op1: Operand,
+    pub op2: Operand,
+    pub op3: Operand,
 }
 
-impl ast_Program {
-    pub fn new(statements: Vec<ast_Statement>) -> Self {
-        Self { statements }
-    }
+pub enum Section{
+    Text(Vec<Instr>),
+    Data(Vec<Data>),
 }
 
-pub struct ast_StatementBody {
-    pub identifier: String,
-    pub expression: Box<ast_Expr>,
-}
-
-pub enum ast_Statement {
-    Assignment(ast_StatementBody),
-    Definition(ast_StatementBody),
-}
-
-impl ast_Statement {
-    pub fn new_assignment(identifier: String, expression: Box<ast_Expr>) -> Self {
-        Self::Assignment(ast_StatementBody {
-            identifier,
-            expression,
-        })
-    }
-
-    pub fn new_definition(identifier: String, expression: Box<ast_Expr>) -> Self {
-        Self::Definition(ast_StatementBody {
-            identifier,
-            expression,
-        })
-    }
+pub struct Assembly{
+    pub section: Vec<Section>,
 }

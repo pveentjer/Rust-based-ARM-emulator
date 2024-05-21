@@ -1,56 +1,67 @@
-use crate::ast::program::Program;
-use crate::ast::expression::{Opcode, Expr };
-use crate::ast::statement::Statement;
-use crate::ast::utils::append;
-
 use std::str::FromStr;
+use crate::ast::{Operand, Instr, Data, Section, Assembly};
 
 grammar;
 
-Identifier: String = {
-    r"[a-zA-Z][a-zA-z_0-9]*" => <>.to_owned()
+Integer: u64 = {
+    r"[0-9]+" => u64::from_str(<>).unwrap()
 };
 
-Num: i32 = {
-    r"-?[0-9]+" => i32::from_str(<>).unwrap()
+Mnemonic: String = {
+    r"[a-zA-Z]+" => String::from(<>),
 };
 
-Term: Box<Expr> = {
-    Num => Box::new(Expr::Number(<>)),
-    Identifier => Box::new(Expr::Identifier(<>)),
-    "(" <Expr> ")"
+VariableName: String = {
+    r"[a-zA-Z]+" => String::from(<>),
 };
 
-Expr: Box<Expr> = {
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)),
-    Factor,
+
+Operand_Sep: () = {
+    ","  => (),
+}
+
+Newline: () = {
+    r"\n" => (),
 };
 
-ExprOp: Opcode = {
-    "+" => Opcode::Add,
-    "-" => Opcode::Sub,
+
+Operand: Operand = {
+    Register,
+    Immediate,
+//    MemoryAccess,
+}
+
+Register: Operand = {
+    "r" <Integer> => Operand::Register(<>),
 };
 
-Factor: Box<Expr> = {
-    Factor FactorOp Term => Box::new(Expr::Op(<>)),
-    Term,
+Immediate: Operand = {
+    "#" <Integer> => Operand::Immediate(<>),
 };
 
-FactorOp: Opcode = {
-    "*" => Opcode::Mul,
-    "/" => Opcode::Div,
-};
 
-Statement: Statement = {
-    "let" <Identifier> "=" <Expr> ";" => Statement::new_definition(<>),
-    <Identifier> "=" <Expr> ";" => Statement::new_assignment(<>)
-};
+Instr: Instr = {
+   <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
+        => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3},
+}
 
-Statements: Vec<Statement> = {
-    Statement => vec![<>],
-    Statements Statement => append(<>),
-};
+Data: Data = {
+    <n:VariableName> ":" ".word" <v:Integer> => Data{name:n,value:v}
+}
 
-pub Program: Program = {
- "{" <Statements> "}" => Program::new(<>)
+DataSection:Section = {
+    ".data" <Data+> => Section::Data(<>),
+}
+
+TextSection: Section = {
+    ".text" <Instr+> => Section::Text(<>),
+}
+
+Section:Section = {
+    DataSection,
+    TextSection
+}
+
+pub Assembly:Assembly = {
+    Section* => Assembly{section:<>},
 }
