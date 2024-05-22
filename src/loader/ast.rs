@@ -1,7 +1,7 @@
 use std::fmt::{Debug};
 
 
-pub enum Operand {
+pub enum _Operand {
     Register(u64, usize),
     Immediate(u64, usize),
     Label(String, usize),
@@ -9,55 +9,55 @@ pub enum Operand {
     //MemoryAccess(Operand::Register),
 }
 
-pub struct Data{
+pub struct _Data{
     pub name: String,
     pub value: u64,
     pub pos: usize,
 }
 
-pub struct Instr {
+pub struct _Instr {
     pub mnemonic: String,
-    pub op1: Operand,
-    pub op2: Operand,
-    pub op3: Operand,
+    pub op1: _Operand,
+    pub op2: _Operand,
+    pub op3: _Operand,
     pub pos: usize,
 }
 
-pub enum Directive{
+pub enum _Directive{
     Global(String, usize),
 }
 
-pub enum GlobalDirective{
+pub enum _GlobalDirective{
     Label(String),
     Immediate()
 }
 
-pub enum DataLine{
-    Data(Data),
-    Directive(Directive),
+pub enum _DataLine{
+    Data(_Data),
+    Directive(_Directive),
 }
 
-pub struct Label {
+pub struct _Label {
     pub name: String,
     pub pos: usize,
 }
 
-pub enum TextLine{
-    Text(Instr),
-    Directive(Directive),
-    Label(Label),
+pub enum _TextLine{
+    Text(_Instr),
+    Directive(_Directive),
+    Label(_Label),
 }
 
-pub enum Section{
-    Text(Vec<TextLine>),
-    Data(Vec<DataLine>),
+pub enum _Section{
+    Text(Vec<_TextLine>),
+    Data(Vec<_DataLine>),
 }
 
-pub struct Preamble {
-    pub directives: Vec<Directive>,
+pub struct _Preamble {
+    pub directives: Vec<_Directive>,
 }
 
-pub struct Assembly {
-    pub preamble: Preamble,
-    pub sections: Vec<Section>,
+pub struct _Assembly {
+    pub preamble: _Preamble,
+    pub sections: Vec<_Section>,
 }

@@ -4,13 +4,12 @@ use std::rc::Rc;
 use lalrpop_util::ParseError;
 
 use regex::Regex;
-use Operand::{Register};
+use _Operand::{Register};
 use crate::{assembly, get_line_and_column};
 
 use crate::cpu::{CPUConfig};
-use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, SourceLocation, WordType};
-use crate::instructions::instructions::Operand::Code;
-use crate::loader::ast::{Assembly, Section, TextLine};
+use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Program, SourceLocation, WordType};
+use crate::loader::ast::{_Assembly, _Operand, _Section, _TextLine};
 
 
 struct Loader {
@@ -22,14 +21,15 @@ struct Loader {
     labels: HashMap<String, usize>,
     instr_cnt: usize,
     entry_point: usize,
+    errors: Vec<String>,
 }
 
-pub enum LoadError{
+pub enum LoadError {
     ParseError(String),
 }
 
 impl Loader {
-    fn load(&mut self)->Result<Program,LoadError> {
+    fn load(&mut self) -> Result<Program, LoadError> {
         let path = &self.path;
         let mut input = match fs::read_to_string(path) {
             Ok(content) => content,
@@ -44,10 +44,76 @@ impl Loader {
 
         let input_str = input.as_str();
 
+        let assembly = match Self::parse(path, input_str) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        self.scan_symbols(input_str, &assembly);
+
+        self.program_generation(input_str, &assembly);
+
+        Ok(Program { code, data_items: self.data_section.clone(), entry_point: self.entry_point })
+    }
+
+    fn program_generation(&mut self, input_str: &str, assembly: &_Assembly) {
+        for section in &assembly.sections {
+            match section {
+                _Section::Text(text_section) => {
+                    for line in text_section {
+                        match line {
+                            _TextLine::Text(instr) => {
+                                match instr.op1 {
+                                    _Operand::Register(reg, pos) => {
+                                        println!("register r{}", reg);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _Section::Data(_) => {}
+            }
+        }
+
+        let mut code = Vec::with_capacity(self.code.len());
+        for k in 0..self.code.len() {
+            code.push(Rc::new(*self.code.get_mut(k).unwrap()));
+        }
+    }
+
+    fn scan_symbols(&mut self, input_str: &str, assembly: &_Assembly) {
+// scan for labels
+        for section in &assembly.sections {
+            match section {
+                _Section::Text(text_section) => {
+                    for line in text_section {
+                        match line {
+                            _TextLine::Label(label) => {
+                                let loc = get_line_and_column(input_str, label.pos);
+
+                                if self.labels.contains_key(&label.name) {
+                                    panic!("Duplicate label '{}' at {}:{}", label.name, loc.line, loc.column);
+                                } else {
+                                    self.labels.insert(label.name.clone(), self.instr_cnt);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _Section::Data(_) => {}
+            }
+        }
+    }
+
+    fn parse(path: &String, input_str: &str) -> Result<_Assembly, Result<Program, LoadError>> {
         let parse_result = assembly::AssemblyParser::new()
             .parse(input_str);
 
-        let assembly:Assembly = match parse_result {
+        let assembly: _Assembly = match parse_result {
             Ok(a) => a,
             Err(err) => {
                 let cause = match err {
@@ -66,61 +132,16 @@ impl Loader {
                     _ => format!("Error: {:?}", err),
                 };
 
-                let msg = format!("Failed to load '{}', cause {}",path,cause);
+                let msg = format!("Failed to load '{}', cause {}", path, cause);
 
                 //
                 // let loc = get_line_and_column(input.as_str(), e.)
                 // panic!("{}",e);
 
-                return Err(LoadError::ParseError(msg));
+                return Err(Err(LoadError::ParseError(msg)));
             }
         };
-
-        // scan for labels
-        for section in assembly.sections{
-            match section {
-                Section::Text(text_section) => {
-                    for  line in  text_section{
-                        match line {
-                            TextLine::Label(label) => {
-                                let pos = get_line_and_column(input_str, label.pos);
-                                println!("Found label: {} {}", label.name, pos);
-                            }
-                            _ =>{}
-                        }
-                    }
-                }
-                Section::Data(_) => {}
-            }
-        }
-
-
-        // // first pass
-        // match AssemblyParser::parse(Rule::file, &input) {
-        //     Ok(parsed) => {
-        //         self.first_pass(parsed);
-        //     }
-        //     Err(err) => {
-        //         panic!("Parsing error: {}", err);
-        //     }
-        // };
-        //
-        // // second pass
-        // match AssemblyParser::parse(Rule::file, &input) {
-        //     Ok(parsed) => {
-        //         self.second_pass(parsed);
-        //     }
-        //     Err(err) => {
-        //         panic!("Parsing error: {}", err);
-        //     }
-        // };
-
-
-        let mut code = Vec::with_capacity(self.code.len());
-        for k in 0..self.code.len() {
-            code.push(Rc::new(*self.code.get_mut(k).unwrap()));
-        }
-        Ok(Program { code, data_items: self.data_section.clone(), entry_point: self.entry_point })
+        Ok(assembly)
     }
     //
     // fn first_pass(&mut self, root: Pairs<Rule>) {
@@ -337,6 +358,7 @@ pub fn load(cpu_config: CPUConfig, path: &str) -> Result<Program, LoadError> {
         labels: HashMap::<String, usize>::new(),
         instr_cnt: 0,
         entry_point: 0,
+        errors: Vec::new(),
     };
 
     return loader.load();

@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::loader::ast::{Operand, Instr, Data, Section, Assembly, Directive, TextLine, DataLine, Label,Preamble};
+use crate::loader::ast::{_Operand, _Instr, _Data, _Section, _Assembly, _Directive, _TextLine, _DataLine, _Label,_Preamble};
 use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
@@ -29,7 +29,7 @@ DirectiveName: String = {
     r"\.[a-zA-Z]+" => String::from(<>),
 }
 
-Operand: Operand = {
+Operand: _Operand = {
     Register,
     Immediate,
     LabelOperand,
@@ -40,78 +40,82 @@ Operand: Operand = {
 //     "[" <r:Register> "]" => Operand::MemoryAccess(r),
 //}
 
-Register: Operand = {
-    // todo: r 1 is allowed register name which isn't correct
-    <start:@L> "r" <v:Integer> => Operand::Register(v, start),
-    <start:@L> "fp"          => Operand::Register(FP as u64, start),
-    <start:@L> "sp"          => Operand::Register(SP as u64, start),
-    <start:@L> "lr"          => Operand::Register(LR as u64, start),
-    <start:@L> "pc"          => Operand::Register(PC as u64, start)
+Register: _Operand = {
+    <start:@L> <r:r"r[0-9]+">   =>
+                                {
+                                    let mut s = String::from(r);
+                                    s.remove(0);
+                                    _Operand::Register(s.parse::<u64>().unwrap(), start)
+                                },
+    <start:@L>  "fp"            => _Operand::Register(FP as u64, start),
+    <start:@L>  "sp"            => _Operand::Register(SP as u64, start),
+    <start:@L>  "lr"            => _Operand::Register(LR as u64, start),
+    <start:@L>  "pc"            => _Operand::Register(PC as u64, start)
 };
 
-Immediate: Operand = {
+Immediate: _Operand = {
    // # todol space allowed and not good
     //"#" <Integer> => Operand::Immediate(<>),
-    <start:@L> "#" <i:Integer> => Operand::Immediate(i, start),
+    <start:@L> "#" <i:Integer> => _Operand::Immediate(i, start),
 };
 
-LabelOperand: Operand = {
-     <start:@L> <l:LabelName> => Operand::Label(l, start),
+LabelOperand: _Operand = {
+     <start:@L> <l:LabelName> => _Operand::Label(l, start),
 };
 
-Directive: Directive = {
-   <start:@L> ".global" <l:LabelName> => Directive::Global(l, start),
+Directive: _Directive = {
+   <start:@L> ".global" <l:LabelName> => _Directive::Global(l, start),
 }
 
-DataLine: DataLine = {
-    Data => DataLine::Data(<>),
-    Directive => DataLine::Directive(<>)
+DataLine: _DataLine = {
+    Data => _DataLine::Data(<>),
+    Directive => _DataLine::Directive(<>)
 }
 
-Section:Section = {
+Section:_Section = {
     DataSection,
     TextSection
 }
 
-Data: Data = {
-    <start:@L> <n:VariableName> ":" ".word" <v:Integer> => Data{name:n, value:v, pos:start}
+Data: _Data = {
+    <start:@L> <n:VariableName> ":" ".word" <v:Integer> => _Data{name:n, value:v, pos:start}
 }
 
-DataSection:Section = {
-    ".data" <DataLine+>                 => Section::Data(<>),
-    ".section" ".data" <DataLine+>      => Section::Data(<>),
+DataSection:_Section = {
+    ".data" <DataLine+>                 => _Section::Data(<>),
+    ".section" ".data" <DataLine+>      => _Section::Data(<>),
 }
 
-Label: Label = {
-    <start:@L> <n:LabelName> ":" => Label{name:n, pos:start},
+Label: _Label = {
+    <start:@L> <n:LabelName> ":" => _Label{name:n, pos:start},
 }
 
-Instr: Instr = {
+Instr: _Instr = {
 //   <start:@L> <m:Mnemonic>
 //            => Instr{mnemonic:m, op1:Operand::Unused(), op2:Operand::Unused(), op3:Operand::Unused()},
    <start:@L> <m:Mnemonic>  <o1:Operand>
-             => Instr{mnemonic:m, op1:o1, op2:Operand::Unused(), op3:Operand::Unused(), pos:start},
+             => _Instr{mnemonic:m, op1:o1, op2:_Operand::Unused(), op3:_Operand::Unused(), pos:start},
    <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand>
-             => Instr{mnemonic:m, op1:o1, op2:o2, op3:Operand::Unused(), pos:start},
+             => _Instr{mnemonic:m, op1:o1, op2:o2, op3:_Operand::Unused(), pos:start},
    <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
-             => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
+             => _Instr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
 }
 
-TextSection: Section = {
-    ".text" <TextLine+>             => Section::Text(<>),
-    ".section" ".text" <TextLine+>  => Section::Text(<>),
+TextSection: _Section = {
+    ".text" <TextLine+>             => _Section::Text(<>),
+    ".section" ".text" <TextLine+>  => _Section::Text(<>),
 }
 
-TextLine: TextLine = {
-    Instr                           => TextLine::Text(<>),
-    Directive                       => TextLine::Directive(<>),
-    Label                           => TextLine::Label(<>),
+TextLine: _TextLine = {
+    Instr                           => _TextLine::Text(<>),
+    Directive                       => _TextLine::Directive(<>),
+    Label                           => _TextLine::Label(<>),
 }
 
-Preamble: Preamble ={
-    Directive* => Preamble{directives:<>},
+Preamble: _Preamble ={
+    Directive* => _Preamble{directives:<>},
 }
 
-pub Assembly:Assembly = {
-    <p:Preamble> <s:Section*> => Assembly{preamble:p, sections:s},
+pub Assembly:_Assembly = {
+    <p:Preamble> <s:Section*> => _Assembly{preamble:p, sections:s},
 }

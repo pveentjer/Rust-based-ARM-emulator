@@ -1,6 +1,5 @@
 TODO
 
-
 - loader: case insensitive keywords/registers
 
 - loader: single line comments
@@ -67,6 +66,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: register name can't have spaces in between
 
 - loader: instruction should have access to pos
 
