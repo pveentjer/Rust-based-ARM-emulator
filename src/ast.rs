@@ -4,6 +4,8 @@ use std::fmt::{Debug, Error, Formatter};
 pub enum Operand {
     Register(u64),
     Immediate(u64),
+    Label(String),
+    Unused(),
     //MemoryAccess(Operand::Register),
 }
 

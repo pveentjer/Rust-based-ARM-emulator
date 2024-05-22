@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use crate::ast::{Operand, Instr, Data, Section, Assembly, Directive, TextLine, DataLine, Label,Preamble};
-
+use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
 grammar;
@@ -33,15 +33,28 @@ DirectiveName: String = {
 Operand: Operand = {
     Register,
     Immediate,
-//    MemoryAccess,
+    LabelOperand,
+    //MemoryAccess,
 }
+//
+//MemoryAccess: Operand = {
+//     "[" <r:Register> "]" => Operand::MemoryAccess(r),
+//}
 
 Register: Operand = {
     "r" <Integer> => Operand::Register(<>),
+    "fp"          => Operand::Register(FP as u64),
+    "sp"          => Operand::Register(SP as u64),
+    "lr"          => Operand::Register(LR as u64),
+    "pc"          => Operand::Register(PC as u64)
 };
 
 Immediate: Operand = {
     "#" <Integer> => Operand::Immediate(<>),
+};
+
+LabelOperand: Operand = {
+    LabelName => Operand::Label(<>),
 };
 
 Directive: Directive = {
@@ -72,8 +85,14 @@ Label: Label = {
 }
 
 Instr: Instr = {
+//   <m:Mnemonic>
+//            => Instr{mnemonic:m, op1:Operand::Unused(), op2:Operand::Unused(), op3:Operand::Unused()},
+   <m:Mnemonic>  <o1:Operand>
+             => Instr{mnemonic:m, op1:o1, op2:Operand::Unused(), op3:Operand::Unused()},
+   <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand>
+             => Instr{mnemonic:m, op1:o1, op2:o2, op3:Operand::Unused()},
    <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
-        => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3},
+             => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3},
 }
 
 TextSection: Section = {

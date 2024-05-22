@@ -1,5 +1,15 @@
 TODO
 
+- loader:
+
+- loader: comments
+
+- loader: new lines
+
+- loader: instructions without arguments
+
+- loader: memory accesss
+
 - loader: the implicit operands are not set like PC, SP etc.
 
 - labels: unwanted behavior that labels need to start with an _ Even though it isn't part of a label name
@@ -57,106 +67,3 @@ TODO
 
 DONE
 
-- loader: has problems with labels vs variable names. So if you have 'ADR r1, '
-
-- loader: preamble and empty lines
-
-- loader: .data and empty lines
-
-- loader: .text and empty lines
-
-- loader: .text and .section .text are both fine
-
-- loader: .data and .section .data are both fine
-
-- loader: only in .data, can one have data lines
-
-- loader: only in .text can one have text lines
-
-- loader: control the directives.
-
-- loader: the current grammar rules expect a new line at the beginning which is a problem for the first grammar rule since it will match
-with the SOI
-
-- loader: empty lines are causing parse problems
-
-- .data section should be optional
-
-.section .text
-
-- program should have start label
-
-- loader: validate label of .global
-
-- change comment from ; to @
-
-- .global should have a start label
-
-- add CBZ
-
-- add CBNZ
-
-- fix bug in BX
-     - so the next instruction doesn't get picked up by the frontend.
-
-- frontend should use the PC for tracking the instruction pointer.
-
-- any control instruction should only modify the IP when retiring; not earlier.
-
-- there should be detection if an instruction is interacting with the PC register
-
-- BL should update LR + PC
-
-- B should update PC
-
-- BX should update PC
-
-- remove JE
-
-- remove JNZ
-
-- loader: access to FP
-
-- add BX
-
-- fix 'RET'
-
-- SP should point to R13
-
-- LR should point to R14
-
-- PC should point to R15
-
-- add 'B' for unconditional branch
-
-- call --> BL
-
-- remove INC
-
-- remove DEC
-
-- loader: register validation
-
-- good Display for SP
-
-- loader: access to RSP
-
-- number of architectural registers should be fixed.
-
-- loader: many operators can now deal with direct value direct value
-
-- NEG <destination>, <source>
-
-- rename DIV to SDIV
-
-- remove MOD
-
-- rename XOR to EOR
-
-- rename OR to ORR
-
-- ugly debug string
-Executing LDR Memory(1) Register(2) line=8
-Executing LDR Memory(0) Register(1) line=7
-
-- More ARM like syntax

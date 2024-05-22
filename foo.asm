@@ -4,14 +4,14 @@
     banana: .word 20
 .text
     start:
-    add r2, r1, r0
-    add r2, r1, r0
-    add r2, r1, r0
+    add r2, r1, #20
+    MOV r2, r1
+    BL foo
 .section .text
     foo:
-    add r2, r1, r0
-    add r2, r1, r0
-    add r2, r1, r0
+    add sp, r1, r0
+    add r2, fp, r0
+    add r2, r1, pc
 .text
     add r2, r1, r0
     banana:
