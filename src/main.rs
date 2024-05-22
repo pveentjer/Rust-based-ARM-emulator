@@ -1,9 +1,8 @@
-use std::fs;
 use std::rc::Rc;
-use lalrpop_util::{lalrpop_mod, ParseError};
+use lalrpop_util::lalrpop_mod;
 
 use crate::cpu::{CPU, CPUConfig, Trace};
-use crate::instructions::instructions::{Program, SourceLocation};
+use crate::instructions::instructions::SourceLocation;
 use crate::loader::loader::{load, LoadError};
 
 mod cpu;
@@ -12,10 +11,9 @@ mod frontend;
 mod backend;
 mod instructions;
 mod memory_subsystem;
-mod ast;
 
 
-lalrpop_mod!(pub assembly);
+lalrpop_mod!(pub assembly, "/loader/assembly.rs");
 
 fn get_line_and_column(input: &str, offset: usize) -> SourceLocation {
     let mut line = 1;
@@ -74,43 +72,4 @@ fn main() {
 
     let mut cpu = CPU::new(&cpu_config);
     cpu.run(&program);
-
-    //
-    //  let mut input = match fs::read_to_string(path) {
-    //     Ok(content) => content,
-    //     Err(err) => {
-    //         panic!("Error reading file: {}", err);
-    //     }
-    // };
-
-    // let input_str = input.as_str();
-    //
-    // let parse_result = assembly::AssemblyParser::new()
-    //     .parse(input_str);
-    //
-    // match parse_result {
-    //     Ok(_)=>{
-    //         println!("Parse success");
-    //     }
-    //     Err(err)=>{
-    //         match err {
-    //             ParseError::InvalidToken { location } => {
-    //                 let loc = get_line_and_column(input_str, location);
-    //                 println!("Invalid token at  at {}:{}", loc.line, loc.column);
-    //             }
-    //             ParseError::UnrecognizedToken { token, expected } => {
-    //                 let loc = get_line_and_column(input_str, token.0);
-    //                 println!("Unrecognized token '{}' at {}:{}. Expected: {:?}", token.1, loc.line, loc.column, expected);
-    //             }
-    //             ParseError::ExtraToken { token } => {
-    //                 let loc = get_line_and_column(input_str, token.0);
-    //                 println!("Extra token '{}' at {}:{}", token.1, loc.line, loc.column);
-    //             }
-    //             _ => println!("Error: {:?}", err),
-    //         }
-    //         //
-    //         // let loc = get_line_and_column(input.as_str(), e.)
-    //         // panic!("{}",e);
-    //     }
-    // }
 }

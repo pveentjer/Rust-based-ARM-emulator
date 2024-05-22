@@ -1,7 +1,5 @@
 TODO
 
-- loader: remove the pest functionality
-
 - loader: case insensitive keywords/registers
 
 - loader: single line comments
@@ -68,6 +66,12 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: remove the pest functionality
+
+- loader: ast.rs should move to loader directory
+
+- loader: assembly.lalrpop should move to loader directory
 
 - loader: the load error should contain a proper message
 
