@@ -1,4 +1,3 @@
-.banana
  .global start
  .section .data
     foo: .word 10

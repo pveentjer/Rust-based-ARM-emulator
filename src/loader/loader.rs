@@ -10,6 +10,7 @@ use crate::{assembly, get_line_and_column};
 use crate::cpu::{CPUConfig};
 use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, SourceLocation, WordType};
 use crate::instructions::instructions::Operand::Code;
+use crate::loader::ast::{Assembly, Section, TextLine};
 
 
 struct Loader {
@@ -46,12 +47,9 @@ impl Loader {
         let parse_result = assembly::AssemblyParser::new()
             .parse(input_str);
 
-        match parse_result {
-            Ok(_) => {
-                println!("Parse success");
-            }
+        let assembly:Assembly = match parse_result {
+            Ok(a) => a,
             Err(err) => {
-
                 let cause = match err {
                     ParseError::InvalidToken { location } => {
                         let loc = get_line_and_column(input_str, location);
@@ -76,7 +74,26 @@ impl Loader {
 
                 return Err(LoadError::ParseError(msg));
             }
+        };
+
+        // scan for labels
+        for section in assembly.sections{
+            match section {
+                Section::Text(text_section) => {
+                    for  line in  text_section{
+                        match line {
+                            TextLine::Label(label) => {
+                                let pos = get_line_and_column(input_str, label.pos);
+                                println!("Found label: {} {}", label.name, pos);
+                            }
+                            _ =>{}
+                        }
+                    }
+                }
+                Section::Data(_) => {}
+            }
         }
+
 
         // // first pass
         // match AssemblyParser::parse(Rule::file, &input) {

@@ -1,5 +1,6 @@
 TODO
 
+
 - loader: case insensitive keywords/registers
 
 - loader: single line comments
@@ -66,6 +67,14 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: instruction should have access to pos
+
+- loader: operand should have access to pos
+
+- loader: the Label doesn't have access to the location
+
+- loader: get reference to the AST
 
 - loader: remove the pest functionality
 

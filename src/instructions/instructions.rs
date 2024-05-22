@@ -14,6 +14,12 @@ pub struct SourceLocation {
     pub column: usize,
 }
 
+impl fmt::Display for SourceLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Opcode {
     ADD,
@@ -439,7 +445,7 @@ impl fmt::Display for Instr {
         }
 
         if let Some(loc) = self.loc {
-            write!(f, " ; {}:{}", loc.line,loc.column)?;
+            write!(f, " ; {}:{}", loc.line, loc.column)?;
         }
 
         Ok(())
@@ -531,7 +537,7 @@ impl Program {
     }
 }
 
-pub(crate) const fn create_NOP(loc:Option<SourceLocation>) -> Instr {
+pub(crate) const fn create_NOP(loc: Option<SourceLocation>) -> Instr {
     Instr {
         cycles: 1,
         opcode: Opcode::NOP,

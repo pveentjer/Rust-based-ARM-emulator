@@ -41,23 +41,26 @@ Operand: Operand = {
 //}
 
 Register: Operand = {
-    "r" <Integer> => Operand::Register(<>),
-    "fp"          => Operand::Register(FP as u64),
-    "sp"          => Operand::Register(SP as u64),
-    "lr"          => Operand::Register(LR as u64),
-    "pc"          => Operand::Register(PC as u64)
+    // todo: r 1 is allowed register name which isn't correct
+    <start:@L> "r" <v:Integer> => Operand::Register(v, start),
+    <start:@L> "fp"          => Operand::Register(FP as u64, start),
+    <start:@L> "sp"          => Operand::Register(SP as u64, start),
+    <start:@L> "lr"          => Operand::Register(LR as u64, start),
+    <start:@L> "pc"          => Operand::Register(PC as u64, start)
 };
 
 Immediate: Operand = {
-    "#" <Integer> => Operand::Immediate(<>),
+   // # todol space allowed and not good
+    //"#" <Integer> => Operand::Immediate(<>),
+    <start:@L> "#" <i:Integer> => Operand::Immediate(i, start),
 };
 
 LabelOperand: Operand = {
-    LabelName => Operand::Label(<>),
+     <start:@L> <l:LabelName> => Operand::Label(l, start),
 };
 
 Directive: Directive = {
-   ".global" <l:LabelName> => Directive::Global(l),
+   <start:@L> ".global" <l:LabelName> => Directive::Global(l, start),
 }
 
 DataLine: DataLine = {
@@ -71,7 +74,7 @@ Section:Section = {
 }
 
 Data: Data = {
-    <n:VariableName> ":" ".word" <v:Integer> => Data{name:n,value:v}
+    <start:@L> <n:VariableName> ":" ".word" <v:Integer> => Data{name:n, value:v, pos:start}
 }
 
 DataSection:Section = {
@@ -80,18 +83,18 @@ DataSection:Section = {
 }
 
 Label: Label = {
-    <n:LabelName> ":" => Label{name:n},
+    <start:@L> <n:LabelName> ":" => Label{name:n, pos:start},
 }
 
 Instr: Instr = {
-//   <m:Mnemonic>
+//   <start:@L> <m:Mnemonic>
 //            => Instr{mnemonic:m, op1:Operand::Unused(), op2:Operand::Unused(), op3:Operand::Unused()},
-   <m:Mnemonic>  <o1:Operand>
-             => Instr{mnemonic:m, op1:o1, op2:Operand::Unused(), op3:Operand::Unused()},
-   <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand>
-             => Instr{mnemonic:m, op1:o1, op2:o2, op3:Operand::Unused()},
-   <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
-             => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3},
+   <start:@L> <m:Mnemonic>  <o1:Operand>
+             => Instr{mnemonic:m, op1:o1, op2:Operand::Unused(), op3:Operand::Unused(), pos:start},
+   <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand>
+             => Instr{mnemonic:m, op1:o1, op2:o2, op3:Operand::Unused(), pos:start},
+   <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
+             => Instr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
 }
 
 TextSection: Section = {
