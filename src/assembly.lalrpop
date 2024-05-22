@@ -17,7 +17,6 @@ VariableName: String = {
     r"[a-zA-Z]+" => String::from(<>),
 };
 
-
 Operand_Sep: () = {
     ","  => (),
 }
@@ -76,8 +75,8 @@ Data: Data = {
 }
 
 DataSection:Section = {
-    ".data" <DataLine+> => Section::Data(<>),
-    ".section" ".data" <DataLine+> => Section::Data(<>),
+    ".data" <DataLine+>                 => Section::Data(<>),
+    ".section" ".data" <DataLine+>      => Section::Data(<>),
 }
 
 Label: Label = {
@@ -96,14 +95,14 @@ Instr: Instr = {
 }
 
 TextSection: Section = {
-    ".text" <TextLine+> => Section::Text(<>),
-    ".section" ".text" <TextLine+> => Section::Text(<>),
+    ".text" <TextLine+>             => Section::Text(<>),
+    ".section" ".text" <TextLine+>  => Section::Text(<>),
 }
 
 TextLine: TextLine = {
-    Instr => TextLine::Text(<>),
-    Directive => TextLine::Directive(<>),
-    Label => TextLine::Label(<>),
+    Instr                           => TextLine::Text(<>),
+    Directive                       => TextLine::Directive(<>),
+    Label                           => TextLine::Label(<>),
 }
 
 Preamble: Preamble ={

@@ -1,8 +1,10 @@
 use std::fs;
+use std::rc::Rc;
 use lalrpop_util::{lalrpop_mod, ParseError};
 
 use crate::cpu::{CPU, CPUConfig, Trace};
-use crate::instructions::instructions::SourceLocation;
+use crate::instructions::instructions::{Program, SourceLocation};
+use crate::loader::loader::{load, LoadError};
 
 mod cpu;
 mod loader;
@@ -59,43 +61,56 @@ fn main() {
     };
 
     let path = "foo.asm";
-
-
-     let mut input = match fs::read_to_string(path) {
-        Ok(content) => content,
+    println!("Loading {}",path);
+    let load_result = load(cpu_config.clone(), path);
+    let program = match load_result {
+        Ok(p) => Rc::new(p),
         Err(err) => {
-            panic!("Error reading file: {}", err);
-        }
+            match err {
+                LoadError::ParseError(msg) =>  panic!("{}", msg),
+            }
+        },
     };
 
-    let input_str = input.as_str();
+    let mut cpu = CPU::new(&cpu_config);
+    cpu.run(&program);
 
-    let parse_result = assembly::AssemblyParser::new()
-        .parse(input_str);
+    //
+    //  let mut input = match fs::read_to_string(path) {
+    //     Ok(content) => content,
+    //     Err(err) => {
+    //         panic!("Error reading file: {}", err);
+    //     }
+    // };
 
-    match parse_result {
-        Ok(_)=>{
-            println!("Parse success");
-        }
-        Err(err)=>{
-            match err {
-                ParseError::InvalidToken { location } => {
-                    let loc = get_line_and_column(input_str, location);
-                    println!("Invalid token at  at {}:{}", loc.line, loc.column);
-                }
-                ParseError::UnrecognizedToken { token, expected } => {
-                    let loc = get_line_and_column(input_str, token.0);
-                    println!("Unrecognized token '{}' at {}:{}. Expected: {:?}", token.1, loc.line, loc.column, expected);
-                }
-                ParseError::ExtraToken { token } => {
-                    let loc = get_line_and_column(input_str, token.0);
-                    println!("Extra token '{}' at {}:{}", token.1, loc.line, loc.column);
-                }
-                _ => println!("Error: {:?}", err),
-            }
-            //
-            // let loc = get_line_and_column(input.as_str(), e.)
-            // panic!("{}",e);
-        }
-    }
+    // let input_str = input.as_str();
+    //
+    // let parse_result = assembly::AssemblyParser::new()
+    //     .parse(input_str);
+    //
+    // match parse_result {
+    //     Ok(_)=>{
+    //         println!("Parse success");
+    //     }
+    //     Err(err)=>{
+    //         match err {
+    //             ParseError::InvalidToken { location } => {
+    //                 let loc = get_line_and_column(input_str, location);
+    //                 println!("Invalid token at  at {}:{}", loc.line, loc.column);
+    //             }
+    //             ParseError::UnrecognizedToken { token, expected } => {
+    //                 let loc = get_line_and_column(input_str, token.0);
+    //                 println!("Unrecognized token '{}' at {}:{}. Expected: {:?}", token.1, loc.line, loc.column, expected);
+    //             }
+    //             ParseError::ExtraToken { token } => {
+    //                 let loc = get_line_and_column(input_str, token.0);
+    //                 println!("Extra token '{}' at {}:{}", token.1, loc.line, loc.column);
+    //             }
+    //             _ => println!("Error: {:?}", err),
+    //         }
+    //         //
+    //         // let loc = get_line_and_column(input.as_str(), e.)
+    //         // panic!("{}",e);
+    //     }
+    // }
 }

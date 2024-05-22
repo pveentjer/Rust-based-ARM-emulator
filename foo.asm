@@ -1,3 +1,4 @@
+.banana
  .global start
  .section .data
     foo: .word 10
@@ -9,8 +10,8 @@
     BL foo
 .section .text
     foo:
-    add sp, r1, r0
-    add r2, fp, r0
+    add Sp, SP, sp
+    add r2, fp, sP
     add r2, r1, pc
 .text
     add r2, r1, r0
