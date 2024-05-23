@@ -3,9 +3,16 @@ use std::fmt::{Debug};
 // Define the Operand enum
 #[derive(Debug)]
 pub enum ASTOperand {
+    // register, position
     Register(u64, usize),
+    // value, position
     Immediate(u64, usize),
+    // label name, position
     Label(String, usize),
+    // register, offset, position
+    // MemoryAccess(u64, usize),
+    // MemoryAccessWithImmediate(u64, u64, usize),
+    // MemoryAccessWithRegister(u64, u64, usize),
     Unused(),
 }
 

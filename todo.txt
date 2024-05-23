@@ -18,8 +18,6 @@ TODO
 
 - loader: new lines
 
-- loader: instructions without arguments
-
 - loader: memory access
 
 - loader: unwanted semicolon after instructions

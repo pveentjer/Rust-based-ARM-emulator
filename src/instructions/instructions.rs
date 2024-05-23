@@ -126,7 +126,6 @@ pub(crate) fn get_register(name: &str) -> Option<u16> {
 pub(crate) fn create_instr(opcode: Opcode,
                            operands: &Vec<Operand>,
                            loc: SourceLocation) -> Result<Instr, String> {
-
     let mut instr = Instr {
         cycles: 1,
         opcode,
@@ -147,200 +146,140 @@ pub(crate) fn create_instr(opcode: Opcode,
         Opcode::ORR |
         Opcode::EOR |
         Opcode::ADD => {
-            if operands.len() != 3 {
-                return Err(format!("{:?} expects 3 arguments, but {} are provided", opcode, operands.len()));
-            }
+            validate_operand_count(3, operands, opcode, loc)?;
 
             instr.sink_cnt = 1;
+            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+
             instr.source_cnt = 2;
-
-            match operands[0] {
-                Register(_) => instr.sink[0] = operands[0],
-                _ => return Err(format!("{:?} expects a register as first argument", opcode)),
-            }
-
-            match operands[1] {
-                Register(_) => instr.source[0] = operands[1],
-                _ => return Err(format!("{:?} expects a register as second argument", opcode)),
-            }
-
-            match operands[2] {
-                Immediate(_) |
-                Register(_) => instr.source[1] = operands[2],
-                _ => return Err(format!("{:?} expects a register or immediate as third argument", opcode)),
-            }
+            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
+            instr.source[1] = validate_operand(2, operands, opcode, &[Register(0), Immediate(0)])?;
         }
         Opcode::ADR => { panic!() }
         Opcode::LDR => {
-            if operands.len() != 2 {
-                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(2, operands, opcode, loc)?;
 
             instr.sink_cnt = 1;
+            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+
             instr.source_cnt = 1;
-
-            match operands[0] {
-                Register(_) => instr.sink[0] = operands[0],
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
-            }
-
-            match operands[1] {
-                Register(_) => instr.source[0] = operands[1],
-                _ => return Err(format!("{:?} expects a register as second argument.", opcode)),
-            }
+            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?
         }
         Opcode::STR => {
-            if operands.len() != 2 {
-                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            instr.mem_stores = 1;
+
+            instr.source_cnt = 1;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
             instr.sink_cnt = 1;
-            instr.source_cnt = 1;
-            instr.mem_stores=1;
-
-            match operands[0] {
-                Register(_) => instr.source[0] = operands[-],
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
-            }
-            match operands[1] {
-                Register(_) => instr.sink[0] = operands[1],
-                _ => return Err(format!("{:?} expects a register as second argument.", opcode)),
-            }
+            instr.sink[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
         }
         Opcode::NOP => {
-            if operands.len() != 0 {
-                return Err(format!("{:?} expects 0 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(0, operands, opcode, loc)?;
         }
         Opcode::PRINTR => {
-            if operands.len() != 1 {
-                return Err(format!("{:?} expects 3 arguments, but {} are provided", opcode, operands.len()));
-            }
+            validate_operand_count(1, operands, opcode, loc)?;
 
             instr.sink_cnt = 0;
-            instr.source_cnt = 1;
 
-            match operands[0] {
-                Register(_) => instr.source[0] = operands[0],
-                _ => return Err(format!("{:?} expects a register as first argument", opcode)),
-            }
+            instr.source_cnt = 1;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
         }
         Opcode::MOV => {
-            if operands.len() != 2 {
-                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(2, operands, opcode, loc)?;
 
             instr.sink_cnt = 1;
+            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+
             instr.source_cnt = 1;
-
-            match operands[0] {
-                Register(_) => instr.sink[0] = operands[0],
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
-            }
-
-            match operands[1] {
-                Immediate(_) |
-                Register(_) => instr.source[0] = operands[1],
-                _ => return Err(format!("{:?} expects a register or immediate as second argument.", opcode)),
-            }
+            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?
         }
         Opcode::B => {
-            if operands.len() != 1 {
-                return Err(format!("{:?} expects 1 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(1, operands, opcode, loc)?;
+
+            instr.source_cnt = 1;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
 
             instr.sink_cnt = 1;
-            instr.source_cnt = 1;
-
-            match operands[0] {
-                Code(_) => instr.source[0] = operands[0],
-                _ => return Err(format!("{:?} expects a label as first argument.", opcode)),
-            }
-
             instr.sink[0] = Register(PC);
         }
         Opcode::BX => {
-            if operands.len() != 1 {
-                return Err(format!("{:?} expects 1 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(1, operands, opcode, loc)?;
+
+            instr.source_cnt = 1;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
             instr.sink_cnt = 1;
-            instr.source_cnt = 1;
-
-            match operands[0] {
-                Register(_) => instr.source[0] = operands[0],
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
-            }
-
             instr.sink[0] = Register(PC);
         }
         Opcode::BL => {
-            if operands.len() != 1 {
-                return Err(format!("{:?} expects 1 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(1, operands, opcode, loc)?;
 
             instr.source_cnt = 2;
-            instr.sink_cnt = 2;
-
-            match operands[0] {
-                Code(_) => instr.source[0] = operands[0],
-                _ => return Err(format!("{:?} expects a label as first argument.", opcode)),
-            }
+            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
             instr.source[1] = Register(PC);
 
+            instr.sink_cnt = 2;
             instr.sink[0] = Register(LR);
             instr.sink[1] = Register(PC);
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
-            if operands.len() != 1 {
-                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 1;
-            match operands[0] {
-                Register(_) => instr.source[0] = operands[0],
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
-            }
-
-            match operands[1] {
-                Code(addr) => instr.source[1] = Code(addr),
-                _ => return Err(format!("{:?} expects a label as second argument.", opcode)),
-            }
+            instr.source_cnt = 3;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
             instr.source[2] = Register(PC);
 
             instr.sink_cnt = 1;
             instr.sink[0] = Register(PC);
         }
         Opcode::EXIT => {
-            if operands.len() != 0 {
-                return Err(format!("{:?} expects 0 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(0, operands, opcode, loc)?;
+
             instr.is_control = true;
         }
         Opcode::NEG => {
-            if operands.len() != 2 {
-                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
-            }
+            validate_operand_count(2, operands, opcode, loc)?;
 
             instr.sink_cnt = 1;
-            match operands[0] {
-                Register(reg) => instr.sink[0] = Register(reg),
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
-            }
-
+            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
             instr.source_cnt = 1;
-            match operands[1] {
-                Register(_) => instr.source[0] = operands[1],
-                _ => return Err(format!("{:?} expects a register as second argument.", opcode)),
-            }
+            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
         }
         Opcode::NOT => {}
     }
 
     instr.is_control = is_control(&instr);
     return Ok(instr);
+}
+
+fn validate_operand_count(expected: usize, operands: &Vec<Operand>, opcode: Opcode, loc: SourceLocation) -> Result<(), String> {
+    if operands.len() != expected {
+        return Err(format!("Operand count mismatch. {:?} expects {} arguments, but {} are provided at {}:{}",
+                           opcode, expected, operands.len(), loc.line, loc.column));
+    }
+    Ok(())
+}
+
+
+fn validate_operand(op_index: usize, operands: &Vec<Operand>, opcode: Opcode, acceptable_types: &[Operand]) -> Result<Operand, String> {
+    let operand = operands[op_index];
+
+    for &typ in acceptable_types {
+        if std::mem::discriminant(&operand) == std::mem::discriminant(&typ) {
+            return Ok(operand);
+        }
+    }
+    let acceptable_names: Vec<&str> = acceptable_types.iter().map(|t| t.base_name()).collect();
+    let acceptable_names_str = acceptable_names.join(", ");
+
+    Err(format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
+                opcode, acceptable_names_str, op_index + 1, operand.base_name()))
 }
 
 
@@ -352,7 +291,6 @@ fn is_control(instr: &Instr) -> bool {
 fn is_control_operand(op: &Operand) -> bool {
     matches!(op, Register(register) if *register == PC)
 }
-
 
 pub(crate) const NOP: Instr = create_NOP(None);
 
@@ -483,6 +421,19 @@ pub(crate) enum Operand {
     Code(WordType),
 
     Unused,
+}
+
+
+impl Operand {
+    pub fn base_name(&self) -> &str {
+        match self {
+            Register(_) => "Register",
+            Immediate(_) => "Immediate",
+            Memory(_) => "Memory",
+            Code(_) => "Code",
+            Unused => "Unused",
+        }
+    }
 }
 
 

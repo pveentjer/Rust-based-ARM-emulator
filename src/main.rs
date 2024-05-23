@@ -42,7 +42,7 @@ fn main() {
         stack_capacity: 32,
     };
 
-    let path = "program2.asm";
+    let path = "foo.asm";
     println!("Loading {}",path);
     let load_result = load(cpu_config.clone(), path);
     let program = match load_result {

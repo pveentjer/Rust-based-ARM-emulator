@@ -7,6 +7,7 @@
     start:
     add r5, r1, #20;
     MOV r2, r1;
+    NEG r1, r4;
     BL foo;
     BL start;
 .section .text
