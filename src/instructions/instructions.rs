@@ -293,14 +293,11 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
                 _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
             }
 
-            // todo: bad arguments
-
-            instr.sink_cnt = 3;
             match operands[1] {
-                Code(_) => instr.source[1] = operands[1],
+                Code(addr) => instr.source[1] = Code(addr),
                 _ => return Err(format!("{:?} expects a label as second argument.", opcode)),
             }
-            instr.sink[2] = Register(PC);
+            instr.source[2] = Register(PC);
 
             instr.sink_cnt = 1;
             instr.sink[0] = Register(PC);
