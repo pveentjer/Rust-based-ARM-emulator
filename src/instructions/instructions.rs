@@ -92,14 +92,13 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "B" => Some(Opcode::B),
         "BX" => Some(Opcode::BX),
         "CBZ" => Some(Opcode::CBZ),
-        "CBNZ" => Some(Opcode::CBZ),
+        "CBNZ" => Some(Opcode::CBNZ),
         "AND" => Some(Opcode::AND),
         "ORR" => Some(Opcode::ORR),
         "EOR" => Some(Opcode::EOR),
         "NOT" => Some(Opcode::NOT),
         "BL" => Some(Opcode::BL),
-        // EXIT should not be used directly
-        "EXIT" => None,
+        "EXIT" => Some(Opcode::EXIT),
         _ => None,
     }
 }
@@ -407,19 +406,19 @@ impl fmt::Display for Instr {
             Opcode::SDIV |
             Opcode::AND |
             Opcode::ORR |
-            Opcode::EOR => write!(f, "{},{},{}", self.sink[0], self.source[0], self.source[1])?,
-            Opcode::LDR => write!(f, "{},{}", self.sink[0], self.source[0])?,
-            Opcode::STR => write!(f, "{},{}", self.source[0], self.sink[0])?,
-            Opcode::MOV => write!(f, "{},{}", self.sink[0], self.source[0])?,
+            Opcode::EOR => write!(f, "{}, {}, {}", self.sink[0], self.source[0], self.source[1])?,
+            Opcode::LDR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
+            Opcode::STR => write!(f, "{}, {}", self.source[0], self.sink[0])?,
+            Opcode::MOV => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::NOP => {}
-            Opcode::ADR => write!(f, "{},{}", self.sink[0], self.source[0])?,
+            Opcode::ADR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
             Opcode::B |
             Opcode::BX |
             Opcode::BL => write!(f, "{}", self.source[0])?,
             Opcode::CBZ |
-            Opcode::CBNZ => write!(f, "{},{}", self.source[0], self.source[1])?,
-            Opcode::NEG => {}
+            Opcode::CBNZ => write!(f, "{}, {}", self.source[0], self.source[1])?,
+            Opcode::NEG => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::NOT => {}
             Opcode::EXIT => {}
         }

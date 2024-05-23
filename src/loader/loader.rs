@@ -8,9 +8,9 @@ use regex::Regex;
 use crate::{assembly};
 
 use crate::cpu::{CPUConfig, GENERAL_ARG_REG_CNT};
-use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, RegisterType, SourceLocation, WordType};
+use crate::instructions::instructions::{create_instr, Data, get_opcode, Instr, Opcode, Operand, Program, RegisterType, SourceLocation, WordType};
 use crate::instructions::instructions::Operand::Register;
-use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTTextSection, ASTDataSection, ASTTextLine, ASTVisitor};
+use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
 
 
@@ -127,7 +127,6 @@ pub struct SymbolScan<'a> {
 
 impl ASTVisitor for SymbolScan<'_> {
     fn visit_data(&mut self, ast_data: &ASTData) -> bool {
-
         if self.loader.heap_limit == 0 {
             let loc = self.loader.to_source_location(ast_data.pos);
             self.loader.errors.push(format!("Insufficient heap to declare variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
@@ -208,6 +207,18 @@ impl ASTVisitor for ProgramGeneration<'_> {
                     }
                 }
             }
+            ASTOperand::AddressOf(label_name, pos) => {
+                match self.loader.data_section.get(label_name) {
+                    Some(data) => {
+                        self.operand_stack.push(Operand::Immediate(data.offset as WordType));
+                    }
+                    None => {
+                        let loc = self.loader.to_source_location(*pos);
+                        self.loader.errors.push(format!("Unknown variable '{}' at {}:{}", label_name, loc.line, loc.column));
+                        return false;
+                    }
+                }
+            }
             ASTOperand::Unused() => {}
         };
 
@@ -215,11 +226,17 @@ impl ASTVisitor for ProgramGeneration<'_> {
     }
 
     fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool {
-        println!("Parse instr");
-
         // todo: this is very inefficient because for every instruction we scan the whole file
         let loc = self.loader.to_source_location(ast_instr.pos);
-        let opcode_option = get_opcode(&ast_instr.mnemonic);
+        let mut opcode_option = get_opcode(&ast_instr.mnemonic);
+
+        if opcode_option.is_some() {
+            let opcode = opcode_option.unwrap();
+            // Exit should not be used in the program
+            if opcode == Opcode::EXIT {
+                opcode_option = None;
+            }
+        }
 
         if opcode_option.is_none() {
             self.loader.errors.push(format!("Unknown mnemonic '{}' at {}:{}", ast_instr.mnemonic, loc.line, loc.column));

@@ -8,6 +8,8 @@ pub enum ASTOperand {
     Immediate(u64, usize),
     // label name, position
     Label(String, usize),
+    // the name of the variable
+    AddressOf(String, usize),
     // register, offset, position
     // MemoryAccess(u64, usize),
     // MemoryAccessWithImmediate(u64, u64, usize),

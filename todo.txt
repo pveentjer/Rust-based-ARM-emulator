@@ -1,5 +1,9 @@
 TODO
 
+- loader: add address of
+
+- problem mov
+
 - loader: ast operand should have access to its pos
 
 - loader: every instruction should have an optional label in front of it

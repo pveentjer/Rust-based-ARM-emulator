@@ -29,6 +29,7 @@ Operand: ASTOperand = {
     Register,
     Immediate,
     LabelOperand,
+    AddressOf,
 //    MemoryAccess,
 }
 
@@ -81,9 +82,11 @@ Register: ASTOperand = {
 };
 
 Immediate: ASTOperand = {
-   // # todol space allowed and not good
-    //"#" <Integer> => Operand::Immediate(<>),
     <start:@L> "#" <i:Integer> => ASTOperand::Immediate(i, start),
+};
+
+AddressOf: ASTOperand = {
+    <start:@L> "=" <l:LabelName> => ASTOperand::AddressOf(l, start),
 };
 
 LabelOperand: ASTOperand = {

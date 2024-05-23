@@ -114,7 +114,10 @@ impl Backend {
                 Opcode::ORR => rob_slot.result.push(rs.source[0].get_constant() | rs.source[1].get_constant()),
                 Opcode::EOR => rob_slot.result.push(rs.source[0].get_constant() ^ rs.source[1].get_constant()),
                 Opcode::NOT => rob_slot.result.push(!rs.source[0].get_constant()),
-                Opcode::MOV => rob_slot.result.push(rs.source[0].get_constant()),
+                Opcode::MOV => {
+                    println!("foo {}",rs.source[0].get_constant());
+                    rob_slot.result.push(rs.source[0].get_constant())
+                },
                 Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_memory_addr() as usize]),
                 Opcode::STR => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::PRINTR => {

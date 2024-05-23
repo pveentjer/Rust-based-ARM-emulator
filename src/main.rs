@@ -3,7 +3,6 @@ use std::rc::Rc;
 use lalrpop_util::lalrpop_mod;
 
 use crate::cpu::{CPU, CPUConfig, Trace};
-use crate::instructions::instructions::SourceLocation;
 use crate::loader::loader::{load, LoadError};
 
 mod cpu;
@@ -29,12 +28,12 @@ fn main() {
         rob_capacity: 32,
         eu_count: 16,
         trace: Trace {
-            decode: true,
-            issue: true,
-            dispatch: true,
-            execute: true,
-            retire: true,
-            cycle: true,
+            decode: false,
+            issue: false,
+            dispatch: false,
+            execute: false,
+            retire: false,
+            cycle: false,
         },
         retire_n_wide: 4,
         dispatch_n_wide: 4,
