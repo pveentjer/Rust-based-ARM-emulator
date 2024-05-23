@@ -10,11 +10,11 @@ Integer: u64 = {
 };
 
 Mnemonic: String = {
-    r"[a-zA-Z]+" => String::from(<>),
+    r"[a-zA-Z][a-zA-Z0-9]*" => String::from(<>),
 };
 
 VariableName: String = {
-    r"[a-zA-Z]+" => String::from(<>),
+    r"[a-zA-Z][a-zA-Z0-9]*" => String::from(<>),
 };
 
 Operand_Sep: () = {
@@ -22,11 +22,7 @@ Operand_Sep: () = {
 }
 
 LabelName: String = {
-    r"[a-zA-Z]+" => String::from(<>),
-}
-
-DirectiveName: String = {
-    r"\.[a-zA-Z]+" => String::from(<>),
+    r"[a-zA-Z][a-zA-Z0-9]*" => String::from(<>),
 }
 
 Operand: ASTOperand = {
@@ -40,13 +36,39 @@ Operand: ASTOperand = {
 //     "[" <r:Register> "]" => Operand::MemoryAccess(r),
 //}
 
+// with a regular expression, the following would lead to conflicts.
 Register: ASTOperand = {
-    <start:@L> <r:r"r[0-9]+">   =>
-                                {
-                                    let mut s = String::from(r);
-                                    s.remove(0);
-                                    ASTOperand::Register(s.parse::<u64>().unwrap(), start)
-                                },
+    <start:@L>  "r0"            => ASTOperand::Register(0, start),
+    <start:@L>  "r1"            => ASTOperand::Register(1, start),
+    <start:@L>  "r2"            => ASTOperand::Register(2, start),
+    <start:@L>  "r3"            => ASTOperand::Register(3, start),
+    <start:@L>  "r4"            => ASTOperand::Register(4, start),
+    <start:@L>  "r5"            => ASTOperand::Register(5, start),
+    <start:@L>  "r6"            => ASTOperand::Register(6, start),
+    <start:@L>  "r7"            => ASTOperand::Register(7, start),
+    <start:@L>  "r8"            => ASTOperand::Register(8, start),
+    <start:@L>  "r9"            => ASTOperand::Register(9, start),
+    <start:@L>  "r10"           => ASTOperand::Register(10, start),
+    <start:@L>  "r11"           => ASTOperand::Register(11, start),
+    <start:@L>  "r12"           => ASTOperand::Register(12, start),
+    <start:@L>  "r13"           => ASTOperand::Register(13, start),
+    <start:@L>  "r14"           => ASTOperand::Register(14, start),
+    <start:@L>  "r15"           => ASTOperand::Register(15, start),
+    <start:@L>  "r16"           => ASTOperand::Register(16, start),
+    <start:@L>  "r17"           => ASTOperand::Register(17, start),
+    <start:@L>  "r18"           => ASTOperand::Register(18, start),
+    <start:@L>  "r19"           => ASTOperand::Register(19, start),
+    <start:@L>  "r20"           => ASTOperand::Register(20, start),
+    <start:@L>  "r21"           => ASTOperand::Register(21, start),
+    <start:@L>  "r22"           => ASTOperand::Register(22, start),
+    <start:@L>  "r23"           => ASTOperand::Register(23, start),
+    <start:@L>  "r24"           => ASTOperand::Register(24, start),
+    <start:@L>  "r25"           => ASTOperand::Register(25, start),
+    <start:@L>  "r26"           => ASTOperand::Register(26, start),
+    <start:@L>  "r27"           => ASTOperand::Register(27, start),
+    <start:@L>  "r28"           => ASTOperand::Register(28, start),
+    <start:@L>  "r29"           => ASTOperand::Register(29, start),
+    <start:@L>  "r30"           => ASTOperand::Register(30, start),
     <start:@L>  "fp"            => ASTOperand::Register(FP as u64, start),
     <start:@L>  "sp"            => ASTOperand::Register(SP as u64, start),
     <start:@L>  "lr"            => ASTOperand::Register(LR as u64, start),
@@ -91,13 +113,13 @@ Label: ASTLabel = {
 }
 
 Instr: ASTInstr = {
-//   <start:@L> <m:Mnemonic>
-//            => Instr{mnemonic:m, op1:Operand::Unused(), op2:Operand::Unused(), op3:Operand::Unused()},
-   <start:@L> <m:Mnemonic>  <o1:Operand>
+   <start:@L> <m:Mnemonic> ";"
+            => ASTInstr{mnemonic:m, op1:ASTOperand::Unused(), op2:ASTOperand::Unused(), op3:ASTOperand::Unused(), pos:start},
+   <start:@L> <m:Mnemonic>  <o1:Operand> ";"
              => ASTInstr{mnemonic:m, op1:o1, op2:ASTOperand::Unused(), op3:ASTOperand::Unused(), pos:start},
-   <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand>
+   <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> ";"
              => ASTInstr{mnemonic:m, op1:o1, op2:o2, op3:ASTOperand::Unused(), pos:start},
-   <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
+   <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand> ";"
              => ASTInstr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
 }
 

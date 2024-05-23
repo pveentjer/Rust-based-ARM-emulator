@@ -83,106 +83,108 @@ pub struct ASTAssembly {
 }
 
 pub trait ASTVisitor {
-    fn visit_operand(&mut self, ast_operand: &ASTOperand) {}
-    fn visit_data(&mut self, ast_data: &ASTData) {}
-    fn visit_instr(&mut self, ast_instr: &ASTInstr) {}
-    fn visit_directive(&mut self, ast_directive: &ASTDirective) {}
-    fn visit_label(&mut self, ast_label: &ASTLabel) {}
-    fn visit_text_line(&mut self, ast_text_line: &ASTTextLine) {}
-    fn visit_data_line(&mut self, ast_data_line: &ASTDataLine) {}
-    fn visit_section(&mut self, ast_section: &ASTSection) {}
-    fn visit_preamble(&mut self, ast_preamble: &ASTPreamble) {}
-    fn visit_assembly(&mut self, ast_assembly: &ASTAssembly) {}
+    fn visit_operand(&mut self, ast_operand: &ASTOperand) -> bool { true }
+    fn visit_data(&mut self, ast_data: &ASTData) -> bool { true }
+    fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool { true }
+    fn visit_directive(&mut self, ast_directive: &ASTDirective) -> bool { true }
+    fn visit_label(&mut self, ast_label: &ASTLabel) -> bool { true }
+    fn visit_text_line(&mut self, ast_text_line: &ASTTextLine) -> bool { true }
+    fn visit_data_line(&mut self, ast_data_line: &ASTDataLine) -> bool { true }
+    fn visit_section(&mut self, ast_section: &ASTSection) -> bool { true }
+    fn visit_preamble(&mut self, ast_preamble: &ASTPreamble) -> bool { true }
+    fn visit_assembly(&mut self, ast_assembly: &ASTAssembly) -> bool { true }
 }
 
 // Implement accept methods for each type
 impl ASTOperand {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        visitor.visit_operand(self);
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        visitor.visit_operand(self)
     }
 }
 
 impl ASTData {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        visitor.visit_data(self);
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        visitor.visit_data(self)
     }
 }
 
 impl ASTInstr {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        self.op1.accept(visitor);
-        self.op2.accept(visitor);
-        self.op3.accept(visitor);
-        visitor.visit_instr(self);
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        if !self.op1.accept(visitor) { return false; }
+        if !self.op2.accept(visitor) { return false; }
+        if !self.op3.accept(visitor) { return false; }
+        visitor.visit_instr(self)
     }
 }
 
 impl ASTDirective {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        visitor.visit_directive(self);
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        visitor.visit_directive(self)
     }
 }
 
 impl ASTLabel {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        visitor.visit_label(self);
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        visitor.visit_label(self)
     }
 }
 
 impl ASTTextLine {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        match self {
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        let result = match self {
             ASTTextLine::Text(instr) => instr.accept(visitor),
             ASTTextLine::Directive(directive) => directive.accept(visitor),
             ASTTextLine::Label(label) => label.accept(visitor),
-        }
-        visitor.visit_text_line(self);
+        };
+        if !result { return false; }
+        visitor.visit_text_line(self)
     }
 }
 
 impl ASTDataLine {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        match self {
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        let result = match self {
             ASTDataLine::Data(data) => data.accept(visitor),
             ASTDataLine::Directive(directive) => directive.accept(visitor),
-        }
-        visitor.visit_data_line(self);
+        };
+        if !result { return false; }
+        visitor.visit_data_line(self)
     }
 }
 
 impl ASTSection {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
         match self {
             ASTSection::Text(lines) => {
                 for line in lines {
-                    line.accept(visitor);
+                    if !line.accept(visitor) { return false; }
                 }
             }
             ASTSection::Data(lines) => {
                 for line in lines {
-                    line.accept(visitor);
+                    if !line.accept(visitor) { return false; }
                 }
             }
         }
-        visitor.visit_section(self);
+        visitor.visit_section(self)
     }
 }
 
 impl ASTPreamble {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
         for directive in &self.directives {
-            directive.accept(visitor);
+            if !directive.accept(visitor) { return false; }
         }
-        visitor.visit_preamble(self);
+        visitor.visit_preamble(self)
     }
 }
 
 impl ASTAssembly {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) {
-        self.preamble.accept(visitor);
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        if !self.preamble.accept(visitor) { return false; }
         for section in &self.sections {
-            section.accept(visitor);
+            if !section.accept(visitor) { return false; }
         }
-        visitor.visit_assembly(self);
+        visitor.visit_assembly(self)
     }
 }

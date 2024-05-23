@@ -4,20 +4,21 @@
     banana: .word 20
 .text
     start:
-    add r5, r1, #20
-    MOV r2, r1
-    BL foo
+    add r5, r1, #20;
+    MOV r2, r1;
+    BL foo;
+    BL start;
 .section .text
-    banana:
+    NOP ;
     banana:
     foo:
-    add Sp, SP, sp
-    add r5, fp, sP
-    add r2, r1, pc
+    add sp, sp, sp;
+    add r5, fp, sp;
+    add r2, r1, pc;
 .text
-    add r34, r1, r0
-    add sp, r1, r0
-    add fp, r1, r0
+    add r30, r1, r0;
+    add sp, r0, r0;
+    add fp, r1, r0;
 .data
-    foo: .word 10
-    banana: .word 20
+    foo1: .word 10
+    bananadddd: .word 20

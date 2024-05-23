@@ -1,16 +1,16 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
 use lalrpop_util::ParseError;
 
 use regex::Regex;
-use ASTOperand::{Register};
+
 use crate::{assembly};
 
-use crate::cpu::{CPUConfig};
-use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Program, SourceLocation, WordType};
-use crate::loader::ast::{ASTAssembly, ASTData, ASTDataLine, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTPreamble, ASTSection, ASTTextLine, ASTVisitor};
+use crate::cpu::{CPUConfig, GENERAL_ARG_REG_CNT};
+use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, RegisterType, SourceLocation, WordType};
+use crate::instructions::instructions::Operand::Register;
+use crate::loader::ast::{ASTAssembly, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTSection, ASTTextLine, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
 
 
@@ -55,7 +55,8 @@ impl Loader {
         let mut symbolic_scan = SymbolScan { loader: self };
         assembly.accept(&mut symbolic_scan);
 
-        self.program_generation(&assembly);
+        let mut program_generation = ProgramGeneration { loader: self, operand_stack:Vec::new()};
+        assembly.accept(&mut program_generation);
 
         let mut code = Vec::with_capacity(self.code.len());
         for k in 0..self.code.len() {
@@ -332,7 +333,7 @@ pub struct SymbolScan<'a> {
 }
 
 impl ASTVisitor for SymbolScan<'_> {
-    fn visit_data(&mut self, ast_data: &ASTData) {
+    fn visit_data(&mut self, ast_data: &ASTData)->bool {
         if !is_valid_variable_name(&ast_data.name) {
             let loc = self.loader.getSourceLocation(ast_data.pos);
             self.loader.errors.push(format!("Illegal variable name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
@@ -346,47 +347,94 @@ impl ASTVisitor for SymbolScan<'_> {
         self.loader.data_section.insert(ast_data.name.clone(),
                                         Rc::new(Data { value: ast_data.value as WordType, offset: self.loader.heap_size as u64 }));
         self.loader.heap_size += 1;
+        true
     }
 
-    fn visit_instr(&mut self, ast_instr: &ASTInstr) {
-        self.loader.instr_cnt+=1;
+    fn visit_instr(&mut self, _: &ASTInstr)-> bool{
+        self.loader.instr_cnt += 1;
+        true
     }
 
-    fn visit_label(&mut self, ast_label: &ASTLabel) {
+    fn visit_label(&mut self, ast_label: &ASTLabel)->bool {
         if self.loader.labels.contains_key(&ast_label.name) {
             let loc = self.loader.getSourceLocation(ast_label.pos);
             self.loader.errors.push(format!("Duplicate label '{}' at {}:{}", ast_label.name, loc.line, loc.column));
         } else {
             self.loader.labels.insert(ast_label.name.clone(), self.loader.instr_cnt);
         }
+        true
     }
 }
 
 pub struct ProgramGeneration<'a> {
     loader: &'a mut Loader,
-
+    operand_stack: Vec<Operand>,
 }
 
 impl ASTVisitor for ProgramGeneration<'_> {
-    fn visit_operand(&mut self, ast_operand: &ASTOperand) {
+    fn visit_operand(&mut self, ast_operand: &ASTOperand)->bool {
         match ast_operand {
-            Register(_, _) => {}
-            ASTOperand::Immediate(_, _) => {}
-            ASTOperand::Label(_, _) => {}
-            ASTOperand::Unused() => {}
+            ASTOperand::Register(reg, pos) => {
+                if *reg >= GENERAL_ARG_REG_CNT as u64 {
+                    let loc = self.loader.getSourceLocation(*pos);
+                    self.loader.errors.push(format!("Unknown register r'{}' at {}:{}", *reg, loc.line, loc.column));
+                    return false
+                }
+
+                self.operand_stack.push(Register(*reg as RegisterType));
+            },
+            ASTOperand::Immediate(value, _) => {
+                self.operand_stack.push(Operand::Immediate(*value as WordType));
+            },
+            ASTOperand::Label(label_name, pos) => {
+                match self.loader.labels.get(label_name) {
+                    Some(code_address) => {
+                        self.operand_stack.push(Operand::Code(*code_address as WordType));
+                    }
+                    None => {
+                        let loc = self.loader.getSourceLocation(*pos);
+                        self.loader.errors.push(format!("Unknown label '{}' at {}:{}", label_name, loc.line, loc.column));
+                        return false
+                    }
+                }
+
+            },
+            ASTOperand::Unused() => {},
+        };
+
+        true
+    }
+
+    fn visit_instr(&mut self, ast_instr: &ASTInstr)->bool {
+        println!("Parse instr");
+
+        // todo: this is very inefficient because for every instruction we scan the whole file
+        let loc = self.loader.getSourceLocation(ast_instr.pos);
+        let opcode_option = get_opcode(&ast_instr.mnemonic);
+
+        if opcode_option.is_none() {
+            self.loader.errors.push(format!("Unknown mnemonic '{}' at {}:{}", ast_instr.mnemonic, loc.line, loc.column));
+            return false;
         }
-        todo!()
+
+        let opcode = opcode_option.unwrap();
+        match create_instr(opcode, &self.operand_stack, loc) {
+            Ok(instr) => {
+                self.loader.code.push(instr);
+            }
+            Err(msg) => {
+                self.loader.errors.push(format!("{} at {}:{}", msg, loc.line, loc.column));
+            }
+        };
+        self.operand_stack.clear();
+        true
     }
 
-    fn visit_instr(&mut self, ast_instr: &ASTInstr) {
-        todo!()
-    }
-
-    fn visit_directive(&mut self, ast_directive: &ASTDirective) {
-        todo!()
+    fn visit_directive(&mut self, ast_directive: &ASTDirective) ->bool{
+        // todo: global
+        true
     }
 }
-
 
 fn is_valid_variable_name(name: &String) -> bool {
     if name.is_empty() {

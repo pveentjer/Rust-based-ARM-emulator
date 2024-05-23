@@ -1,5 +1,13 @@
 TODO
 
+- loader: fix Unrecognized token '1' at 22:8. Expected: ["\":\""]
+
+- loader: a variable can't be a label and vice versa.
+
+- loader: ast operand should have access to its pos
+
+- loader: every instruction should have an optional label in front of it
+
 - loader: visitor should have boolean return type to stop
 
 - loader: case insensitive keywords/registers
@@ -19,10 +27,6 @@ TODO
 - loader: the implicit operands are not set like PC, SP etc.
 
 - labels: unwanted behavior that labels need to start with an _ Even though it isn't part of a label name
-
-- loader: instruction loading
-
-- loader: every instruction should have an optional label in front of it
 
 - add label operand: so that the label can be replaced later, instead of immediate?
     - the problem is that you don't loose track of the label later.
@@ -68,6 +72,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: a variable name with a number, fails..
 
 - loader: check for variables declaration in symbol scan with visitor
 
