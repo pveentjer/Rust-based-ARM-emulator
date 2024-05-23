@@ -30,17 +30,20 @@ Operand: ASTOperand = {
     Immediate,
     LabelOperand,
     AddressOf,
-//    MemoryAccess,
+    MemoryAccess,
 }
 
-//MemoryAccess: ASTOperand = {
-//      <start:@L> "[" <b:Register> "]"                       => ASTOperand::MemoryAccess(b, 0, start),
+MemoryAccess: ASTOperand = {
+      <start:@L> "[" <b:Register> "]"                       => {
+        let ASTOperand::Register(register, _) = b else { panic!() };
+        ASTOperand::MemoryAccess(register, start)
+      },
 //      <start:@L> "[" <b:Register> "," <o:Immediate> "]"     => {
 //            l
 //            ASTOperand::MemoryAccessWithImmediate(b, o, start)
 //      }
 //      <start:@L> "[" <b:Register> "," <o:Register> "]"      => ASTOperand::MemoryAccessWithRegister(b, o, start),
-//}
+}
 
 // with a regular expression, the following would lead to conflicts.
 Register: ASTOperand = {

@@ -4,6 +4,7 @@
 .text
 start:
             MOV r1, =foo;
+            LDR r1, [r1];
             PRINTR r1;
 again:
             PRINTR r1;

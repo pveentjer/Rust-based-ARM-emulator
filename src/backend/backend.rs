@@ -118,7 +118,7 @@ impl Backend {
                     println!("foo {}",rs.source[0].get_constant());
                     rob_slot.result.push(rs.source[0].get_constant())
                 },
-                Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_memory_addr() as usize]),
+                Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_constant() as usize]),
                 Opcode::STR => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::PRINTR => {
                     println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_constant());

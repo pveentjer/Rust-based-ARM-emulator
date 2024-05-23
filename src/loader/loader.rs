@@ -219,7 +219,11 @@ impl ASTVisitor for ProgramGeneration<'_> {
                     }
                 }
             }
+
             ASTOperand::Unused() => {}
+            ASTOperand::MemoryAccess(register, pos) => {
+                self.operand_stack.push(Operand::Register(*register as RegisterType));
+            }
         };
 
         true

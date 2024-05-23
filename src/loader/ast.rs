@@ -11,7 +11,7 @@ pub enum ASTOperand {
     // the name of the variable
     AddressOf(String, usize),
     // register, offset, position
-    // MemoryAccess(u64, usize),
+    MemoryAccess(u64, usize),
     // MemoryAccessWithImmediate(u64, u64, usize),
     // MemoryAccessWithRegister(u64, u64, usize),
     Unused(),
