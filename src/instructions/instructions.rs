@@ -98,7 +98,8 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "EOR" => Some(Opcode::EOR),
         "NOT" => Some(Opcode::NOT),
         "BL" => Some(Opcode::BL),
-        "EXIT" => Some(Opcode::EXIT),
+        // EXIT should not be used directly
+        "EXIT" => None,
         _ => None,
     }
 }
@@ -292,7 +293,29 @@ fn is_control_operand(op: &Operand) -> bool {
     matches!(op, Register(register) if *register == PC)
 }
 
-pub(crate) const NOP: Instr = create_NOP(None);
+pub(crate) const NOP:Instr = Instr {
+    cycles: 1,
+    opcode: Opcode::NOP,
+    source_cnt: 0,
+    source: [Operand::Unused, Operand::Unused, Operand::Unused],
+    sink_cnt: 0,
+    sink: [Operand::Unused, Operand::Unused],
+    loc:None,
+    mem_stores: 0,
+    is_control: false,
+};
+
+pub(crate) const EXIT: Instr = Instr {
+    cycles: 1,
+    opcode: Opcode::EXIT,
+    source_cnt: 0,
+    source: [Operand::Unused, Operand::Unused, Operand::Unused],
+    sink_cnt: 0,
+    sink: [Operand::Unused, Operand::Unused],
+    loc:None,
+    mem_stores: 0,
+    is_control: false,
+};
 
 pub(crate) type RegisterType = u16;
 pub(crate) type WordType = i64;
@@ -507,16 +530,3 @@ impl Program {
     }
 }
 
-pub(crate) const fn create_NOP(loc: Option<SourceLocation>) -> Instr {
-    Instr {
-        cycles: 1,
-        opcode: Opcode::NOP,
-        source_cnt: 0,
-        source: [Operand::Unused, Operand::Unused, Operand::Unused],
-        sink_cnt: 0,
-        sink: [Operand::Unused, Operand::Unused],
-        loc,
-        mem_stores: 0,
-        is_control: false,
-    }
-}

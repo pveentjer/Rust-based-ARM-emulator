@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::loader::ast::{ASTOperand, ASTInstr, ASTData, ASTSection, ASTAssemblyFile, ASTDirective, ASTTextLine, ASTDataLine, ASTLabel,ASTPreamble};
+use crate::loader::ast::{ASTOperand, ASTInstr, ASTData, ASTTextSection, ASTDataSection, ASTAssemblyFile, ASTDirective, ASTTextLine, ASTDataLine, ASTLabel,ASTPreamble};
 use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
@@ -99,18 +99,13 @@ DataLine: ASTDataLine = {
     Directive => ASTDataLine::Directive(<>)
 }
 
-Section:ASTSection = {
-    DataSection,
-    TextSection
-}
-
 Data: ASTData = {
     <start:@L> <n:VariableName> ":" ".word" <v:Integer> => ASTData{name:n, value:v, pos:start}
 }
 
-DataSection:ASTSection = {
-    ".data" <DataLine*>                 => ASTSection::Data(<>),
-    ".section" ".data" <DataLine*>      => ASTSection::Data(<>),
+DataSection:ASTDataSection = {
+    ".data" <l:DataLine*>                 => ASTDataSection{lines:l},
+    ".section" ".data" <l:DataLine*>      => ASTDataSection{lines:l},
 }
 
 Label: ASTLabel = {
@@ -128,9 +123,9 @@ Instr: ASTInstr = {
              => ASTInstr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
 }
 
-TextSection: ASTSection = {
-    ".text" <TextLine*>             => ASTSection::Text(<>),
-    ".section" ".text" <TextLine*>  => ASTSection::Text(<>),
+TextSection: ASTTextSection = {
+    ".text" <l:TextLine*>              => ASTTextSection{lines:l},
+    ".section" ".text" <l:TextLine*>   => ASTTextSection{lines:l},
 }
 
 TextLine: ASTTextLine = {
@@ -143,6 +138,7 @@ Preamble: ASTPreamble ={
     Directive* => ASTPreamble{directives:<>},
 }
 
-pub AssemblyFile:ASTAssemblyFile = {
-    <p:Preamble> <s:Section*> => ASTAssemblyFile{preamble:p, sections:s},
+pub AssemblyFile: ASTAssemblyFile = {
+    <p: Preamble> <ds_before: DataSection*> <ts: TextSection> <ds_after: DataSection*>
+        => ASTAssemblyFile{preamble: p, ds_before, ts, ds_after},
 }

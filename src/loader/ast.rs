@@ -1,6 +1,5 @@
 use std::fmt::{Debug};
 
-// Define the Operand enum
 #[derive(Debug)]
 pub enum ASTOperand {
     // register, position
@@ -16,7 +15,6 @@ pub enum ASTOperand {
     Unused(),
 }
 
-// Define the Data struct
 #[derive(Debug)]
 pub struct ASTData {
     pub name: String,
@@ -24,7 +22,6 @@ pub struct ASTData {
     pub pos: usize,
 }
 
-// Define the Instr struct
 #[derive(Debug)]
 pub struct ASTInstr {
     pub mnemonic: String,
@@ -40,28 +37,24 @@ pub enum ASTDirective {
     Global(String, usize),
 }
 
-// Define the GlobalDirective enum
 #[derive(Debug)]
 pub enum ASTGlobalDirective {
     Label(String),
     Immediate(),
 }
 
-// Define the DataLine enum
 #[derive(Debug)]
 pub enum ASTDataLine {
     Data(ASTData),
     Directive(ASTDirective),
 }
 
-// Define the Label struct
 #[derive(Debug)]
 pub struct ASTLabel {
     pub name: String,
     pub pos: usize,
 }
 
-// Define the TextLine enum
 #[derive(Debug)]
 pub enum ASTTextLine {
     Text(ASTInstr),
@@ -69,24 +62,27 @@ pub enum ASTTextLine {
     Label(ASTLabel),
 }
 
-// Define the Section enum
 #[derive(Debug)]
-pub enum ASTSection {
-    Text(Vec<ASTTextLine>),
-    Data(Vec<ASTDataLine>),
+pub struct ASTTextSection {
+    pub lines: Vec<ASTTextLine>,
 }
 
-// Define the Preamble struct
+#[derive(Debug)]
+pub struct ASTDataSection {
+    pub lines: Vec<ASTDataLine>,
+}
+
 #[derive(Debug)]
 pub struct ASTPreamble {
     pub directives: Vec<ASTDirective>,
 }
 
-// Define the Assembly struct
 #[derive(Debug)]
 pub struct ASTAssemblyFile {
     pub preamble: ASTPreamble,
-    pub sections: Vec<ASTSection>,
+    pub ds_before: Vec<ASTDataSection>,
+    pub ts: ASTTextSection,
+    pub ds_after: Vec<ASTDataSection>,
 }
 
 pub trait ASTVisitor {
@@ -95,11 +91,12 @@ pub trait ASTVisitor {
     fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool { true }
     fn visit_directive(&mut self, ast_directive: &ASTDirective) -> bool { true }
     fn visit_label(&mut self, ast_label: &ASTLabel) -> bool { true }
+    fn visit_text_section(&mut self, ast_label: &ASTTextSection) -> bool { true }
     fn visit_text_line(&mut self, ast_text_line: &ASTTextLine) -> bool { true }
+    fn visit_data_section(&mut self, ast_label: &ASTDataSection) -> bool { true }
     fn visit_data_line(&mut self, ast_data_line: &ASTDataLine) -> bool { true }
-    fn visit_section(&mut self, ast_section: &ASTSection) -> bool { true }
     fn visit_preamble(&mut self, ast_preamble: &ASTPreamble) -> bool { true }
-    fn visit_assembly(&mut self, ast_assembly: &ASTAssemblyFile) -> bool { true }
+    fn visit_assembly_file(&mut self, ast_assembly: &ASTAssemblyFile) -> bool { true }
 }
 
 // Implement accept methods for each type
@@ -159,21 +156,21 @@ impl ASTDataLine {
     }
 }
 
-impl ASTSection {
+impl ASTTextSection {
     pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
-        match self {
-            ASTSection::Text(lines) => {
-                for line in lines {
-                    if !line.accept(visitor) { return false; }
-                }
-            }
-            ASTSection::Data(lines) => {
-                for line in lines {
-                    if !line.accept(visitor) { return false; }
-                }
-            }
+        for line in &self.lines {
+            if !line.accept(visitor) { return false; }
         }
-        visitor.visit_section(self)
+        visitor.visit_text_section(self)
+    }
+}
+
+impl ASTDataSection {
+    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+        for line in &self.lines {
+            if !line.accept(visitor) { return false; }
+        }
+        visitor.visit_data_section(self)
     }
 }
 
@@ -189,9 +186,16 @@ impl ASTPreamble {
 impl ASTAssemblyFile {
     pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
         if !self.preamble.accept(visitor) { return false; }
-        for section in &self.sections {
+
+        for section in &self.ds_before {
             if !section.accept(visitor) { return false; }
         }
-        visitor.visit_assembly(self)
+
+        if !self.ts.accept(visitor){ return false; }
+
+        for section in &self.ds_after {
+            if !section.accept(visitor) { return false; }
+        }
+        visitor.visit_assembly_file(self)
     }
 }

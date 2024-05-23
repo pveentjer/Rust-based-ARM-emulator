@@ -1,9 +1,5 @@
 TODO
 
-- loader: there should only be 1 .text section
-
-- loader: a variable can't be a label and vice versa.
-
 - loader: ast operand should have access to its pos
 
 - loader: every instruction should have an optional label in front of it
@@ -33,21 +29,11 @@ TODO
 
 - instructions should keep their labels
 
-- how does the 'exit' work; you don't want to roll to the next instruction which could be e.g. a function label
-
-- remove 'exit': there should not be need for exit; if program has reached last line.. then exit is implied
-
 - implement CMP
 
 - implement BE
 
 - implement BNE
-
-- how does the 'exit' work; you don't want to roll to the next instruction which could be e.g. a function label
-
-- remove 'exit': there should not be need for exit; if program has reached last line.. then exit is implied
-
-- .global should have a start label
 
 - Operand: Indexed
 
@@ -61,13 +47,25 @@ TODO
 
 - loader: validate memory access
 
-- loader: validate variable declaration that it fits in memory
-
-- loader: should not panic on error, but propagate the error to the main
-
 - implement print of memory
 
 DONE
+
+- how does the 'exit' work; you don't want to roll to the next instruction which could be e.g. a function label
+
+- remove 'exit': there should not be need for exit; if program has reached last line.. then exit is implied
+
+- loader: validate variable declaration that it fits in memory
+
+- stack and heap should come from the same chunk of memory, but start on opposite site and grow towards each other.
+
+- loader: should not panic on error, but propagate the error to the main
+
+- .global should have a start label
+
+- loader: a variable can't be a label and vice versa.
+
+- loader: there should only be 1 .text section
 
 - loader: AST assembly ---> assembly_file or something.
 
@@ -86,26 +84,3 @@ DONE
 - loader: register name can't have spaces in between
 
 - loader: instruction should have access to pos
-
-- loader: operand should have access to pos
-
-- loader: the Label doesn't have access to the location
-
-- loader: get reference to the AST
-
-- loader: remove the pest functionality
-
-- loader: ast.rs should move to loader directory
-
-- loader: assembly.lalrpop should move to loader directory
-
-- loader: the load error should contain a proper message
-
-- loader: when there is a load failure, the error should be propagated
-
-- loader: hook in the new loader
-
-- include file name in parse error
-
-- loader: all special purpose registers
-

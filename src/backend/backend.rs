@@ -31,7 +31,6 @@ pub struct Backend {
     dispatch_n_wide: u8,
     issue_n_wide: u8,
     cdb_broadcast_buffer: Vec<CDBBroadcast>,
-    stack: Vec<WordType>,
     stack_capacity: u32,
     pub(crate) exit: bool,
     perf_counters: Rc<RefCell<PerfCounters>>,
@@ -44,11 +43,6 @@ impl Backend {
                       arch_reg_file: Rc<RefCell<ArgRegFile>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>) -> Backend {
-        let mut stack = Vec::with_capacity(cpu_config.stack_capacity as usize);
-        for _ in 0..cpu_config.stack_capacity {
-            stack.push(0);
-        }
-
         Backend {
             trace: cpu_config.trace.clone(),
             instr_queue,
@@ -64,7 +58,6 @@ impl Backend {
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
             frontend_control,
-            stack,
             stack_capacity: cpu_config.stack_capacity,
             exit: false,
             perf_counters,

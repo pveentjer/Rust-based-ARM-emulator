@@ -10,14 +10,14 @@ use crate::{assembly};
 use crate::cpu::{CPUConfig, GENERAL_ARG_REG_CNT};
 use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, RegisterType, SourceLocation, WordType};
 use crate::instructions::instructions::Operand::Register;
-use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTSection, ASTTextLine, ASTVisitor};
+use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTTextSection, ASTDataSection, ASTTextLine, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
 
 
 struct Loader {
     cpu_config: CPUConfig,
     path: String,
-    heap_size: WordType,
+    heap_limit: u32,
     code: Vec<Instr>,
     data_section: HashMap::<String, Rc<Data>>,
     labels: HashMap<String, usize>,
@@ -70,29 +70,6 @@ impl Loader {
         };
     }
 
-    fn program_generation(&mut self, assembly: &ASTAssemblyFile) {
-        for section in &assembly.sections {
-            match section {
-                ASTSection::Text(text_section) => {
-                    for line in text_section {
-                        match line {
-                            ASTTextLine::Text(instr) => {
-                                match instr.op1 {
-                                    ASTOperand::Register(reg, pos) => {
-                                        println!("register r{}", reg);
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                ASTSection::Data(_) => {}
-            }
-        }
-    }
-
     fn parse(&mut self) -> Result<ASTAssemblyFile, Result<Program, LoadError>> {
         let x = &self.input_string;
         let parse_result = assembly::AssemblyFileParser::new()
@@ -141,165 +118,6 @@ impl Loader {
         }
         SourceLocation { line: line, column: col }
     }
-
-    //
-    // fn parse_directive(&mut self, pair: Pair<Rule>) {
-    //     let loc = self.get_source_location(&pair);
-    //     let mut inner_pairs = pair.into_inner();
-    //     let directive_name = inner_pairs.next().unwrap().as_str();
-    //
-    //     println!("Directive name: {}", directive_name);
-    //
-    //     match directive_name {
-    //         ".global" => {
-    //             let target = self.parse_label_ref(&inner_pairs.next().unwrap());
-    //             self.entry_point = target;
-    //
-    //             println!("Setting entry point to {}", target)
-    //         }
-    //         ".data" => {}
-    //         ".text" => {}
-    //         _ => panic!("Unknown directive '{}'at  {},{} ", directive_name, loc.line, loc.column)
-    //     }
-    // }
-    //
-    // fn parse_label(&mut self, pair: Pair<Rule>) {
-    //     let loc = self.get_source_location(&pair);
-    //     let mut inner_pairs = pair.into_inner();
-    //
-    //     let label = String::from(inner_pairs.next().unwrap().as_str());
-    //
-    //     if self.labels.contains_key(&label) {
-    //         panic!("Duplicate label '{}' at {}:{}", label, loc.line, loc.column);
-    //     } else {
-    //         self.labels.insert(label, self.instr_cnt);
-    //     }
-    // }
-    //
-    // fn parse_instr(&mut self, pair: Pair<Rule>) {
-    //     println!("Parse instr");
-    //
-    //     let loc = self.get_source_location(&pair);
-    //     let mut inner_pairs = pair.into_inner();
-    //
-    //     let mnemonic = inner_pairs.next().unwrap().as_str();
-    //     let opcode_option = get_opcode(mnemonic);
-    //
-    //     if opcode_option.is_none() {
-    //         panic!("Unknown mnemonic '{}' at {}:{}", mnemonic, loc.line, loc.column);
-    //     }
-    //
-    //     let opcode = opcode_option.unwrap();
-    //
-    //     let mut operands = Vec::new();
-    //     for operand_pair in inner_pairs {
-    //         operands.push(self.parse_operand(&operand_pair));
-    //     }
-    //
-    //     match create_instr(opcode, &operands, loc){
-    //         Ok(instr) => {
-    //             self.code.push(instr);
-    //         }
-    //         Err(msg) => {
-    //             panic!("{} at {}:{}", msg, loc.line, loc.column);
-    //         }
-    //     }
-    // }
-    //
-    // fn parse_operand(&self, pair: &Pair<Rule>) -> Operand {
-    //     let loc = self.get_source_location(&pair);
-    //     let s = pair.as_str().to_lowercase();
-    //     match pair.as_rule() {
-    //         Rule::register => Register(self.parse_register(pair)),
-    //         Rule::immediate => Operand::Immediate(self.parse_immediate(pair)),
-    //         Rule::memory_access => Operand::Memory(self.parse_memory_access(pair)),
-    //         Rule::variable_address => Operand::Memory(self.parse_variable_address(pair)),
-    //         Rule::label_name => Code(self.parse_label_ref(pair) as WordType),
-    //         _ => panic!("Unknown operand encountered {} at  at {}:{}", s, loc.line, loc.column),
-    //     }
-    // }
-    //
-    // fn parse_register(&self, pair: &Pair<Rule>) -> u16 {
-    //     let loc = self.get_source_location(&pair);
-    //     let name = pair.as_str();
-    //     match get_register(name) {
-    //         None => panic!("Illegal register '{}' at {}:{}", name, loc.line, loc.column),
-    //         Some(reg) => reg,
-    //     }
-    // }
-    //
-    // fn parse_immediate(&self, pair: &Pair<Rule>) -> WordType {
-    //     pair.as_str()[1..].parse().unwrap()
-    // }
-    //
-    // fn parse_memory_access(&self, pair: &Pair<Rule>) -> WordType {
-    //     let inner_pairs = pair.clone().into_inner();
-    //     let base_register = self.parse_register(&inner_pairs.clone().next().unwrap());
-    //
-    //     if inner_pairs.clone().count() > 1 {
-    //         let offset_pair = inner_pairs.clone().nth(1).unwrap();
-    //         let offset = match offset_pair.as_rule() {
-    //             Rule::register => self.parse_register(&offset_pair) as i64,
-    //             Rule::immediate => self.parse_immediate(&offset_pair) as i64,
-    //             _ => panic!("Unknown memory access offset"),
-    //         };
-    //         (base_register as i64 + offset) as WordType
-    //     } else {
-    //         base_register as WordType
-    //     }
-    // }
-    //
-    // fn parse_variable_address(&self, pair: &Pair<Rule>) -> WordType {
-    //     let variable_name = pair.as_str()[1..].to_string();
-    //     let loc = self.get_source_location(&pair);
-    //
-    //     if let Some(data) = self.data_section.get(&variable_name) {
-    //         data.offset as WordType
-    //     } else {
-    //         panic!("Unknown variable '{}' at {}:{}", variable_name, loc.line, loc.column);
-    //     }
-    // }
-    //
-    // fn parse_data(&mut self, pair: Pair<Rule>) {
-    //     let mut inner_pairs = pair.into_inner();
-    //     let var_pair = inner_pairs.next().unwrap();
-    //     let loc = self.get_source_location(&var_pair);
-    //     let value_pair = inner_pairs.next().unwrap();
-    //
-    //     let variable_name = String::from(var_pair.as_str());
-    //     if !is_valid_variable_name(&variable_name) {
-    //         panic!("Illegal variable name '{}' at {}:{}", variable_name, loc.line, loc.column);
-    //     }
-    //
-    //     let value: i64 = self.parse_integer(&value_pair);
-    //     if self.data_section.contains_key(&variable_name) {
-    //         panic!("Duplicate variable declaration '{}' at {}:{}", variable_name, loc.line, loc.column);
-    //     }
-    //     self.data_section.insert(variable_name.clone(), Rc::new(Data { value, offset: self.heap_size as u64 }));
-    //     self.heap_size += 1;
-    // }
-    //
-    // fn get_source_location(&self, pair: &Pair<Rule>) -> SourceLocation {
-    //     let start_pos = pair.as_span().start_pos();
-    //     let line_col = start_pos.line_col();
-    //     return SourceLocation{line:line_col.0, column:line_col.1};
-    // }
-    //
-    // fn parse_integer(&self, pair: &Pair<Rule>) -> i64 {
-    //     pair.as_str().trim().parse().unwrap()
-    // }
-    //
-    // fn parse_label_ref(&self, pair: &Pair<Rule>) -> usize {
-    //     let loc = self.get_source_location(&pair);
-    //     let label = String::from(pair.as_str());
-    //
-    //     match self.labels.get(&label) {
-    //         Some(code_address) => *code_address,
-    //         None => {
-    //             panic!("Unknown label '{}' at {}:{}", label, loc.line, loc.column)
-    //         }
-    //     }
-    // }
 }
 
 
@@ -309,9 +127,21 @@ pub struct SymbolScan<'a> {
 
 impl ASTVisitor for SymbolScan<'_> {
     fn visit_data(&mut self, ast_data: &ASTData) -> bool {
+
+        if self.loader.heap_limit == 0 {
+            let loc = self.loader.to_source_location(ast_data.pos);
+            self.loader.errors.push(format!("Insufficient heap to declare variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+            return false;
+        }
+
         if !is_valid_variable_name(&ast_data.name) {
             let loc = self.loader.to_source_location(ast_data.pos);
             self.loader.errors.push(format!("Illegal variable name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+        }
+
+        if self.loader.labels.contains_key(&ast_data.name) {
+            let loc = self.loader.to_source_location(ast_data.pos);
+            self.loader.errors.push(format!("There already exists a label with name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
         }
 
         if self.loader.data_section.contains_key(&ast_data.name) {
@@ -320,8 +150,8 @@ impl ASTVisitor for SymbolScan<'_> {
         }
 
         self.loader.data_section.insert(ast_data.name.clone(),
-                                        Rc::new(Data { value: ast_data.value as WordType, offset: self.loader.heap_size as u64 }));
-        self.loader.heap_size += 1;
+                                        Rc::new(Data { value: ast_data.value as WordType, offset: self.loader.heap_limit as u64 }));
+        self.loader.heap_limit -= 1;
         true
     }
 
@@ -331,6 +161,11 @@ impl ASTVisitor for SymbolScan<'_> {
     }
 
     fn visit_label(&mut self, ast_label: &ASTLabel) -> bool {
+        if self.loader.data_section.contains_key(&ast_label.name) {
+            let loc = self.loader.to_source_location(ast_label.pos);
+            self.loader.errors.push(format!("There already exists a variable with name '{}' at {}:{}", ast_label.name, loc.line, loc.column));
+        }
+
         if self.loader.labels.contains_key(&ast_label.name) {
             let loc = self.loader.to_source_location(ast_label.pos);
             self.loader.errors.push(format!("Duplicate label '{}' at {}:{}", ast_label.name, loc.line, loc.column));
@@ -445,7 +280,7 @@ fn is_valid_variable_name(name: &String) -> bool {
 // for the time being we always return the same program
 pub fn load(cpu_config: CPUConfig, path: &str) -> Result<Program, LoadError> {
     let mut loader = Loader {
-        heap_size: 0,
+        heap_limit: cpu_config.memory_size - 1,
         cpu_config,
         path: String::from(path),
         code: Vec::new(),

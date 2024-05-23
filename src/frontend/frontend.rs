@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{InstrQueue, Opcode, Program, WordType};
+use crate::instructions::instructions::{EXIT, InstrQueue, Opcode, Program, WordType};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -66,12 +66,13 @@ impl Frontend {
                     }
 
                     let pc_value = arch_reg_file.get_value(PC) as usize;
-                    if program.code.len() == pc_value {
+                    let instr = if program.code.len() == pc_value {
                         // at the end of the program
-                        return;
-                    }
+                         Rc::new(EXIT)
+                    }else{
+                        program.get_instr(pc_value)
+                    };
 
-                    let instr = program.get_instr(pc_value);
                     if self.trace.decode {
                         println!("Frontend: ip_next_fetch: {} decoded {}", pc_value, instr);
                     }
