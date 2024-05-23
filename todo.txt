@@ -1,12 +1,12 @@
 TODO
 
+- loader: there should only be 1 .text section
+
 - loader: a variable can't be a label and vice versa.
 
 - loader: ast operand should have access to its pos
 
 - loader: every instruction should have an optional label in front of it
-
-- loader: visitor should have boolean return type to stop
 
 - loader: case insensitive keywords/registers
 
@@ -68,6 +68,10 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: AST assembly ---> assembly_file or something.
+
+- loader: visitor should have boolean return type to stop
 
 - loader: the implicit operands are not set like PC, SP etc.
 

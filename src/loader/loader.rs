@@ -10,7 +10,7 @@ use crate::{assembly};
 use crate::cpu::{CPUConfig, GENERAL_ARG_REG_CNT};
 use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Operand, Program, RegisterType, SourceLocation, WordType};
 use crate::instructions::instructions::Operand::Register;
-use crate::loader::ast::{ASTAssembly, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTSection, ASTTextLine, ASTVisitor};
+use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTSection, ASTTextLine, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
 
 
@@ -70,7 +70,7 @@ impl Loader {
         };
     }
 
-    fn program_generation(&mut self, assembly: &ASTAssembly) {
+    fn program_generation(&mut self, assembly: &ASTAssemblyFile) {
         for section in &assembly.sections {
             match section {
                 ASTSection::Text(text_section) => {
@@ -93,12 +93,12 @@ impl Loader {
         }
     }
 
-    fn parse(&mut self) -> Result<ASTAssembly, Result<Program, LoadError>> {
+    fn parse(&mut self) -> Result<ASTAssemblyFile, Result<Program, LoadError>> {
         let x = &self.input_string;
-        let parse_result = assembly::AssemblyParser::new()
+        let parse_result = assembly::AssemblyFileParser::new()
             .parse(x.as_str());
 
-        let assembly: ASTAssembly = match parse_result {
+        let assembly_file: ASTAssemblyFile = match parse_result {
             Ok(a) => a,
             Err(err) => {
                 let cause = match err {
@@ -120,7 +120,7 @@ impl Loader {
                 return Err(Err(LoadError::ParseError(cause)));
             }
         };
-        Ok(assembly)
+        Ok(assembly_file)
     }
 
     fn to_source_location(&self, offset: usize) -> SourceLocation {

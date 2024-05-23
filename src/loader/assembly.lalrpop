@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::loader::ast::{ASTOperand, ASTInstr, ASTData, ASTSection, ASTAssembly, ASTDirective, ASTTextLine, ASTDataLine, ASTLabel,ASTPreamble};
+use crate::loader::ast::{ASTOperand, ASTInstr, ASTData, ASTSection, ASTAssemblyFile, ASTDirective, ASTTextLine, ASTDataLine, ASTLabel,ASTPreamble};
 use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
@@ -143,6 +143,6 @@ Preamble: ASTPreamble ={
     Directive* => ASTPreamble{directives:<>},
 }
 
-pub Assembly:ASTAssembly = {
-    <p:Preamble> <s:Section*> => ASTAssembly{preamble:p, sections:s},
+pub AssemblyFile:ASTAssemblyFile = {
+    <p:Preamble> <s:Section*> => ASTAssemblyFile{preamble:p, sections:s},
 }

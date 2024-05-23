@@ -84,7 +84,7 @@ pub struct ASTPreamble {
 
 // Define the Assembly struct
 #[derive(Debug)]
-pub struct ASTAssembly {
+pub struct ASTAssemblyFile {
     pub preamble: ASTPreamble,
     pub sections: Vec<ASTSection>,
 }
@@ -99,7 +99,7 @@ pub trait ASTVisitor {
     fn visit_data_line(&mut self, ast_data_line: &ASTDataLine) -> bool { true }
     fn visit_section(&mut self, ast_section: &ASTSection) -> bool { true }
     fn visit_preamble(&mut self, ast_preamble: &ASTPreamble) -> bool { true }
-    fn visit_assembly(&mut self, ast_assembly: &ASTAssembly) -> bool { true }
+    fn visit_assembly(&mut self, ast_assembly: &ASTAssemblyFile) -> bool { true }
 }
 
 // Implement accept methods for each type
@@ -186,7 +186,7 @@ impl ASTPreamble {
     }
 }
 
-impl ASTAssembly {
+impl ASTAssemblyFile {
     pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
         if !self.preamble.accept(visitor) { return false; }
         for section in &self.sections {
