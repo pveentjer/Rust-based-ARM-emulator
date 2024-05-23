@@ -1,4 +1,5 @@
- .global start
+.global start
+ .section .data
  .section .data
     foo: .word 10
     banana: .word 20

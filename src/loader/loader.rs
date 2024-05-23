@@ -55,7 +55,7 @@ impl Loader {
         let mut symbolic_scan = SymbolScan { loader: self };
         assembly.accept(&mut symbolic_scan);
 
-        let mut program_generation = ProgramGeneration { loader: self, operand_stack:Vec::new()};
+        let mut program_generation = ProgramGeneration { loader: self, operand_stack: Vec::new() };
         assembly.accept(&mut program_generation);
 
         let mut code = Vec::with_capacity(self.code.len());
@@ -103,18 +103,18 @@ impl Loader {
             Err(err) => {
                 let cause = match err {
                     ParseError::InvalidToken { location } => {
-                        let loc = self.getSourceLocation(location);
-                        format!("Invalid token at  at {}:{}", loc.line, loc.column)
+                        let loc = self.to_source_location(location);
+                        format!("Invalid token at {}:{}", loc.line, loc.column)
                     }
                     ParseError::UnrecognizedToken { token, expected } => {
-                        let loc = self.getSourceLocation(token.0);
-                        format!("Unrecognized token '{}' at {}:{}. Expected: {:?}", token.1, loc.line, loc.column, expected)
+                        let loc = self.to_source_location(token.0);
+                        format!("Unrecognized token '{}' at {}:{}. Expected: {}", token.1, loc.line, loc.column, expected.join(" or "))
                     }
                     ParseError::ExtraToken { token } => {
-                        let loc = self.getSourceLocation(token.0);
+                        let loc = self.to_source_location(token.0);
                         format!("Extra token '{}' at {}:{}", token.1, loc.line, loc.column)
                     }
-                    _ => format!("Error: {:?}", err),
+                    _ => format!("{:?}", err),
                 };
 
                 return Err(Err(LoadError::ParseError(cause)));
@@ -123,7 +123,7 @@ impl Loader {
         Ok(assembly)
     }
 
-    fn getSourceLocation(&self, offset: usize) -> SourceLocation {
+    fn to_source_location(&self, offset: usize) -> SourceLocation {
         let mut line = 1;
         let mut col = 1;
         let string = &self.input_string;
@@ -142,31 +142,6 @@ impl Loader {
         SourceLocation { line: line, column: col }
     }
 
-    //
-    // fn first_pass(&mut self, root: Pairs<Rule>) {
-    //     for pair in root {
-    //         match pair.as_rule() {
-    //             Rule::label => self.parse_label(pair),
-    //             Rule::data_line => self.parse_data(pair),
-    //             Rule::instr => { self.instr_cnt += 1 }
-    //             _ => {}
-    //         }
-    //     }
-    // }
-    //
-    // fn second_pass(&mut self, root: Pairs<Rule>) {
-    //     for pair in root {
-    //         match pair.as_rule() {
-    //             Rule::label => {}
-    //             Rule::data_line => {}
-    //             Rule::directive_line => self.parse_directive(pair),
-    //             Rule::instr => self.parse_instr(pair),
-    //             _ => {}
-    //         }
-    //     }
-    // }
-    //
-    //
     //
     // fn parse_directive(&mut self, pair: Pair<Rule>) {
     //     let loc = self.get_source_location(&pair);
@@ -333,14 +308,14 @@ pub struct SymbolScan<'a> {
 }
 
 impl ASTVisitor for SymbolScan<'_> {
-    fn visit_data(&mut self, ast_data: &ASTData)->bool {
+    fn visit_data(&mut self, ast_data: &ASTData) -> bool {
         if !is_valid_variable_name(&ast_data.name) {
-            let loc = self.loader.getSourceLocation(ast_data.pos);
+            let loc = self.loader.to_source_location(ast_data.pos);
             self.loader.errors.push(format!("Illegal variable name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
         }
 
         if self.loader.data_section.contains_key(&ast_data.name) {
-            let loc = self.loader.getSourceLocation(ast_data.pos);
+            let loc = self.loader.to_source_location(ast_data.pos);
             self.loader.errors.push(format!("Duplicate variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
         }
 
@@ -350,14 +325,14 @@ impl ASTVisitor for SymbolScan<'_> {
         true
     }
 
-    fn visit_instr(&mut self, _: &ASTInstr)-> bool{
+    fn visit_instr(&mut self, _: &ASTInstr) -> bool {
         self.loader.instr_cnt += 1;
         true
     }
 
-    fn visit_label(&mut self, ast_label: &ASTLabel)->bool {
+    fn visit_label(&mut self, ast_label: &ASTLabel) -> bool {
         if self.loader.labels.contains_key(&ast_label.name) {
-            let loc = self.loader.getSourceLocation(ast_label.pos);
+            let loc = self.loader.to_source_location(ast_label.pos);
             self.loader.errors.push(format!("Duplicate label '{}' at {}:{}", ast_label.name, loc.line, loc.column));
         } else {
             self.loader.labels.insert(ast_label.name.clone(), self.loader.instr_cnt);
@@ -372,44 +347,43 @@ pub struct ProgramGeneration<'a> {
 }
 
 impl ASTVisitor for ProgramGeneration<'_> {
-    fn visit_operand(&mut self, ast_operand: &ASTOperand)->bool {
+    fn visit_operand(&mut self, ast_operand: &ASTOperand) -> bool {
         match ast_operand {
             ASTOperand::Register(reg, pos) => {
                 if *reg >= GENERAL_ARG_REG_CNT as u64 {
-                    let loc = self.loader.getSourceLocation(*pos);
+                    let loc = self.loader.to_source_location(*pos);
                     self.loader.errors.push(format!("Unknown register r'{}' at {}:{}", *reg, loc.line, loc.column));
-                    return false
+                    return false;
                 }
 
                 self.operand_stack.push(Register(*reg as RegisterType));
-            },
+            }
             ASTOperand::Immediate(value, _) => {
                 self.operand_stack.push(Operand::Immediate(*value as WordType));
-            },
+            }
             ASTOperand::Label(label_name, pos) => {
                 match self.loader.labels.get(label_name) {
                     Some(code_address) => {
                         self.operand_stack.push(Operand::Code(*code_address as WordType));
                     }
                     None => {
-                        let loc = self.loader.getSourceLocation(*pos);
+                        let loc = self.loader.to_source_location(*pos);
                         self.loader.errors.push(format!("Unknown label '{}' at {}:{}", label_name, loc.line, loc.column));
-                        return false
+                        return false;
                     }
                 }
-
-            },
-            ASTOperand::Unused() => {},
+            }
+            ASTOperand::Unused() => {}
         };
 
         true
     }
 
-    fn visit_instr(&mut self, ast_instr: &ASTInstr)->bool {
+    fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool {
         println!("Parse instr");
 
         // todo: this is very inefficient because for every instruction we scan the whole file
-        let loc = self.loader.getSourceLocation(ast_instr.pos);
+        let loc = self.loader.to_source_location(ast_instr.pos);
         let opcode_option = get_opcode(&ast_instr.mnemonic);
 
         if opcode_option.is_none() {
@@ -430,9 +404,22 @@ impl ASTVisitor for ProgramGeneration<'_> {
         true
     }
 
-    fn visit_directive(&mut self, ast_directive: &ASTDirective) ->bool{
-        // todo: global
-        true
+    fn visit_directive(&mut self, ast_directive: &ASTDirective) -> bool {
+        match ast_directive {
+            ASTDirective::Global(start_label, pos) => {
+                match self.loader.labels.get(start_label) {
+                    Some(code_address) => {
+                        self.loader.entry_point = *code_address as usize;
+                        return true;
+                    }
+                    None => {
+                        let loc = self.loader.to_source_location(*pos);
+                        self.loader.errors.push(format!("Unknown label '{}' at {}:{}", start_label, loc.line, loc.column));
+                        return false;
+                    }
+                }
+            }
+        }
     }
 }
 

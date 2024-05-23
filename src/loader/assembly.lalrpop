@@ -104,8 +104,8 @@ Data: ASTData = {
 }
 
 DataSection:ASTSection = {
-    ".data" <DataLine+>                 => ASTSection::Data(<>),
-    ".section" ".data" <DataLine+>      => ASTSection::Data(<>),
+    ".data" <DataLine*>                 => ASTSection::Data(<>),
+    ".section" ".data" <DataLine*>      => ASTSection::Data(<>),
 }
 
 Label: ASTLabel = {
@@ -124,8 +124,8 @@ Instr: ASTInstr = {
 }
 
 TextSection: ASTSection = {
-    ".text" <TextLine+>             => ASTSection::Text(<>),
-    ".section" ".text" <TextLine+>  => ASTSection::Text(<>),
+    ".text" <TextLine*>             => ASTSection::Text(<>),
+    ".section" ".text" <TextLine*>  => ASTSection::Text(<>),
 }
 
 TextLine: ASTTextLine = {

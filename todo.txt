@@ -1,7 +1,5 @@
 TODO
 
-- loader: fix Unrecognized token '1' at 22:8. Expected: ["\":\""]
-
 - loader: a variable can't be a label and vice versa.
 
 - loader: ast operand should have access to its pos
@@ -72,6 +70,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: fix Unrecognized token '1' at 22:8. Expected: ["\":\""]
 
 - loader: a variable name with a number, fails..
 
