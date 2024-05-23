@@ -22,7 +22,7 @@ TODO
 
 - loader: memory access
 
-- loader: the implicit operands are not set like PC, SP etc.
+- loader: unwanted semicolon after instructions
 
 - labels: unwanted behavior that labels need to start with an _ Even though it isn't part of a label name
 
@@ -70,6 +70,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- loader: the implicit operands are not set like PC, SP etc.
 
 - loader: fix Unrecognized token '1' at 22:8. Expected: ["\":\""]
 

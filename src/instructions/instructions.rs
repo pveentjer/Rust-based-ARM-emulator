@@ -123,7 +123,10 @@ pub(crate) fn get_register(name: &str) -> Option<u16> {
     }
 }
 
-pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceLocation) -> Result<Instr, String> {
+pub(crate) fn create_instr(opcode: Opcode,
+                           operands: &Vec<Operand>,
+                           loc: SourceLocation) -> Result<Instr, String> {
+
     let mut instr = Instr {
         cycles: 1,
         opcode,
@@ -136,10 +139,6 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
         is_control: false,
     };
 
-    // // todo: the implicit operands
-    // // todo:argument count/type checking
-    // // todo: store_cnt
-    //
     match opcode {
         Opcode::SUB |
         Opcode::MUL |
@@ -174,7 +173,7 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
         Opcode::ADR => { panic!() }
         Opcode::LDR => {
             if operands.len() != 2 {
-                return Err(format!("{:?} expects 3 arguments, but {} are provided.", opcode, operands.len()));
+                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
             }
 
             instr.sink_cnt = 1;
@@ -187,19 +186,31 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
 
             match operands[1] {
                 Register(_) => instr.source[0] = operands[1],
-                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+                _ => return Err(format!("{:?} expects a register as second argument.", opcode)),
             }
         }
         Opcode::STR => {
-            // verify 2 arguments
-            // fist should be register with value
-            // second should be register with the memory address.
+            if operands.len() != 2 {
+                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            instr.source_cnt = 1;
+            instr.mem_stores=1;
+
+            match operands[0] {
+                Register(_) => instr.source[0] = operands[-],
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+            match operands[1] {
+                Register(_) => instr.sink[0] = operands[1],
+                _ => return Err(format!("{:?} expects a register as second argument.", opcode)),
+            }
         }
         Opcode::NOP => {
             if operands.len() != 0 {
                 return Err(format!("{:?} expects 0 arguments, but {} are provided.", opcode, operands.len()));
             }
-            // verify no arguments
         }
         Opcode::PRINTR => {
             if operands.len() != 1 {
@@ -247,7 +258,6 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
             }
 
             instr.sink[0] = Register(PC);
-            instr.is_control = true;
         }
         Opcode::BX => {
             if operands.len() != 1 {
@@ -263,7 +273,6 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
             }
 
             instr.sink[0] = Register(PC);
-            instr.is_control = true;
         }
         Opcode::BL => {
             if operands.len() != 1 {
@@ -271,15 +280,16 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
             }
 
             instr.source_cnt = 2;
+            instr.sink_cnt = 2;
+
             match operands[0] {
                 Code(_) => instr.source[0] = operands[0],
                 _ => return Err(format!("{:?} expects a label as first argument.", opcode)),
             }
             instr.source[1] = Register(PC);
-            instr.sink_cnt = 2;
+
             instr.sink[0] = Register(LR);
             instr.sink[1] = Register(PC);
-            instr.is_control = true;
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
@@ -301,7 +311,6 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
 
             instr.sink_cnt = 1;
             instr.sink[0] = Register(PC);
-            instr.is_control = true;
         }
         Opcode::EXIT => {
             if operands.len() != 0 {
@@ -310,9 +319,22 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<Operand>, loc: SourceL
             instr.is_control = true;
         }
         Opcode::NEG => {
-            // verify 2 arguments
-            // verify first a register
-            // verify secodn a register or immediate value
+            if operands.len() != 2 {
+                return Err(format!("{:?} expects 2 arguments, but {} are provided.", opcode, operands.len()));
+            }
+
+            instr.sink_cnt = 1;
+            match operands[0] {
+                Register(reg) => instr.sink[0] = Register(reg),
+                _ => return Err(format!("{:?} expects a register as first argument.", opcode)),
+            }
+
+
+            instr.source_cnt = 1;
+            match operands[1] {
+                Register(_) => instr.source[0] = operands[1],
+                _ => return Err(format!("{:?} expects a register as second argument.", opcode)),
+            }
         }
         Opcode::NOT => {}
     }
