@@ -1,3 +1,4 @@
+use std::process::exit;
 use std::rc::Rc;
 use lalrpop_util::lalrpop_mod;
 
@@ -14,23 +15,6 @@ mod memory_subsystem;
 
 
 lalrpop_mod!(pub assembly, "/loader/assembly.rs");
-
-fn get_line_and_column(input: &str, offset: usize) -> SourceLocation {
-    let mut line = 1;
-    let mut col = 1;
-    for (i, c) in input.char_indices() {
-        if i == offset {
-            break;
-        }
-        if c == '\n' {
-            line += 1;
-            col = 1;
-        } else {
-            col += 1;
-        }
-    }
-    SourceLocation{line:line, column:col}
-}
 
 fn main() {
     let cpu_config = CPUConfig {
@@ -64,8 +48,19 @@ fn main() {
     let program = match load_result {
         Ok(p) => Rc::new(p),
         Err(err) => {
+            println!("Loading program '{}' failed.",path);
             match err {
-                LoadError::ParseError(msg) =>  panic!("{}", msg),
+                LoadError::ParseError(msg) =>  {
+                    println!("{}",msg);
+                    exit(1);
+                },
+
+                LoadError::AnalysisError(msg_vec) =>  {
+                    for msg in msg_vec {
+                        println!("{}",msg);
+                    }
+                    exit(1);
+                },
             }
         },
     };

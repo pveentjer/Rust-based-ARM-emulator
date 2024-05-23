@@ -1,15 +1,17 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
 use lalrpop_util::ParseError;
 
 use regex::Regex;
-use _Operand::{Register};
-use crate::{assembly, get_line_and_column};
+use ASTOperand::{Register};
+use crate::{assembly};
 
 use crate::cpu::{CPUConfig};
 use crate::instructions::instructions::{create_instr, Data, get_opcode, get_register, Instr, Program, SourceLocation, WordType};
-use crate::loader::ast::{_Assembly, _Operand, _Section, _TextLine};
+use crate::loader::ast::{ASTAssembly, ASTData, ASTDataLine, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTPreamble, ASTSection, ASTTextLine, ASTVisitor};
+use crate::loader::loader::LoadError::AnalysisError;
 
 
 struct Loader {
@@ -22,16 +24,17 @@ struct Loader {
     instr_cnt: usize,
     entry_point: usize,
     errors: Vec<String>,
+    input_string: String,
 }
 
 pub enum LoadError {
     ParseError(String),
+    AnalysisError(Vec<String>),
 }
 
 impl Loader {
     fn load(&mut self) -> Result<Program, LoadError> {
-        let path = &self.path;
-        let mut input = match fs::read_to_string(path) {
+        let mut input = match fs::read_to_string(&self.path) {
             Ok(content) => content,
             Err(err) => {
                 panic!("Error reading file: {}", err);
@@ -42,29 +45,39 @@ impl Loader {
             input.push('\n');
         }
 
-        let input_str = input.as_str();
+        self.input_string = input;
 
-        let assembly = match Self::parse(path, input_str) {
+        let assembly = match self.parse() {
             Ok(value) => value,
-            Err(value) => return value,
+            Err(error) => return error,
         };
 
-        self.scan_symbols(input_str, &assembly);
+        let mut symbolic_scan = SymbolScan { loader: self };
+        assembly.accept(&mut symbolic_scan);
 
-        self.program_generation(input_str, &assembly);
+        self.program_generation(&assembly);
 
-        Ok(Program { code, data_items: self.data_section.clone(), entry_point: self.entry_point })
+        let mut code = Vec::with_capacity(self.code.len());
+        for k in 0..self.code.len() {
+            code.push(Rc::new(*self.code.get_mut(k).unwrap()));
+        }
+
+        return if self.errors.is_empty() {
+            Ok(Program { code, data_items: self.data_section.clone(), entry_point: self.entry_point })
+        } else {
+            Err(AnalysisError(self.errors.clone()))
+        };
     }
 
-    fn program_generation(&mut self, input_str: &str, assembly: &_Assembly) {
+    fn program_generation(&mut self, assembly: &ASTAssembly) {
         for section in &assembly.sections {
             match section {
-                _Section::Text(text_section) => {
+                ASTSection::Text(text_section) => {
                     for line in text_section {
                         match line {
-                            _TextLine::Text(instr) => {
+                            ASTTextLine::Text(instr) => {
                                 match instr.op1 {
-                                    _Operand::Register(reg, pos) => {
+                                    ASTOperand::Register(reg, pos) => {
                                         println!("register r{}", reg);
                                     }
                                     _ => {}
@@ -74,75 +87,60 @@ impl Loader {
                         }
                     }
                 }
-                _Section::Data(_) => {}
-            }
-        }
-
-        let mut code = Vec::with_capacity(self.code.len());
-        for k in 0..self.code.len() {
-            code.push(Rc::new(*self.code.get_mut(k).unwrap()));
-        }
-    }
-
-    fn scan_symbols(&mut self, input_str: &str, assembly: &_Assembly) {
-// scan for labels
-        for section in &assembly.sections {
-            match section {
-                _Section::Text(text_section) => {
-                    for line in text_section {
-                        match line {
-                            _TextLine::Label(label) => {
-                                let loc = get_line_and_column(input_str, label.pos);
-
-                                if self.labels.contains_key(&label.name) {
-                                    panic!("Duplicate label '{}' at {}:{}", label.name, loc.line, loc.column);
-                                } else {
-                                    self.labels.insert(label.name.clone(), self.instr_cnt);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _Section::Data(_) => {}
+                ASTSection::Data(_) => {}
             }
         }
     }
 
-    fn parse(path: &String, input_str: &str) -> Result<_Assembly, Result<Program, LoadError>> {
+    fn parse(&mut self) -> Result<ASTAssembly, Result<Program, LoadError>> {
+        let x = &self.input_string;
         let parse_result = assembly::AssemblyParser::new()
-            .parse(input_str);
+            .parse(x.as_str());
 
-        let assembly: _Assembly = match parse_result {
+        let assembly: ASTAssembly = match parse_result {
             Ok(a) => a,
             Err(err) => {
                 let cause = match err {
                     ParseError::InvalidToken { location } => {
-                        let loc = get_line_and_column(input_str, location);
+                        let loc = self.getSourceLocation(location);
                         format!("Invalid token at  at {}:{}", loc.line, loc.column)
                     }
                     ParseError::UnrecognizedToken { token, expected } => {
-                        let loc = get_line_and_column(input_str, token.0);
+                        let loc = self.getSourceLocation(token.0);
                         format!("Unrecognized token '{}' at {}:{}. Expected: {:?}", token.1, loc.line, loc.column, expected)
                     }
                     ParseError::ExtraToken { token } => {
-                        let loc = get_line_and_column(input_str, token.0);
+                        let loc = self.getSourceLocation(token.0);
                         format!("Extra token '{}' at {}:{}", token.1, loc.line, loc.column)
                     }
                     _ => format!("Error: {:?}", err),
                 };
 
-                let msg = format!("Failed to load '{}', cause {}", path, cause);
-
-                //
-                // let loc = get_line_and_column(input.as_str(), e.)
-                // panic!("{}",e);
-
-                return Err(Err(LoadError::ParseError(msg)));
+                return Err(Err(LoadError::ParseError(cause)));
             }
         };
         Ok(assembly)
     }
+
+    fn getSourceLocation(&self, offset: usize) -> SourceLocation {
+        let mut line = 1;
+        let mut col = 1;
+        let string = &self.input_string;
+        let input = string.as_str();
+        for (i, c) in input.char_indices() {
+            if i == offset {
+                break;
+            }
+            if c == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+        SourceLocation { line: line, column: col }
+    }
+
     //
     // fn first_pass(&mut self, root: Pairs<Rule>) {
     //     for pair in root {
@@ -328,6 +326,68 @@ impl Loader {
     // }
 }
 
+
+pub struct SymbolScan<'a> {
+    loader: &'a mut Loader,
+}
+
+impl ASTVisitor for SymbolScan<'_> {
+    fn visit_data(&mut self, ast_data: &ASTData) {
+        if !is_valid_variable_name(&ast_data.name) {
+            let loc = self.loader.getSourceLocation(ast_data.pos);
+            self.loader.errors.push(format!("Illegal variable name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+        }
+
+        if self.loader.data_section.contains_key(&ast_data.name) {
+            let loc = self.loader.getSourceLocation(ast_data.pos);
+            self.loader.errors.push(format!("Duplicate variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+        }
+
+        self.loader.data_section.insert(ast_data.name.clone(),
+                                        Rc::new(Data { value: ast_data.value as WordType, offset: self.loader.heap_size as u64 }));
+        self.loader.heap_size += 1;
+    }
+
+    fn visit_instr(&mut self, ast_instr: &ASTInstr) {
+        self.loader.instr_cnt+=1;
+    }
+
+    fn visit_label(&mut self, ast_label: &ASTLabel) {
+        if self.loader.labels.contains_key(&ast_label.name) {
+            let loc = self.loader.getSourceLocation(ast_label.pos);
+            self.loader.errors.push(format!("Duplicate label '{}' at {}:{}", ast_label.name, loc.line, loc.column));
+        } else {
+            self.loader.labels.insert(ast_label.name.clone(), self.loader.instr_cnt);
+        }
+    }
+}
+
+pub struct ProgramGeneration<'a> {
+    loader: &'a mut Loader,
+
+}
+
+impl ASTVisitor for ProgramGeneration<'_> {
+    fn visit_operand(&mut self, ast_operand: &ASTOperand) {
+        match ast_operand {
+            Register(_, _) => {}
+            ASTOperand::Immediate(_, _) => {}
+            ASTOperand::Label(_, _) => {}
+            ASTOperand::Unused() => {}
+        }
+        todo!()
+    }
+
+    fn visit_instr(&mut self, ast_instr: &ASTInstr) {
+        todo!()
+    }
+
+    fn visit_directive(&mut self, ast_directive: &ASTDirective) {
+        todo!()
+    }
+}
+
+
 fn is_valid_variable_name(name: &String) -> bool {
     if name.is_empty() {
         return false;
@@ -359,6 +419,7 @@ pub fn load(cpu_config: CPUConfig, path: &str) -> Result<Program, LoadError> {
         instr_cnt: 0,
         entry_point: 0,
         errors: Vec::new(),
+        input_string: String::new(),
     };
 
     return loader.load();

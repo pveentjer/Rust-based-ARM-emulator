@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::loader::ast::{_Operand, _Instr, _Data, _Section, _Assembly, _Directive, _TextLine, _DataLine, _Label,_Preamble};
+use crate::loader::ast::{ASTOperand, ASTInstr, ASTData, ASTSection, ASTAssembly, ASTDirective, ASTTextLine, ASTDataLine, ASTLabel,ASTPreamble};
 use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
@@ -29,7 +29,7 @@ DirectiveName: String = {
     r"\.[a-zA-Z]+" => String::from(<>),
 }
 
-Operand: _Operand = {
+Operand: ASTOperand = {
     Register,
     Immediate,
     LabelOperand,
@@ -40,82 +40,82 @@ Operand: _Operand = {
 //     "[" <r:Register> "]" => Operand::MemoryAccess(r),
 //}
 
-Register: _Operand = {
+Register: ASTOperand = {
     <start:@L> <r:r"r[0-9]+">   =>
                                 {
                                     let mut s = String::from(r);
                                     s.remove(0);
-                                    _Operand::Register(s.parse::<u64>().unwrap(), start)
+                                    ASTOperand::Register(s.parse::<u64>().unwrap(), start)
                                 },
-    <start:@L>  "fp"            => _Operand::Register(FP as u64, start),
-    <start:@L>  "sp"            => _Operand::Register(SP as u64, start),
-    <start:@L>  "lr"            => _Operand::Register(LR as u64, start),
-    <start:@L>  "pc"            => _Operand::Register(PC as u64, start)
+    <start:@L>  "fp"            => ASTOperand::Register(FP as u64, start),
+    <start:@L>  "sp"            => ASTOperand::Register(SP as u64, start),
+    <start:@L>  "lr"            => ASTOperand::Register(LR as u64, start),
+    <start:@L>  "pc"            => ASTOperand::Register(PC as u64, start)
 };
 
-Immediate: _Operand = {
+Immediate: ASTOperand = {
    // # todol space allowed and not good
     //"#" <Integer> => Operand::Immediate(<>),
-    <start:@L> "#" <i:Integer> => _Operand::Immediate(i, start),
+    <start:@L> "#" <i:Integer> => ASTOperand::Immediate(i, start),
 };
 
-LabelOperand: _Operand = {
-     <start:@L> <l:LabelName> => _Operand::Label(l, start),
+LabelOperand: ASTOperand = {
+     <start:@L> <l:LabelName> => ASTOperand::Label(l, start),
 };
 
-Directive: _Directive = {
-   <start:@L> ".global" <l:LabelName> => _Directive::Global(l, start),
+Directive: ASTDirective = {
+   <start:@L> ".global" <l:LabelName> => ASTDirective::Global(l, start),
 }
 
-DataLine: _DataLine = {
-    Data => _DataLine::Data(<>),
-    Directive => _DataLine::Directive(<>)
+DataLine: ASTDataLine = {
+    Data => ASTDataLine::Data(<>),
+    Directive => ASTDataLine::Directive(<>)
 }
 
-Section:_Section = {
+Section:ASTSection = {
     DataSection,
     TextSection
 }
 
-Data: _Data = {
-    <start:@L> <n:VariableName> ":" ".word" <v:Integer> => _Data{name:n, value:v, pos:start}
+Data: ASTData = {
+    <start:@L> <n:VariableName> ":" ".word" <v:Integer> => ASTData{name:n, value:v, pos:start}
 }
 
-DataSection:_Section = {
-    ".data" <DataLine+>                 => _Section::Data(<>),
-    ".section" ".data" <DataLine+>      => _Section::Data(<>),
+DataSection:ASTSection = {
+    ".data" <DataLine+>                 => ASTSection::Data(<>),
+    ".section" ".data" <DataLine+>      => ASTSection::Data(<>),
 }
 
-Label: _Label = {
-    <start:@L> <n:LabelName> ":" => _Label{name:n, pos:start},
+Label: ASTLabel = {
+    <start:@L> <n:LabelName> ":" => ASTLabel{name:n, pos:start},
 }
 
-Instr: _Instr = {
+Instr: ASTInstr = {
 //   <start:@L> <m:Mnemonic>
 //            => Instr{mnemonic:m, op1:Operand::Unused(), op2:Operand::Unused(), op3:Operand::Unused()},
    <start:@L> <m:Mnemonic>  <o1:Operand>
-             => _Instr{mnemonic:m, op1:o1, op2:_Operand::Unused(), op3:_Operand::Unused(), pos:start},
+             => ASTInstr{mnemonic:m, op1:o1, op2:ASTOperand::Unused(), op3:ASTOperand::Unused(), pos:start},
    <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand>
-             => _Instr{mnemonic:m, op1:o1, op2:o2, op3:_Operand::Unused(), pos:start},
+             => ASTInstr{mnemonic:m, op1:o1, op2:o2, op3:ASTOperand::Unused(), pos:start},
    <start:@L> <m:Mnemonic>  <o1:Operand> Operand_Sep <o2:Operand> Operand_Sep <o3:Operand>
-             => _Instr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
+             => ASTInstr{mnemonic:m, op1:o1, op2:o2, op3:o3, pos:start},
 }
 
-TextSection: _Section = {
-    ".text" <TextLine+>             => _Section::Text(<>),
-    ".section" ".text" <TextLine+>  => _Section::Text(<>),
+TextSection: ASTSection = {
+    ".text" <TextLine+>             => ASTSection::Text(<>),
+    ".section" ".text" <TextLine+>  => ASTSection::Text(<>),
 }
 
-TextLine: _TextLine = {
-    Instr                           => _TextLine::Text(<>),
-    Directive                       => _TextLine::Directive(<>),
-    Label                           => _TextLine::Label(<>),
+TextLine: ASTTextLine = {
+    Instr                           => ASTTextLine::Text(<>),
+    Directive                       => ASTTextLine::Directive(<>),
+    Label                           => ASTTextLine::Label(<>),
 }
 
-Preamble: _Preamble ={
-    Directive* => _Preamble{directives:<>},
+Preamble: ASTPreamble ={
+    Directive* => ASTPreamble{directives:<>},
 }
 
-pub Assembly:_Assembly = {
-    <p:Preamble> <s:Section*> => _Assembly{preamble:p, sections:s},
+pub Assembly:ASTAssembly = {
+    <p:Preamble> <s:Section*> => ASTAssembly{preamble:p, sections:s},
 }
