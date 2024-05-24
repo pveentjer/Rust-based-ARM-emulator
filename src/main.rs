@@ -33,7 +33,7 @@ fn main() {
             dispatch: false,
             execute: false,
             retire: false,
-            cycle: false,
+            cycle: true,
         },
         retire_n_wide: 4,
         dispatch_n_wide: 4,
@@ -41,7 +41,7 @@ fn main() {
         stack_capacity: 32,
     };
 
-    let path = "foo.asm";
+    let path = "program5.asm";
     println!("Loading {}",path);
     let load_result = load(cpu_config.clone(), path);
     let program = match load_result {

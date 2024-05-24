@@ -147,7 +147,6 @@ impl Backend {
                     rob_slot.result.push(target as i64);
                 }
                 Opcode::B => {
-                    println!("B is_control:{}",instr.is_control);
                     // update the PC
                     rob_slot.result.push(rs.source[0].get_code_address() as i64);
                 }

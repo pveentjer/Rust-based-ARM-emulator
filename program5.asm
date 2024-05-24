@@ -2,27 +2,20 @@
     a1: .word 1
     a2: .word 1
     a3: .word 0
-
-.section .text
 .section .text
 .global _start
 _start:
-    ADR R0, =a1
-    LDR R0, [R0]
-    ADR R1, =a2
-    LDR R1, [R1]
+    MOV r0, =a1;
+    LDR r0, [r0];
+    MOV r1, =a2;
+    LDR r1, [r1];
 _loop:
-    BL _add_numbers  @ add R0 and R1 and write to R2
-    PRINTR R2
-    ADR R2, =a3
-    STR R2, [R2]
-    MOV R0, R2      @ copy R2 into R0
-    B _loop
+    BL _add_numbers;
+    PRINTR r2;
+    MOV r2, =a3;
+    STR r2, [r2];
+    MOV r0, r2;
+    B _loop;
 _add_numbers:
-    NOP
-    NOP
-    NOP
-    NOP
-    NOP
-    ADD R2, R0, R1
-    BX LR
+    ADD r2, r0, r1;
+    BX lr;
