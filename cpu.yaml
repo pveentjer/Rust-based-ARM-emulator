@@ -1,0 +1,21 @@
+phys_reg_count: 64
+frontend_n_wide: 4
+instr_queue_capacity: 32
+frequency_hz: 10
+rs_count: 16
+memory_size: 128
+sb_capacity: 16
+lfb_count: 4
+rob_capacity: 64
+eu_count: 8
+trace:
+  decode: false
+  issue: false
+  dispatch: false
+  execute: false
+  retire: false
+  cycle: false
+retire_n_wide: 4
+dispatch_n_wide: 4
+issue_n_wide: 4
+stack_capacity: 256

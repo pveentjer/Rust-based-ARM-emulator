@@ -1,8 +1,9 @@
+use std::error::Error;
 use std::process::exit;
 use std::rc::Rc;
 use lalrpop_util::lalrpop_mod;
 
-use crate::cpu::{CPU, CPUConfig, Trace};
+use crate::cpu::{CPU, load_cpu_config};
 use crate::loader::loader::{load, LoadError};
 
 mod cpu;
@@ -16,29 +17,13 @@ mod memory_subsystem;
 lalrpop_mod!(pub assembly, "/loader/assembly.rs");
 
 fn main() {
-    let cpu_config = CPUConfig {
-        phys_reg_count: 64,
-        frontend_n_wide: 4,
-        instr_queue_capacity: 8,
-        frequency_hz: 4,
-        rs_count: 16,
-        memory_size: 128,
-        sb_capacity: 16,
-        lfb_count: 8,
-        rob_capacity: 32,
-        eu_count: 16,
-        trace: Trace {
-            decode: false,
-            issue: false,
-            dispatch: false,
-            execute: false,
-            retire: false,
-            cycle: true,
-        },
-        retire_n_wide: 4,
-        dispatch_n_wide: 4,
-        issue_n_wide: 4,
-        stack_capacity: 32,
+    let cpu_config_path = "cpu.yaml";
+    let cpu_config = match load_cpu_config(cpu_config_path){
+        Ok(config) => config,
+        Err(error) => {
+            println!("Failed to load {}. Cause:",error);
+            exit(0);
+        }
     };
 
     let path = "asm/load_store.asm";

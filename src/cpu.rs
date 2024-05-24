@@ -1,22 +1,16 @@
 use std::cell::RefCell;
+use std::error::Error;
+use std::fs::File;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
+use serde::Deserialize;
 
 use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
 use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
-#[derive(Clone)]
-pub(crate) struct Trace {
-    pub decode: bool,
-    pub issue: bool,
-    pub dispatch: bool,
-    pub execute: bool,
-    pub retire: bool,
-    pub cycle: bool,
-}
 
 pub(crate) struct PerfCounters {
     pub decode_cnt: u64,
@@ -33,7 +27,17 @@ impl PerfCounters {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize,Debug)]
+pub(crate) struct Trace {
+    pub decode: bool,
+    pub issue: bool,
+    pub dispatch: bool,
+    pub execute: bool,
+    pub retire: bool,
+    pub cycle: bool,
+}
+
+#[derive(Clone, Deserialize,Debug)]
 pub(crate) struct CPUConfig {
     // the number of physical registers
     pub(crate) phys_reg_count: u16,
@@ -68,6 +72,13 @@ pub(crate) struct CPUConfig {
     // The size of the stack
     pub(crate) stack_capacity: u32,
 }
+
+pub fn load_cpu_config(file_path: &str) -> Result<CPUConfig, Box<dyn Error>> {
+    let file = File::open(file_path)?;
+    let config = serde_yaml::from_reader(file)?;
+    Ok(config)
+}
+
 
 pub(crate) struct CPU {
     backend: Backend,
