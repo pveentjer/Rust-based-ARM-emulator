@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::fmt::format;
 use std::fs;
+use std::path::Path;
 use std::rc::Rc;
 use lalrpop_util::ParseError;
 
@@ -28,6 +30,7 @@ struct Loader {
 }
 
 pub enum LoadError {
+    NotFoundError(String),
     ParseError(String),
     AnalysisError(Vec<String>),
 }
@@ -303,11 +306,17 @@ fn is_valid_variable_name(name: &String) -> bool {
 }
 
 // for the time being we always return the same program
-pub fn load(cpu_config: CPUConfig, path: &str) -> Result<Program, LoadError> {
+pub fn load(cpu_config: CPUConfig, path_str: &str) -> Result<Program, LoadError> {
+    let path = Path::new(path_str);
+
+    if !path.exists() {
+        return Err(LoadError::NotFoundError(format!("File '{}' does not exist.", path_str)));
+    }
+
     let mut loader = Loader {
         heap_limit: 0,
         cpu_config,
-        path: String::from(path),
+        path: String::from(path_str),
         code: Vec::new(),
         data_section: HashMap::<String, Rc<Data>>::new(),
         labels: HashMap::<String, usize>::new(),

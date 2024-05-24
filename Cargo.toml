@@ -11,4 +11,7 @@ regex = "1.10.4"
 lalrpop-util = { version = "0.20.2", features = ["lexer", "unicode"] }
 
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8"
+serde_yaml = "0.8.26"
+
+structopt = "0.3"
+structopt-derive = "0.4"

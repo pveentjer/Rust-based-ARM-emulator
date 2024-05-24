@@ -61,4 +61,10 @@ And some none official ones:
 * PRINTR: prints the value of a register.
 
 
+## How to run
+
+```bash
+cargo run -- --file asm/high_cpi.asm --config cpu.yaml
+```
+
 More instructions will be added over time.
