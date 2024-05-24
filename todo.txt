@@ -1,12 +1,6 @@
 TODO
 
-- loader: label names with underscores
-
-- loader: variable names with underscores
-
 - loader: ast operand should have access to its pos
-
-- loader: every instruction should have an optional label in front of it
 
 - loader: case insensitive keywords/registers
 
@@ -37,21 +31,22 @@ TODO
 
 - implement BNE
 
-- Operand: Indexed
-
-- Operand: Indirect
-
 - store to load forwarding: currently the store in the sb isn't seen
-
-- loader: every instruction should have an optional label in front of it
-
-- memory access should not just be a variable, but could be some expression with one or more registers
-
-- loader: validate memory access
 
 - implement print of memory
 
+- CPU metrics frequency:
+    - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
+
 DONE
+
+- loader: validate memory access
+
+- loader: every instruction should have an optional label in front of it
+
+- loader: label names with underscores
+
+- loader: variable names with underscores
 
 - MemRegisterIndirect
 
