@@ -1162,4 +1162,4 @@ _start:
    NOP;
    NOP;
    NOP;
-    B _start;
+  B _start;
