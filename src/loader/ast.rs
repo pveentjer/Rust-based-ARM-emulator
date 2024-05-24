@@ -1,5 +1,16 @@
 use std::fmt::{Debug};
 
+/// The AST for an AssemblyFile
+///
+/// The reason why I'm using an AST that isn't tied to a particular parser generator is that
+/// it decouples the analysis of the assembly file from the parsing. I have used Pest and
+/// I'm now using Lalrpop. The latter gives much better parse errors, but I'm still not too
+/// excited because trivial things like case insensitivity, linefeeds, comments are not
+/// that easy to fix and the documentation isn't particularly helpful.
+///
+/// Because it is decoupled, it will make it easier to switch to a different parser generator
+/// at some point.
+
 #[derive(Debug)]
 pub enum ASTOperand {
     // register, position
@@ -101,7 +112,9 @@ pub trait ASTVisitor {
     fn visit_assembly_file(&mut self, ast_assembly: &ASTAssemblyFile) -> bool { true }
 }
 
-// Implement accept methods for each type
+
+// The visitor is a DFS visitor which is good enough for now. If more flexibility is needed
+// then the traversal of the visitor could be externalized
 impl ASTOperand {
     pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_operand(self)
