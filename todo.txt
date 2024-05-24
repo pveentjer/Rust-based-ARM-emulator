@@ -1,9 +1,5 @@
 TODO
 
-- configurable asm file
-
-- cpu config from Yaml file
-
 - unit tests!
 
 - integration tests!
@@ -40,6 +36,10 @@ TODO
 - load: CPU configuration from disk
 
 DONE
+
+- configurable asm file
+
+- cpu config from Yaml file
 
 - configurable cpu config
 

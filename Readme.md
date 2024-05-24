@@ -60,11 +60,11 @@ for concurrency control so that I get a better understanding of ownership.
 And some none official ones:
 * PRINTR: prints the value of a register.
 
+More instructions will be added over time.
 
 ## How to run
 
 ```bash
-cargo run -- --file asm/high_cpi.asm --config cpu.yaml
+cargo run -- --file asm/high_ipc.asm --config cpu.yaml
 ```
 
-More instructions will be added over time.
