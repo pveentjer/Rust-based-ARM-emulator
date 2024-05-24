@@ -127,7 +127,7 @@ pub struct SymbolScan<'a> {
 
 impl ASTVisitor for SymbolScan<'_> {
     fn visit_data(&mut self, ast_data: &ASTData) -> bool {
-        if self.loader.heap_limit == 0 {
+        if self.loader.heap_limit == self.loader.cpu_config.memory_size {
             let loc = self.loader.to_source_location(ast_data.pos);
             self.loader.errors.push(format!("Insufficient heap to declare variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
             return false;

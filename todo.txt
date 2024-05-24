@@ -1,8 +1,8 @@
 TODO
 
-- MemRegisterIndirect
+- loader: label names with underscores
 
--
+- loader: variable names with underscores
 
 - loader: ast operand should have access to its pos
 
@@ -52,6 +52,8 @@ TODO
 - implement print of memory
 
 DONE
+
+- MemRegisterIndirect
 
 - Top of RAM: The stack typically grows downward from the top of the RAM. This means that the initial stack pointer (SP) is set to the highest address of the available RAM.
 
