@@ -8,4 +8,3 @@ start:
     PRINTR r0;
     PRINTR pc;
     B start;
-    EXIT;
