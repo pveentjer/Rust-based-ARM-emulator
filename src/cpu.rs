@@ -45,7 +45,7 @@ pub(crate) struct CPUConfig {
     pub(crate) frontend_n_wide: u8,
     // the size of the instruction queue between frontend and backend
     pub(crate) instr_queue_capacity: u16,
-    // the frequence of the CPU in Hz.
+    // the frequency of the CPU in Hz.
     pub(crate) frequency_hz: u64,
     // the number of reservation stations
     pub(crate) rs_count: u16,
