@@ -1,8 +1,8 @@
 TODO
 
-- problem mov
+- MemRegisterIndirect
 
-- memory access with immediate offset
+-
 
 - loader: ast operand should have access to its pos
 
@@ -52,6 +52,10 @@ TODO
 - implement print of memory
 
 DONE
+
+- Top of RAM: The stack typically grows downward from the top of the RAM. This means that the initial stack pointer (SP) is set to the highest address of the available RAM.
+
+- problem mov
 
 - loader: memory access
 

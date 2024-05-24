@@ -34,15 +34,20 @@ Operand: ASTOperand = {
 }
 
 MemoryAccess: ASTOperand = {
-      <start:@L> "[" <b:Register> "]"                       => {
-        let ASTOperand::Register(register, _) = b else { panic!() };
-        ASTOperand::MemoryAccess(register, start)
-      },
-//      <start:@L> "[" <b:Register> "," <o:Immediate> "]"     => {
-//            l
-//            ASTOperand::MemoryAccessWithImmediate(b, o, start)
-//      }
-//      <start:@L> "[" <b:Register> "," <o:Register> "]"      => ASTOperand::MemoryAccessWithRegister(b, o, start),
+    <start:@L> "[" <b:Register> "]"                       => {
+                                                                let ASTOperand::Register(register, _) = b else { panic!() };
+                                                                ASTOperand::MemRegisterIndirect(register, start)
+                                                             },
+//    <start:@L> "[" <b:Register> "," <o:Immediate> "]"     => {
+//                                                                let ASTOperand::Register(register, _) = b else { panic!() };
+//                                                                let ASTOperand::Immediate(offset, _) = b else { panic!() };
+//                                                                ASTOperand::MemRegIndirectWithOffset(register, offset, start)
+//                                                             },
+//    <start:@L> "[" <b:Register> "," <r:Register> "]"     =>  {
+//                                                                let ASTOperand::Register(register, _) = b else { panic!() };
+//                                                                let ASTOperand::Register(offset, _) = b else { panic!() };
+//                                                                ASTOperand::MemRegIndirectWithRegOffset(register, offset, start)
+//                                                             },
 }
 
 // with a regular expression, the following would lead to conflicts.

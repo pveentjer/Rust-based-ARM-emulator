@@ -150,7 +150,7 @@ impl ASTVisitor for SymbolScan<'_> {
 
         self.loader.data_section.insert(ast_data.name.clone(),
                                         Rc::new(Data { value: ast_data.value as WordType, offset: self.loader.heap_limit as u64 }));
-        self.loader.heap_limit -= 1;
+        self.loader.heap_limit += 1;
         true
     }
 
@@ -221,9 +221,13 @@ impl ASTVisitor for ProgramGeneration<'_> {
             }
 
             ASTOperand::Unused() => {}
-            ASTOperand::MemoryAccess(register, pos) => {
+            ASTOperand::MemRegisterIndirect(register, pos) => {
+                // address
                 self.operand_stack.push(Operand::Register(*register as RegisterType));
+                // offset
+                //self.operand_stack.push(Operand::Immediate(0));
             }
+            //ASTOperand::MemoryAccessWithImmediate(_, _, _) => {}
         };
 
         true
@@ -301,7 +305,7 @@ fn is_valid_variable_name(name: &String) -> bool {
 // for the time being we always return the same program
 pub fn load(cpu_config: CPUConfig, path: &str) -> Result<Program, LoadError> {
     let mut loader = Loader {
-        heap_limit: cpu_config.memory_size - 1,
+        heap_limit: 0,
         cpu_config,
         path: String::from(path),
         code: Vec::new(),

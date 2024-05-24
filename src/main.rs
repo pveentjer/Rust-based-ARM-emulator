@@ -22,7 +22,7 @@ fn main() {
         instr_queue_capacity: 8,
         frequency_hz: 4,
         rs_count: 16,
-        memory_size: 32,
+        memory_size: 128,
         sb_capacity: 16,
         lfb_count: 8,
         rob_capacity: 32,
