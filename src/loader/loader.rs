@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::format;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;

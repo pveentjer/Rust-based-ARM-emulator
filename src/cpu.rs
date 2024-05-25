@@ -105,7 +105,7 @@ impl CPU {
         // on ARM the stack grows down (from larger address to smaller address)
         arch_reg_file.borrow_mut().set_value(SP, cpu_config.memory_size as WordType);
 
-        let mut frontend_control = Rc::new(RefCell::new(
+        let frontend_control = Rc::new(RefCell::new(
             FrontendControl { halted: false }));
 
         let backend = Backend::new(

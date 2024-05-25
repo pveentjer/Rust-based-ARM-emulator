@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::process::exit;
 use std::rc::Rc;
 use lalrpop_util::lalrpop_mod;
@@ -19,7 +18,7 @@ mod memory_subsystem;
 lalrpop_mod!(pub assembly, "/loader/assembly.rs");
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "MyApp")]
+#[structopt(name = "ARM CPU Emulator")]
 struct Opt {
     /// Path of the file to load
     #[structopt(short, long, parse(from_os_str))]
