@@ -1,4 +1,15 @@
 TODO
+- BEQ label
+
+- BNE label
+
+- BLE label
+
+- BLT label
+
+- BGE label
+
+- BGT label
 
 - fix NOT instruction
 
@@ -21,12 +32,6 @@ TODO
 - instruction print should use labels
 
 - instructions should keep their labels
-
-- implement CMP
-
-- implement BE
-
-- implement BNE
 
 - store to load forwarding: currently the store in the sb isn't seen
 

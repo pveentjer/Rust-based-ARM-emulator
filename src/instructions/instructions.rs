@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 use Operand::Memory;
-use crate::cpu::{GENERAL_ARG_REG_CNT, SP};
+use crate::cpu::{CPSR, GENERAL_ARG_REG_CNT, SP};
 use crate::cpu::LR;
 use crate::cpu::PC;
 use crate::cpu::FP;
@@ -44,6 +44,13 @@ pub enum Opcode {
     ORR,
     EOR,
     MVN,
+    CMP,
+    BEQ,
+    BNE,
+    BLE,
+    BLT,
+    BGE,
+    BGT,
 }
 
 pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
@@ -69,6 +76,13 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::EOR => "EOR",
         Opcode::MVN => "MVN",
         Opcode::EXIT => "EXIT",
+        Opcode::CMP => "CMP",
+        Opcode::BEQ => "BEQ",
+        Opcode::BNE => "BNE",
+        Opcode::BLE => "BLE",
+        Opcode::BLT => "BLT",
+        Opcode::BGE => "BGE",
+        Opcode::BGT => "BGT",
     }
 }
 
@@ -98,6 +112,13 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "MVN" => Some(Opcode::MVN),
         "BL" => Some(Opcode::BL),
         "EXIT" => Some(Opcode::EXIT),
+        "CMP" => Some(Opcode::CMP),
+        "BEQ" => Some(Opcode::BEQ),
+        "BNE" => Some(Opcode::BNE),
+        "BLE" => Some(Opcode::BLE),
+        "BLT" => Some(Opcode::BLT),
+        "BGE" => Some(Opcode::BGE),
+        "BGT" => Some(Opcode::BGT),
         _ => None,
     }
 }
@@ -257,7 +278,29 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
             instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?
+            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
+        }
+        Opcode::CMP => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            instr.source_cnt = 3;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            instr.source[1] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
+            instr.source[2] = Register(CPSR);
+
+            instr.sink_cnt = 1;
+            instr.sink[0] = Register(CPSR);
+        }
+        Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            instr.source_cnt = 3;
+            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
+            instr.source[1] = Register(CPSR);
+            instr.source[2] = Register(PC);
+
+            instr.sink_cnt = 1;
+            instr.sink[0] = Register(PC);
         }
     }
 
@@ -297,14 +340,14 @@ fn is_control_operand(op: &Operand) -> bool {
     matches!(op, Register(register) if *register == PC)
 }
 
-pub(crate) const NOP:Instr = Instr {
+pub(crate) const NOP: Instr = Instr {
     cycles: 1,
     opcode: Opcode::NOP,
     source_cnt: 0,
     source: [Operand::Unused, Operand::Unused, Operand::Unused],
     sink_cnt: 0,
     sink: [Operand::Unused, Operand::Unused],
-    loc:None,
+    loc: None,
     mem_stores: 0,
     is_control: false,
 };
@@ -316,7 +359,7 @@ pub(crate) const EXIT: Instr = Instr {
     source: [Operand::Unused, Operand::Unused, Operand::Unused],
     sink_cnt: 0,
     sink: [Operand::Unused, Operand::Unused],
-    loc:None,
+    loc: None,
     mem_stores: 0,
     is_control: false,
 };
@@ -423,7 +466,10 @@ impl fmt::Display for Instr {
             Opcode::CBNZ => write!(f, "{}, {}", self.source[0], self.source[1])?,
             Opcode::NEG => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::MVN => write!(f, "{}, {}", self.sink[0], self.source[0])?,
+            Opcode::CMP => write!(f, "{}, {}", self.source[0], self.source[1])?,
             Opcode::EXIT => {}
+            Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE =>
+                write!(f, "{}", self.source[0])?,
         }
 
         if let Some(loc) = self.loc {

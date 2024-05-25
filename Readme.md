@@ -57,6 +57,13 @@ for concurrency control so that I get a better understanding of ownership.
 * EOR
 * MVN
 * NOP
+* CMP
+* BEQ
+* BNE
+* BLE
+* BLT
+* BGE
+* BGT
 
 And some none official ones:
 * PRINTR: prints the value of a register.

@@ -6,7 +6,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
-use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
+use crate::cpu::{ArgRegFile, CARRY_FLAG_BIT_POSITION, CPUConfig, NEGATIVE_FLAG_BIT_POSITION, OVERFLOW_FLAG_BIT_POSITION, PerfCounters, Trace, ZERO_FLAG_BIT_POSITION};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -111,7 +111,7 @@ impl Backend {
                 Opcode::NEG => rob_slot.result.push(-rs.source[0].get_constant()),
                 Opcode::AND => rob_slot.result.push(rs.source[0].get_constant() & rs.source[1].get_constant()),
                 Opcode::MOV => rob_slot.result.push(rs.source[0].get_constant()),
-                Opcode::ADR => { },
+                Opcode::ADR => {}
                 Opcode::ORR => rob_slot.result.push(rs.source[0].get_constant() | rs.source[1].get_constant()),
                 Opcode::EOR => rob_slot.result.push(rs.source[0].get_constant() ^ rs.source[1].get_constant()),
                 Opcode::MVN => rob_slot.result.push(!rs.source[0].get_constant()),
@@ -120,29 +120,124 @@ impl Backend {
                 Opcode::PRINTR => {
                     println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_constant());
                 }
-                Opcode::CBZ|Opcode::CBNZ => {
+                Opcode::CMP => {
+                    let rn = rs.source[0].get_constant();
+                    let operand2 = rs.source[1].get_constant();
+                    let cprs_value = rs.source[2].get_constant();
+
+                    // Perform the comparison: rn - operand2
+                    let result = rn.wrapping_sub(operand2);
+
+                    // Update the CPSR flags based on the result
+                    let zero_flag = result == 0;
+                    let negative_flag = result < 0;
+                    let carry_flag = (rn as u64).wrapping_sub(operand2 as u64) > (rn as u64); // Checking for borrow
+                    let overflow_flag = ((rn ^ operand2) & (rn ^ result)) >> (std::mem::size_of::<i64>() * 8 - 1) != 0;
+
+                    let mut new_cprs_value = cprs_value;
+                    if zero_flag {
+                        new_cprs_value |= 1 << ZERO_FLAG_BIT_POSITION;
+                    } else {
+                        new_cprs_value &= !(1 << ZERO_FLAG_BIT_POSITION);
+                    }
+
+                    if negative_flag {
+                        new_cprs_value |= 1 << NEGATIVE_FLAG_BIT_POSITION;
+                    } else {
+                        new_cprs_value &= !(1 << NEGATIVE_FLAG_BIT_POSITION);
+                    }
+
+                    if carry_flag {
+                        new_cprs_value |= 1 << CARRY_FLAG_BIT_POSITION;
+                    } else {
+                        new_cprs_value &= !(1 << CARRY_FLAG_BIT_POSITION);
+                    }
+
+                    if overflow_flag {
+                        new_cprs_value |= 1 << OVERFLOW_FLAG_BIT_POSITION;
+                    } else {
+                        new_cprs_value &= !(1 << OVERFLOW_FLAG_BIT_POSITION);
+                    }
+
+                    // Update CPRS
+                    rob_slot.result.push(new_cprs_value as i64);
+                }
+                Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
+                    let branch_target = rs.source[0].get_constant();
+                    let cpsr = rs.source[1].get_code_address();
+                    let pc = rs.source[2].get_constant();
+                    let pc_update = match rs.opcode {
+                        Opcode::BEQ => {
+                            if cpsr == 0 {
+                                branch_target
+                            } else {
+                                pc
+                            }
+                        }
+                        Opcode::BNE => {
+                            if cpsr != 0 {
+                                branch_target
+                            } else {
+                                pc
+                            }
+                        }
+                        Opcode::BLT => {
+                            if cpsr < 0 {
+                                branch_target
+                            } else {
+                                pc
+                            }
+                        }
+                        Opcode::BLE => {
+                            if cpsr <= 0 {
+                                branch_target
+                            } else {
+                                pc
+                            }
+                        }
+                        Opcode::BGT => {
+                            if cpsr > 0 {
+                                branch_target
+                            } else {
+                                pc
+                            }
+                        }
+                        Opcode::BGE => {
+                            if cpsr >= 0 {
+                                branch_target
+                            } else {
+                                pc
+                            }
+                        }
+                        _ => panic!("Unhandled opcode {:?}", rs.opcode),
+                    };
+                    // Update pc
+                    rob_slot.result.push(pc_update as i64);
+                }
+                Opcode::CBZ | Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_constant();
                     let branch_target = rs.source[1].get_code_address();
-                    let pc_value = rs.source[2].get_constant();
-                    let target = match instr.opcode {
+                    let pc = rs.source[2].get_constant();
+                    let pc_update = match instr.opcode {
                         Opcode::CBZ => {
                             if reg_value == 0 {
                                 branch_target
-                            }else{
-                                pc_value
+                            } else {
+                                pc
                             }
                         }
                         Opcode::CBNZ => {
                             if reg_value != 0 {
                                 branch_target
-                            }else{
-                                pc_value
+                            } else {
+                                pc
                             }
                         }
                         _ => unreachable!(),
                     };
 
-                    rob_slot.result.push(target as i64);
+                    // update the PC
+                    rob_slot.result.push(pc_update as i64);
                 }
                 Opcode::B => {
                     // update the PC

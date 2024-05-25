@@ -177,6 +177,11 @@ pub const LR: u16 = 14;
 pub const PC: u16 = 15;
 pub const CPSR: u16 = GENERAL_ARG_REG_CNT;
 
+pub const ZERO_FLAG_BIT_POSITION: u8 = 30;
+pub const NEGATIVE_FLAG_BIT_POSITION: u8 = 31;
+pub const CARRY_FLAG_BIT_POSITION: u8 = 29;
+pub const OVERFLOW_FLAG_BIT_POSITION: u8 = 28;
+
 struct ArgRegEntry {
     pub(crate) value: WordType,
 }
