@@ -1,5 +1,7 @@
 TODO
 
+- fix NOT instruction
+
 - unit tests!
 
 - integration tests!

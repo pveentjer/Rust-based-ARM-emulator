@@ -44,7 +44,7 @@ pub enum Opcode {
     ORR,
     EOR,
     // remove
-    NOT,
+    MVN,
 }
 
 pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
@@ -68,7 +68,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::AND => "AND",
         Opcode::ORR => "ORR",
         Opcode::EOR => "EOR",
-        Opcode::NOT => "NOT",
+        Opcode::MVN => "MVN",
         Opcode::EXIT => "EXIT",
     }
 }
@@ -96,7 +96,7 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "AND" => Some(Opcode::AND),
         "ORR" => Some(Opcode::ORR),
         "EOR" => Some(Opcode::EOR),
-        "NOT" => Some(Opcode::NOT),
+        "MVN" => Some(Opcode::MVN),
         "BL" => Some(Opcode::BL),
         "EXIT" => Some(Opcode::EXIT),
         _ => None,
@@ -251,7 +251,15 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
         }
-        Opcode::NOT => {}
+        Opcode::MVN => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            instr.sink_cnt = 1;
+            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+
+            instr.source_cnt = 1;
+            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?
+        }
     }
 
     instr.is_control = is_control(&instr);
@@ -419,7 +427,7 @@ impl fmt::Display for Instr {
             Opcode::CBZ |
             Opcode::CBNZ => write!(f, "{}, {}", self.source[0], self.source[1])?,
             Opcode::NEG => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-            Opcode::NOT => {}
+            Opcode::MVN => {}
             Opcode::EXIT => {}
         }
 

@@ -110,13 +110,11 @@ impl Backend {
                 Opcode::SDIV => rob_slot.result.push(rs.source[0].get_constant() / rs.source[1].get_constant()),
                 Opcode::NEG => rob_slot.result.push(-rs.source[0].get_constant()),
                 Opcode::AND => rob_slot.result.push(rs.source[0].get_constant() & rs.source[1].get_constant()),
+                Opcode::MOV => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::ADR => { },
                 Opcode::ORR => rob_slot.result.push(rs.source[0].get_constant() | rs.source[1].get_constant()),
                 Opcode::EOR => rob_slot.result.push(rs.source[0].get_constant() ^ rs.source[1].get_constant()),
-                Opcode::NOT => rob_slot.result.push(!rs.source[0].get_constant()),
-                Opcode::MOV => {
-                    rob_slot.result.push(rs.source[0].get_constant())
-                },
+                Opcode::MVN => rob_slot.result.push(!rs.source[0].get_constant()),
                 Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_constant() as usize]),
                 Opcode::STR => rob_slot.result.push(rs.source[0].get_constant()),
                 Opcode::PRINTR => {

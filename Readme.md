@@ -55,6 +55,7 @@ for concurrency control so that I get a better understanding of ownership.
 * AND
 * ORR
 * EOR
+* MVN
 * NOP
 
 And some none official ones:
