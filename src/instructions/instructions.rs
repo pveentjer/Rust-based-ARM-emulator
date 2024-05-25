@@ -471,6 +471,7 @@ impl fmt::Display for Operand {
                     LR => write!(f, "LR"),
                     SP => write!(f, "SP"),
                     PC => write!(f, "PC"),
+                    CPSR => write!(f, "CPSR"),
                     _ => write!(f, "R{}", reg),
                 }
             }  // Add a comma here

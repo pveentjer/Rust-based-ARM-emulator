@@ -39,6 +39,8 @@ TODO
 
 DONE
 
+- add the CPSR (needed for CMP and relevant ops to work)
+
 - configurable asm file
 
 - cpu config from Yaml file

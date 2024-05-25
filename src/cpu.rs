@@ -27,7 +27,7 @@ impl PerfCounters {
     }
 }
 
-#[derive(Clone, Deserialize,Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub(crate) struct Trace {
     pub decode: bool,
     pub issue: bool,
@@ -37,7 +37,7 @@ pub(crate) struct Trace {
     pub cycle: bool,
 }
 
-#[derive(Clone, Deserialize,Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub(crate) struct CPUConfig {
     // the number of physical registers
     pub(crate) phys_reg_count: u16,
@@ -79,7 +79,6 @@ pub fn load_cpu_config(file_path: &str) -> Result<CPUConfig, Box<dyn Error>> {
     Ok(config)
 }
 
-
 pub(crate) struct CPU {
     backend: Backend,
     frontend: Frontend,
@@ -100,7 +99,7 @@ impl CPU {
             MemorySubsystem::new(cpu_config)));
 
         let arch_reg_file = Rc::new(RefCell::new(
-            ArgRegFile::new(GENERAL_ARG_REG_CNT)));
+            ArgRegFile::new(GENERAL_ARG_REG_CNT + SPECIAL_ARG_REG_CNT)));
 
         // on ARM the stack grows down (from larger address to smaller address)
         arch_reg_file.borrow_mut().set_value(SP, cpu_config.memory_size as WordType);
@@ -171,10 +170,12 @@ impl CPU {
 }
 
 pub const GENERAL_ARG_REG_CNT: u16 = 31;
+pub const SPECIAL_ARG_REG_CNT: u16 = 1;
 pub const FP: u16 = 11;
 pub const SP: u16 = 13;
 pub const LR: u16 = 14;
 pub const PC: u16 = 15;
+pub const CPSR: u16 = GENERAL_ARG_REG_CNT;
 
 struct ArgRegEntry {
     pub(crate) value: WordType,
