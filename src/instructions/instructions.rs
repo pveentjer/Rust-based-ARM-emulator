@@ -37,13 +37,12 @@ pub enum Opcode {
     BL,
     CBZ,
     CBNZ,
-    // remove
+    // Acts like a poison pill. It isn't a public instruction.
     EXIT,
     NEG,
     AND,
     ORR,
     EOR,
-    // remove
     MVN,
 }
 
@@ -274,7 +273,6 @@ fn validate_operand_count(expected: usize, operands: &Vec<Operand>, opcode: Opco
     Ok(())
 }
 
-
 fn validate_operand(op_index: usize, operands: &Vec<Operand>, opcode: Opcode, acceptable_types: &[Operand]) -> Result<Operand, String> {
     let operand = operands[op_index];
 
@@ -289,7 +287,6 @@ fn validate_operand(op_index: usize, operands: &Vec<Operand>, opcode: Opcode, ac
     Err(format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
                 opcode, acceptable_names_str, op_index + 1, operand.base_name()))
 }
-
 
 fn is_control(instr: &Instr) -> bool {
     instr.source.iter().any(|op| is_control_operand(op)) ||
@@ -328,8 +325,6 @@ pub(crate) type RegisterType = u16;
 pub(crate) type WordType = i64;
 
 // The InstrQueue sits between frontend and backend
-// The 'a lifetime specifier tells that the instructions need to live as least as long
-// as the instruction queue.
 pub(crate) struct InstrQueue {
     capacity: u16,
     head: u64,
@@ -427,7 +422,7 @@ impl fmt::Display for Instr {
             Opcode::CBZ |
             Opcode::CBNZ => write!(f, "{}, {}", self.source[0], self.source[1])?,
             Opcode::NEG => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-            Opcode::MVN => {}
+            Opcode::MVN => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::EXIT => {}
         }
 
