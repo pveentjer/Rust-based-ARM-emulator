@@ -81,7 +81,7 @@ impl Frontend {
                         self.exit = true;
                     }
 
-                    let is_control = instr.is_control;
+                    let is_control = instr.is_control();
 
                     // todo: what about cloning?
                     instr_queue.enqueue(instr);

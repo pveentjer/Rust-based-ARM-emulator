@@ -51,6 +51,7 @@ pub enum Opcode {
     BLT,
     BGE,
     BGT,
+    DSB,
 }
 
 pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
@@ -83,6 +84,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::BLT => "BLT",
         Opcode::BGE => "BGE",
         Opcode::BGT => "BGT",
+        Opcode::DSB => "DSB",
     }
 }
 
@@ -119,6 +121,7 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "BLT" => Some(Opcode::BLT),
         "BGE" => Some(Opcode::BGE),
         "BGT" => Some(Opcode::BGT),
+        "DSB" => Some(Opcode::DSB),
         _ => None,
     }
 }
@@ -155,7 +158,7 @@ pub(crate) fn create_instr(opcode: Opcode,
         sink: [Unused, Unused],
         loc: Some(loc),
         mem_stores: 0,
-        is_control: false,
+        flags: 0,
     };
 
     match opcode {
@@ -259,8 +262,12 @@ pub(crate) fn create_instr(opcode: Opcode,
         }
         Opcode::EXIT => {
             validate_operand_count(0, operands, opcode, loc)?;
-
-            instr.is_control = true;
+            instr.set_control();
+        }
+        Opcode::DSB => {
+            validate_operand_count(0, operands, opcode, loc)?;
+            instr.set_rob_sync();
+            instr.set_sb_sync();
         }
         Opcode::NEG => {
             validate_operand_count(2, operands, opcode, loc)?;
@@ -304,7 +311,10 @@ pub(crate) fn create_instr(opcode: Opcode,
         }
     }
 
-    instr.is_control = is_control(&instr);
+    if ! instr.is_control() && has_control_operands(&instr) {
+        instr.set_control();
+    }
+
     return Ok(instr);
 }
 
@@ -331,7 +341,7 @@ fn validate_operand(op_index: usize, operands: &Vec<Operand>, opcode: Opcode, ac
                 opcode, acceptable_names_str, op_index + 1, operand.base_name()))
 }
 
-fn is_control(instr: &Instr) -> bool {
+fn has_control_operands(instr: &Instr) -> bool {
     instr.source.iter().any(|op| is_control_operand(op)) ||
         instr.sink.iter().any(|op| is_control_operand(op))
 }
@@ -349,19 +359,19 @@ pub(crate) const NOP: Instr = Instr {
     sink: [Operand::Unused, Operand::Unused],
     loc: None,
     mem_stores: 0,
-    is_control: false,
+    flags: 0,
 };
 
 pub(crate) const EXIT: Instr = Instr {
     cycles: 1,
     opcode: Opcode::EXIT,
     source_cnt: 0,
-    source: [Operand::Unused, Operand::Unused, Operand::Unused],
+    source: [Unused, Unused, Unused],
     sink_cnt: 0,
-    sink: [Operand::Unused, Operand::Unused],
+    sink: [Unused, Unused],
     loc: None,
     mem_stores: 0,
-    is_control: false,
+    flags: 0,
 };
 
 pub(crate) type RegisterType = u16;
@@ -427,6 +437,14 @@ impl InstrQueue {
 pub(crate) const MAX_SOURCE_COUNT: u8 = 3;
 pub(crate) const MAX_SINK_COUNT: u8 = 2;
 
+// True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
+// A control instruction gets issued into the rob, but it will prevent the next instruction to be issued, so
+// That the branch condition can be determined.
+pub(crate) const INSTR_FLAG_IS_CONTROL: u8 = 0;
+pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
+pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
+
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Instr {
     pub(crate) cycles: u8,
@@ -437,9 +455,36 @@ pub(crate) struct Instr {
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
     pub(crate) loc: Option<SourceLocation>,
     pub(crate) mem_stores: u8,
-    // True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
-    pub(crate) is_control: bool,
+    pub(crate) flags: u8,
 }
+
+impl Instr {
+
+    pub(crate) fn is_control(&self) -> bool {
+        (self.flags & (1 << INSTR_FLAG_IS_CONTROL)) != 0
+    }
+
+    pub(crate) fn set_control(&mut self) {
+        self.flags |= 1 << INSTR_FLAG_IS_CONTROL;
+    }
+
+    pub(crate) fn rob_sync(&self) -> bool {
+        (self.flags & (1 << INSTR_FLAG_ROB_SYNC)) != 0
+    }
+
+    pub(crate) fn set_rob_sync(&mut self) {
+        self.flags |= 1 << INSTR_FLAG_ROB_SYNC;
+    }
+
+    pub(crate) fn sb_sync(&self) -> bool {
+        (self.flags & (1 << INSTR_FLAG_SB_SYNC)) != 0
+    }
+
+    pub(crate) fn set_sb_sync(&mut self) {
+        self.flags |= 1 << INSTR_FLAG_SB_SYNC;
+    }
+}
+
 
 impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -468,6 +513,7 @@ impl fmt::Display for Instr {
             Opcode::MVN => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::CMP => write!(f, "{}, {}", self.source[0], self.source[1])?,
             Opcode::EXIT => {}
+            Opcode::DSB => {}
             Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE =>
                 write!(f, "{}", self.source[0])?,
         }
@@ -494,7 +540,6 @@ pub(crate) enum Operand {
     Unused,
 }
 
-
 impl Operand {
     pub fn base_name(&self) -> &str {
         match self {
@@ -506,7 +551,6 @@ impl Operand {
         }
     }
 }
-
 
 impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

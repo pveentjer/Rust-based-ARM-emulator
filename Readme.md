@@ -25,7 +25,7 @@ for concurrency control so that I get a better understanding of ownership.
 * Performance monitor (although not exposed itself through registers).
 
 ### Planned CPU features
-* Better support for different data types
+* Support for different data types
 * Speculative execution
 * One way fences like LDAR, STLR, LDAPR. 
 * Two way fences like DMB
@@ -39,26 +39,27 @@ for concurrency control so that I get a better understanding of ownership.
 
 ## Supported instructions
 
-### Arithmetic instructions
+### Arithmetic instructions:
 * ADD
 * SUB
 * MUL
 * SDIV
 * NEG
 
-### Bitwise logical instructions
+### Bitwise logical instructions:
 * AND
 * ORR
 * EOR
 * MVN
 
-### Memory access instructions
+### Memory access instructions:
 * LDR
 * STR
 
 ### Miscellaneous instructions:
 * NOP
 * MOV
+* DSB
 
 ### Branch & control instructions:
 * B
@@ -73,6 +74,9 @@ for concurrency control so that I get a better understanding of ownership.
 * BLT
 * BGE
 * BGT
+
+### Memory barrier instructions:
+* DSB (SY)
 
 ### Unofficial instructions
 * PRINTR: prints the value of a register.

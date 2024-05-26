@@ -238,7 +238,7 @@ impl ASTVisitor for ProgramGeneration<'_> {
     fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool {
         // todo: this is very inefficient because for every instruction the whole file content is scanned.
         let loc = self.loader.to_source_location(ast_instr.pos);
-        let mut opcode_option = get_opcode(&ast_instr.mnemonic);
+        let opcode_option = get_opcode(&ast_instr.mnemonic);
 
         if opcode_option.is_none() || opcode_option.unwrap() == Opcode::EXIT {
             self.loader.errors.push(format!("Unknown mnemonic '{}' at {}:{}", ast_instr.mnemonic, loc.line, loc.column));

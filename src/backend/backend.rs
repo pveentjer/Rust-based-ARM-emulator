@@ -209,6 +209,7 @@ impl Backend {
                     rob_slot.result.push(target as i64);
                 }
                 Opcode::EXIT => {}
+                Opcode::DSB => {}
             }
 
             let eu_index = eu.index;
@@ -303,7 +304,7 @@ impl Backend {
                 println!("Retiring {}", instr);
             }
 
-            if instr.is_control {
+            if instr.is_control() {
                 frontend_control.halted = false;
             }
 
@@ -379,8 +380,15 @@ impl Backend {
 
             let instr = instr_queue.peek();
 
-            instr_queue.dequeue();
+            if instr.sb_sync() && self.memory_subsystem.borrow().sb.size() > 0 {
+                return;
+            }
 
+            if instr.rob_sync() && self.rob.size() > 0 {
+                return;
+            }
+
+            instr_queue.dequeue();
 
             let rob_slot_index = self.rob.allocate();
             let rob_slot = self.rob.get_mut(rob_slot_index);
