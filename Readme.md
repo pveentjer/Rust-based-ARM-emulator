@@ -39,19 +39,28 @@ for concurrency control so that I get a better understanding of ownership.
 
 ## Supported instructions
 
+### Arithmetic instructions
 * ADD
 * SUB
 * MUL
 * SDIV
 * NEG
+
+### Bitwise logical instructions
 * AND
 * ORR
 * EOR
+* MVN
+
+### Memory access instructions
 * LDR
 * STR
-* MOV
-* MVN
+
+### Miscellaneous instructions:
 * NOP
+* MOV
+
+### Branch & control instructions:
 * B
 * BX
 * BL
@@ -65,7 +74,7 @@ for concurrency control so that I get a better understanding of ownership.
 * BGE
 * BGT
 
-And some none official ones:
+### Unofficial instructions
 * PRINTR: prints the value of a register.
 
 More instructions will be added over time.
