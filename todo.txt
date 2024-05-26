@@ -1,17 +1,4 @@
 TODO
-- BEQ label
-
-- BNE label
-
-- BLE label
-
-- BLT label
-
-- BGE label
-
-- BGT label
-
-- fix NOT instruction
 
 - unit tests!
 
@@ -19,15 +6,15 @@ TODO
 
 - support for precise exceptions
 
-- loader: case insensitive keywords/registers
+- syntax: case insensitive keywords/registers
 
-- loader: single line comments
+- syntax: single line comments
 
-- loader: multiline comment
+- syntax: multiline comment
 
-- loader: new lines
+- syntax: new lines
 
-- loader: unwanted semicolon after instructions
+- syntax: unwanted semicolon after instructions
 
 - instruction print should use labels
 
@@ -40,9 +27,21 @@ TODO
 - CPU metrics frequency:
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
-- load: CPU configuration from disk
-
 DONE
+
+- BEQ
+
+- BNE
+
+- BLE
+
+- BLT
+
+- BGE
+
+- BGT
+
+- fix NOT instruction
 
 - add the CPSR (needed for CMP and relevant ops to work)
 

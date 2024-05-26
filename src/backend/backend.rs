@@ -104,26 +104,26 @@ impl Backend {
 
             match rs.opcode {
                 Opcode::NOP => {}
-                Opcode::ADD => rob_slot.result.push(rs.source[0].get_constant() + rs.source[1].get_constant()),
-                Opcode::SUB => rob_slot.result.push(rs.source[0].get_constant() - rs.source[1].get_constant()),
-                Opcode::MUL => rob_slot.result.push(rs.source[0].get_constant() * rs.source[1].get_constant()),
-                Opcode::SDIV => rob_slot.result.push(rs.source[0].get_constant() / rs.source[1].get_constant()),
-                Opcode::NEG => rob_slot.result.push(-rs.source[0].get_constant()),
-                Opcode::AND => rob_slot.result.push(rs.source[0].get_constant() & rs.source[1].get_constant()),
-                Opcode::MOV => rob_slot.result.push(rs.source[0].get_constant()),
+                Opcode::ADD => rob_slot.result.push(rs.source[0].get_immediate() + rs.source[1].get_immediate()),
+                Opcode::SUB => rob_slot.result.push(rs.source[0].get_immediate() - rs.source[1].get_immediate()),
+                Opcode::MUL => rob_slot.result.push(rs.source[0].get_immediate() * rs.source[1].get_immediate()),
+                Opcode::SDIV => rob_slot.result.push(rs.source[0].get_immediate() / rs.source[1].get_immediate()),
+                Opcode::NEG => rob_slot.result.push(-rs.source[0].get_immediate()),
+                Opcode::AND => rob_slot.result.push(rs.source[0].get_immediate() & rs.source[1].get_immediate()),
+                Opcode::MOV => rob_slot.result.push(rs.source[0].get_immediate()),
                 Opcode::ADR => {}
-                Opcode::ORR => rob_slot.result.push(rs.source[0].get_constant() | rs.source[1].get_constant()),
-                Opcode::EOR => rob_slot.result.push(rs.source[0].get_constant() ^ rs.source[1].get_constant()),
-                Opcode::MVN => rob_slot.result.push(!rs.source[0].get_constant()),
-                Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_constant() as usize]),
-                Opcode::STR => rob_slot.result.push(rs.source[0].get_constant()),
+                Opcode::ORR => rob_slot.result.push(rs.source[0].get_immediate() | rs.source[1].get_immediate()),
+                Opcode::EOR => rob_slot.result.push(rs.source[0].get_immediate() ^ rs.source[1].get_immediate()),
+                Opcode::MVN => rob_slot.result.push(!rs.source[0].get_immediate()),
+                Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_immediate() as usize]),
+                Opcode::STR => rob_slot.result.push(rs.source[0].get_immediate()),
                 Opcode::PRINTR => {
-                    println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_constant());
+                    println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_immediate());
                 }
                 Opcode::CMP => {
-                    let rn = rs.source[0].get_constant();
-                    let operand2 = rs.source[1].get_constant();
-                    let cprs_value = rs.source[2].get_constant();
+                    let rn = rs.source[0].get_immediate();
+                    let operand2 = rs.source[1].get_immediate();
+                    let cprs_value = rs.source[2].get_immediate();
 
                     // Perform the comparison: rn - operand2
                     let result = rn.wrapping_sub(operand2);
@@ -163,77 +163,29 @@ impl Backend {
                     rob_slot.result.push(new_cprs_value as i64);
                 }
                 Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
-                    let branch_target = rs.source[0].get_constant();
+                    let target = rs.source[0].get_immediate();
                     let cpsr = rs.source[1].get_code_address();
-                    let pc = rs.source[2].get_constant();
+                    let pc = rs.source[2].get_immediate();
                     let pc_update = match rs.opcode {
-                        Opcode::BEQ => {
-                            if cpsr == 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        Opcode::BNE => {
-                            if cpsr != 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        Opcode::BLT => {
-                            if cpsr < 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        Opcode::BLE => {
-                            if cpsr <= 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        Opcode::BGT => {
-                            if cpsr > 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        Opcode::BGE => {
-                            if cpsr >= 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        _ => panic!("Unhandled opcode {:?}", rs.opcode),
+                        Opcode::BEQ => if cpsr == 0 { target } else { pc },
+                        Opcode::BNE => if cpsr != 0 { target } else { pc },
+                        Opcode::BLT => if cpsr < 0 { target } else { pc },
+                        Opcode::BLE => if cpsr <= 0 { target } else { pc },
+                        Opcode::BGT => if cpsr > 0 { target } else { pc },
+                        Opcode::BGE => if cpsr >= 0 { target } else { pc },
+                        _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
                     // Update pc
                     rob_slot.result.push(pc_update as i64);
                 }
                 Opcode::CBZ | Opcode::CBNZ => {
-                    let reg_value = rs.source[0].get_constant();
-                    let branch_target = rs.source[1].get_code_address();
-                    let pc = rs.source[2].get_constant();
+                    let reg_value = rs.source[0].get_immediate();
+                    let branch = rs.source[1].get_code_address();
+                    let pc = rs.source[2].get_immediate();
                     let pc_update = match instr.opcode {
-                        Opcode::CBZ => {
-                            if reg_value == 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        Opcode::CBNZ => {
-                            if reg_value != 0 {
-                                branch_target
-                            } else {
-                                pc
-                            }
-                        }
-                        _ => unreachable!(),
+                        Opcode::CBZ => if reg_value == 0 { branch } else { pc },
+                        Opcode::CBNZ => if reg_value != 0 { branch } else { pc },
+                        _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
 
                     // update the PC
@@ -245,11 +197,11 @@ impl Backend {
                 }
                 Opcode::BX => {
                     // update the PC
-                    rob_slot.result.push(rs.source[0].get_constant() as i64);
+                    rob_slot.result.push(rs.source[0].get_immediate() as i64);
                 }
                 Opcode::BL => {
                     let target = rs.source[0].get_code_address();
-                    let pc = rs.source[1].get_constant();
+                    let pc = rs.source[1].get_immediate();
 
                     // update LR
                     rob_slot.result.push(pc);

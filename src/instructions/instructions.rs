@@ -540,7 +540,7 @@ impl Operand {
         }
     }
 
-    pub(crate) fn get_constant(&self) -> WordType {
+    pub(crate) fn get_immediate(&self) -> WordType {
         match self {
             Operand::Immediate(constant) => *constant,
             _ => panic!("Operand is not a Constant but of type {:?}", self),
