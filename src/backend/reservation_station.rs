@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::Display;
+use Operand::Unused;
 
 use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
 
@@ -27,10 +28,10 @@ impl RS {
             opcode: Opcode::NOP,
             state: RSState::FREE,
             source_cnt: 0,
-            source: [Operand::Unused, Operand::Unused, Operand::Unused],
+            source: [Unused, Unused, Unused],
             source_ready_cnt: 0,
             sink_cnt: 0,
-            sink: [Operand::Unused, Operand::Unused],
+            sink: [Unused, Unused],
             sb_pos: 0,
             rob_slot_index: 0,
         }

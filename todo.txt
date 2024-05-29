@@ -1,5 +1,7 @@
 TODO
 
+- inconsistent usage of pub/pub(crate)
+
 - add DSB
 
 - can the B instruction be optimized since the branch is always taken. Currently it will stop the ROB until the

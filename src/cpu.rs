@@ -11,8 +11,7 @@ use crate::frontend::frontend::{Frontend, FrontendControl};
 use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
-
-pub(crate) struct PerfCounters {
+pub struct PerfCounters {
     pub decode_cnt: u64,
     pub issue_cnt: u64,
     pub dispatch_cnt: u64,
@@ -28,7 +27,7 @@ impl PerfCounters {
 }
 
 #[derive(Clone, Deserialize, Debug)]
-pub(crate) struct Trace {
+pub struct Trace {
     pub decode: bool,
     pub issue: bool,
     pub dispatch: bool,
@@ -38,39 +37,39 @@ pub(crate) struct Trace {
 }
 
 #[derive(Clone, Deserialize, Debug)]
-pub(crate) struct CPUConfig {
+pub struct CPUConfig {
     // the number of physical registers
-    pub(crate) phys_reg_count: u16,
+    pub phys_reg_count: u16,
     // the number of instructions the frontend can fetch/decode per clock cycle.
-    pub(crate) frontend_n_wide: u8,
+    pub frontend_n_wide: u8,
     // the size of the instruction queue between frontend and backend
-    pub(crate) instr_queue_capacity: u16,
+    pub instr_queue_capacity: u16,
     // the frequency of the CPU in Hz.
-    pub(crate) frequency_hz: u64,
+    pub frequency_hz: u64,
     // the number of reservation stations
-    pub(crate) rs_count: u16,
+    pub rs_count: u16,
     // the size of the memory in machine words
-    pub(crate) memory_size: u32,
+    pub memory_size: u32,
     // the capacity of the store buffer
-    pub(crate) sb_capacity: u16,
+    pub sb_capacity: u16,
     // the number of line fill buffers; currently there are no line fill buffer
     // it is just a limit of the number of stores that can commit to memory
     // per clock cycle (there is also no cache)
-    pub(crate) lfb_count: u8,
+    pub lfb_count: u8,
     // the capacity of the reorder buffer
-    pub(crate) rob_capacity: u16,
+    pub rob_capacity: u16,
     // the number of execution units
-    pub(crate) eu_count: u8,
+    pub eu_count: u8,
     // if processing of a single instruction should be traced (printed)
-    pub(crate) trace: Trace,
+    pub trace: Trace,
     // the number of instructions that can retire per clock cycle
-    pub(crate) retire_n_wide: u8,
+    pub retire_n_wide: u8,
     // the number of instructions that can be dispatched (send to execution units) every clock cycle.
-    pub(crate) dispatch_n_wide: u8,
+    pub dispatch_n_wide: u8,
     // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
-    pub(crate) issue_n_wide: u8,
+    pub issue_n_wide: u8,
     // The size of the stack
-    pub(crate) stack_capacity: u32,
+    pub stack_capacity: u32,
 }
 
 pub fn load_cpu_config(file_path: &str) -> Result<CPUConfig, Box<dyn Error>> {
@@ -79,7 +78,7 @@ pub fn load_cpu_config(file_path: &str) -> Result<CPUConfig, Box<dyn Error>> {
     Ok(config)
 }
 
-pub(crate) struct CPU {
+pub struct CPU {
     backend: Backend,
     frontend: Frontend,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
@@ -90,7 +89,7 @@ pub(crate) struct CPU {
 }
 
 impl CPU {
-    pub(crate) fn new(cpu_config: &CPUConfig) -> CPU {
+    pub fn new(cpu_config: &CPUConfig) -> CPU {
         let instr_queue = Rc::new(RefCell::new(InstrQueue::new(cpu_config.instr_queue_capacity)));
 
         let perf_counters = Rc::new(RefCell::new(PerfCounters::new()));
@@ -139,7 +138,7 @@ impl CPU {
         }
     }
 
-    pub(crate) fn run(&mut self, program: &Rc<Program>) {
+    pub fn run(&mut self, program: &Rc<Program>) {
         self.frontend.init(program);
 
         self.memory_subsystem.borrow_mut().init(program);
@@ -177,13 +176,13 @@ pub const LR: u16 = 14;
 pub const PC: u16 = 15;
 pub const CPSR: u16 = GENERAL_ARG_REG_CNT;
 
-pub const ZERO_FLAG_BIT_POSITION: u8 = 30;
-pub const NEGATIVE_FLAG_BIT_POSITION: u8 = 31;
-pub const CARRY_FLAG_BIT_POSITION: u8 = 29;
-pub const OVERFLOW_FLAG_BIT_POSITION: u8 = 28;
+pub const ZERO_FLAG: u8 = 30;
+pub const NEGATIVE_FLAG: u8 = 31;
+pub const CARRY_FLAG: u8 = 29;
+pub const OVERFLOW_FLAG: u8 = 28;
 
 struct ArgRegEntry {
-    pub(crate) value: WordType,
+    value: WordType,
 }
 
 pub struct ArgRegFile {

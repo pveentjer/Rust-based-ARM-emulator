@@ -39,6 +39,3 @@ impl MemorySubsystem {
         self.sb.do_cycle(&mut self.memory);
     }
 }
-
-
-

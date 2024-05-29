@@ -6,7 +6,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
-use crate::cpu::{ArgRegFile, CARRY_FLAG_BIT_POSITION, CPUConfig, NEGATIVE_FLAG_BIT_POSITION, OVERFLOW_FLAG_BIT_POSITION, PerfCounters, Trace, ZERO_FLAG_BIT_POSITION};
+use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, Trace, ZERO_FLAG};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -136,27 +136,27 @@ impl Backend {
 
                     let mut new_cprs_value = cprs_value;
                     if zero_flag {
-                        new_cprs_value |= 1 << ZERO_FLAG_BIT_POSITION;
+                        new_cprs_value |= 1 << ZERO_FLAG;
                     } else {
-                        new_cprs_value &= !(1 << ZERO_FLAG_BIT_POSITION);
+                        new_cprs_value &= !(1 << ZERO_FLAG);
                     }
 
                     if negative_flag {
-                        new_cprs_value |= 1 << NEGATIVE_FLAG_BIT_POSITION;
+                        new_cprs_value |= 1 << NEGATIVE_FLAG;
                     } else {
-                        new_cprs_value &= !(1 << NEGATIVE_FLAG_BIT_POSITION);
+                        new_cprs_value &= !(1 << NEGATIVE_FLAG);
                     }
 
                     if carry_flag {
-                        new_cprs_value |= 1 << CARRY_FLAG_BIT_POSITION;
+                        new_cprs_value |= 1 << CARRY_FLAG;
                     } else {
-                        new_cprs_value &= !(1 << CARRY_FLAG_BIT_POSITION);
+                        new_cprs_value &= !(1 << CARRY_FLAG);
                     }
 
                     if overflow_flag {
-                        new_cprs_value |= 1 << OVERFLOW_FLAG_BIT_POSITION;
+                        new_cprs_value |= 1 << OVERFLOW_FLAG;
                     } else {
-                        new_cprs_value &= !(1 << OVERFLOW_FLAG_BIT_POSITION);
+                        new_cprs_value &= !(1 << OVERFLOW_FLAG);
                     }
 
                     // Update CPRS
