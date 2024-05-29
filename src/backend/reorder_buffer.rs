@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use Operand::Unused;
 
 use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType};
 
@@ -14,8 +15,6 @@ pub struct ROBSlot {
     pub instr: Option<Rc<Instr>>,
     pub state: ROBSlotState,
     pub index: u16,
-    //todo: not used
-    pub rb_slot_index: Option<u16>,
     pub result: Vec<WordType>,
     pub rs_index: u16,
     pub sink: [Operand; MAX_SINK_COUNT as usize],
@@ -38,10 +37,9 @@ impl ROB {
                 index: k,
                 instr: None,
                 state: ROBSlotState::UNUSED,
-                rb_slot_index: None,
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: 0,
-                sink: [Operand::Unused, Operand::Unused],
+                sink: [Unused, Unused],
             });
         }
 
@@ -91,7 +89,7 @@ impl ROB {
     }
 
     pub fn next_executed(&mut self) -> u16 {
-        assert!(self.head_has_executed(), "ROB: can't next_retire because there are no slots retired");
+        assert!(self.head_has_executed(), "ROB: can't next_executed because there are no slots in executed state");
 
         let index = (self.head % self.capacity as u64) as u16;
         self.head += 1;

@@ -6,6 +6,10 @@ pub struct RATEntry {
     pub(crate) valid: bool,
 }
 
+/// The Register Alias Table. This structure is used for the register
+/// renaming process. The RAT entry for a given architectural register
+/// points to the physical register to use. As long as such a entry
+/// exists, it should be used.
 pub(crate) struct RAT {
     pub(crate) table: Vec<RATEntry>,
 }
