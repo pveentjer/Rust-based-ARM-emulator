@@ -1,6 +1,6 @@
 use crate::instructions::instructions::{RegisterType, WordType};
 
-pub struct PhysRegEntry {
+pub(crate) struct PhysRegEntry {
     pub(crate) value: WordType,
     pub(crate) has_value: bool,
 }

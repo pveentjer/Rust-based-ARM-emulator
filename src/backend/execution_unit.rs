@@ -1,13 +1,13 @@
 /// A single execution unit.
-pub struct EU {
-    pub index: u8,
-    pub rs_index: u16,
-    pub cycles_remaining: u8,
+pub(crate) struct EU {
+    pub(crate) index: u8,
+    pub(crate) rs_index: u16,
+    pub(crate) cycles_remaining: u8,
 }
 
 /// The table containing all execution units of a CPU core.
 pub(crate) struct EUTable {
-    pub capacity: u8,
+    pub(crate) capacity: u8,
     free_stack: Vec<u8>,
     array: Vec<EU>,
 }

@@ -10,7 +10,6 @@ use std::fmt::{Debug};
 ///
 /// Because it is decoupled, it will make it easier to switch to a different parser generator
 /// at some point.
-
 #[derive(Debug)]
 pub enum ASTOperand {
     // register, position
@@ -206,7 +205,7 @@ impl ASTAssemblyFile {
             if !section.accept(visitor) { return false; }
         }
 
-        if !self.ts.accept(visitor){ return false; }
+        if !self.ts.accept(visitor) { return false; }
 
         for section in &self.ds_after {
             if !section.accept(visitor) { return false; }

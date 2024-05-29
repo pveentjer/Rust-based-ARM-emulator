@@ -5,12 +5,12 @@ use Operand::Unused;
 use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum RSState {
+pub(crate) enum RSState {
     FREE,
     BUSY,
 }
 
-pub struct RS {
+pub(crate) struct RS {
     pub(crate) sb_pos: u16,
     pub(crate) rob_slot_index: u16,
     pub(crate) opcode: Opcode,

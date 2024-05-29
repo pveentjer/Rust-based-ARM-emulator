@@ -16,7 +16,7 @@ pub(crate) struct StoreBuffer {
 }
 
 impl StoreBuffer {
-    pub fn new(cpu_config: &CPUConfig) -> StoreBuffer {
+    pub(crate) fn new(cpu_config: &CPUConfig) -> StoreBuffer {
         let mut entries = Vec::with_capacity(cpu_config.sb_capacity as usize);
         for _ in 0..cpu_config.sb_capacity {
             entries.push(StoreBufferEntry {
@@ -35,15 +35,15 @@ impl StoreBuffer {
         }
     }
 
-    pub fn size(&self) -> u16 {
+    pub(crate) fn size(&self) -> u16 {
         return (self.tail - self.head) as u16;
     }
 
-    pub fn has_space(&self) -> bool {
+    pub(crate) fn has_space(&self) -> bool {
         return self.size() < self.capacity;
     }
 
-    pub fn allocate(&mut self) -> u16 {
+    pub(crate) fn allocate(&mut self) -> u16 {
         assert!(self.has_space(), "StoreBuffer: can't allocate because there is no space");
 
         let index = (self.tail % self.capacity as u64) as usize;
@@ -51,14 +51,14 @@ impl StoreBuffer {
         return index as u16;
     }
 
-    pub fn store(&mut self, index: u16, addr: WordType, value: WordType) {
+    pub(crate) fn store(&mut self, index: u16, addr: WordType, value: WordType) {
         let sb_entry = &mut self.entries[index as usize];
         sb_entry.addr = addr;
         sb_entry.value = value;
         sb_entry.completed = true;
     }
 
-    pub fn do_cycle(&mut self, memory: &mut Vec<WordType>) {
+    pub(crate) fn do_cycle(&mut self, memory: &mut Vec<WordType>) {
         for _ in 0..self.lfb_count {
             if self.tail == self.head {
                 // store buffer is empty

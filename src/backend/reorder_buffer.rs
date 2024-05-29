@@ -4,20 +4,20 @@ use Operand::Unused;
 use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType};
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum ROBSlotState {
+pub(crate) enum ROBSlotState {
     UNUSED,
     ISSUED,
     DISPATCHED,
     EXECUTED,
 }
 
-pub struct ROBSlot {
-    pub instr: Option<Rc<Instr>>,
-    pub state: ROBSlotState,
-    pub index: u16,
-    pub result: Vec<WordType>,
-    pub rs_index: u16,
-    pub sink: [Operand; MAX_SINK_COUNT as usize],
+pub(crate) struct ROBSlot {
+    pub(crate) instr: Option<Rc<Instr>>,
+    pub(crate) state: ROBSlotState,
+    pub(crate) index: u16,
+    pub(crate) result: Vec<WordType>,
+    pub(crate) rs_index: u16,
+    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
 }
 
 pub(crate) struct ROB {
@@ -30,7 +30,7 @@ pub(crate) struct ROB {
 }
 
 impl ROB {
-    pub fn new(capacity: u16) -> Self {
+    pub(crate) fn new(capacity: u16) -> Self {
         let mut slots = Vec::with_capacity(capacity as usize);
         for k in 0..capacity {
             slots.push(ROBSlot {
@@ -56,7 +56,7 @@ impl ROB {
         &mut self.slots[slot_index as usize]
     }
 
-    pub fn allocate(&mut self) -> u16 {
+    pub(crate) fn allocate(&mut self) -> u16 {
         assert!(self.has_space(), "ROB: Can't allocate if no space.");
 
         let index = (self.tail % self.capacity as u64) as u16;
@@ -65,18 +65,18 @@ impl ROB {
     }
 
     // Are there any rob entries that have been issued, but have not yet been dispatched.
-    pub fn has_issued(&self) -> bool {
+    pub(crate) fn has_issued(&self) -> bool {
         return self.tail > self.issued;
     }
 
-    pub fn next_issued(&mut self) -> u16 {
+    pub(crate) fn next_issued(&mut self) -> u16 {
         assert!(self.has_issued(), "ROB: can't issue next since there are none");
         let index = (self.issued % self.capacity as u64) as u16;
         self.issued += 1;
         return index;
     }
 
-    pub fn head_has_executed(&self) -> bool {
+    pub(crate) fn head_has_executed(&self) -> bool {
         // todo: we should not passed issued
         // we should not pass the head
         if self.tail == self.head {
@@ -88,7 +88,7 @@ impl ROB {
         return rob_slot.state == ROBSlotState::EXECUTED;
     }
 
-    pub fn next_executed(&mut self) -> u16 {
+    pub(crate) fn next_executed(&mut self) -> u16 {
         assert!(self.head_has_executed(), "ROB: can't next_executed because there are no slots in executed state");
 
         let index = (self.head % self.capacity as u64) as u16;
@@ -96,11 +96,11 @@ impl ROB {
         return index;
     }
 
-    pub fn size(&self) -> u16 {
+    pub(crate) fn size(&self) -> u16 {
         return (self.tail - self.head) as u16;
     }
 
-    pub fn has_space(&self) -> bool {
+    pub(crate) fn has_space(&self) -> bool {
         return self.capacity > self.size();
     }
 }

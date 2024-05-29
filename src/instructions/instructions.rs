@@ -311,7 +311,7 @@ pub(crate) fn create_instr(opcode: Opcode,
         }
     }
 
-    if ! instr.is_control() && has_control_operands(&instr) {
+    if !instr.is_control() && has_control_operands(&instr) {
         instr.set_control();
     }
 
@@ -459,7 +459,6 @@ pub(crate) struct Instr {
 }
 
 impl Instr {
-
     pub(crate) fn is_control(&self) -> bool {
         (self.flags & (1 << INSTR_FLAG_IS_CONTROL)) != 0
     }
@@ -606,15 +605,15 @@ impl Operand {
     }
 }
 
-pub(crate) struct Data {
-    pub(crate) value: WordType,
-    pub(crate) offset: u64,
+pub struct Data {
+    pub value: WordType,
+    pub offset: u64,
 }
 
-pub(crate) struct Program {
-    pub(crate) data_items: HashMap::<String, Rc<Data>>,
-    pub(crate) code: Vec<Rc<Instr>>,
-    pub(crate) entry_point: usize,
+pub struct Program {
+    pub data_items: HashMap::<String, Rc<Data>>,
+    pub code: Vec<Rc<Instr>>,
+    pub entry_point: usize,
 }
 
 impl Program {

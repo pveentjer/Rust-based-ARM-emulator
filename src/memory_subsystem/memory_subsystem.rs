@@ -35,7 +35,7 @@ impl MemorySubsystem {
         }
     }
 
-    pub fn do_cycle(&mut self) {
+    pub(crate) fn do_cycle(&mut self) {
         self.sb.do_cycle(&mut self.memory);
     }
 }

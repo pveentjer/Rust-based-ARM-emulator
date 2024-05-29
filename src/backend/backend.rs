@@ -16,7 +16,7 @@ struct CDBBroadcast {
     value: WordType,
 }
 
-pub struct Backend {
+pub(crate) struct Backend {
     instr_queue: Rc<RefCell<InstrQueue>>,
     arch_reg_file: Rc<RefCell<ArgRegFile>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
