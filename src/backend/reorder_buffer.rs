@@ -5,9 +5,13 @@ use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum ROBSlotState {
-    UNUSED,
+    // the initial state
+    INVALID,
+    // the instruction is issued into the rob
     ISSUED,
+    // the instruction is dispatched to an EU where it will be processed
     DISPATCHED,
+
     EXECUTED,
 }
 
@@ -18,6 +22,9 @@ pub(crate) struct ROBSlot {
     pub(crate) result: Vec<WordType>,
     pub(crate) rs_index: u16,
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
+    pub(crate) invalidated: bool,
+    pub(crate) branch_target_predicted: usize,
+    pub(crate) branch_target_actual: usize,
 }
 
 pub(crate) struct ROB {
@@ -36,10 +43,13 @@ impl ROB {
             slots.push(ROBSlot {
                 index: k,
                 instr: None,
-                state: ROBSlotState::UNUSED,
+                state: ROBSlotState::INVALID,
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: 0,
                 sink: [Unused, Unused],
+                invalidated: false,
+                branch_target_predicted: 0,
+                branch_target_actual: 0,
             });
         }
 
@@ -86,6 +96,14 @@ impl ROB {
         let index = (self.head % self.capacity as u64) as u16;
         let rob_slot = &self.slots[index as usize];
         return rob_slot.state == ROBSlotState::EXECUTED;
+    }
+
+    pub(crate) fn last_executed(&self)->u16{
+        if self.tail == self.head {
+            panic!();
+        }
+
+        (self.head % self.capacity as u64) as u16
     }
 
     pub(crate) fn next_executed(&mut self) -> u16 {

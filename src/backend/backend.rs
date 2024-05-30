@@ -6,7 +6,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
-use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, Trace, ZERO_FLAG};
+use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PC, PerfCounters, Trace, ZERO_FLAG};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -175,38 +175,50 @@ impl Backend {
                         Opcode::BGE => if cpsr >= 0 { target } else { pc },
                         _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
+
                     // Update pc
                     rob_slot.result.push(pc_update as i64);
+                    rob_slot.branch_target_actual = pc_update;
                 }
                 Opcode::CBZ | Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_immediate();
                     let branch = rs.source[1].get_code_address();
                     let pc = rs.source[2].get_immediate();
-                    let pc_update = match instr.opcode {
+                    let pc_udate = match instr.opcode {
                         Opcode::CBZ => if reg_value == 0 { branch } else { pc },
                         Opcode::CBNZ => if reg_value != 0 { branch } else { pc },
                         _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
 
                     // update the PC
-                    rob_slot.result.push(pc_update as i64);
+                    rob_slot.result.push(pc_udate as i64);
+                    rob_slot.branch_target_actual = pc_udate as usize;
                 }
                 Opcode::B => {
                     // update the PC
-                    rob_slot.result.push(rs.source[0].get_code_address() as i64);
+                    let branch_target = rs.source[0].get_code_address();
+                    let pc_update = branch_target;
+                    rob_slot.branch_target_actual = pc_update as usize;
+                    rob_slot.result.push(pc_update as i64);
                 }
                 Opcode::BX => {
                     // update the PC
-                    rob_slot.result.push(rs.source[0].get_immediate() as i64);
+                    let branch_target = rs.source[0].get_immediate() as i64;
+                    let pc_update = branch_target;
+                    rob_slot.result.push(pc_update);
+                    rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::BL => {
-                    let target = rs.source[0].get_code_address();
+                    let branch_target = rs.source[0].get_code_address();
                     let pc = rs.source[1].get_immediate();
+
+                    let pc_update = branch_target;
 
                     // update LR
                     rob_slot.result.push(pc);
                     // update the PC
-                    rob_slot.result.push(target as i64);
+                    rob_slot.result.push(pc_update as i64);
+                    rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::EXIT => {}
                 Opcode::DSB => {}
@@ -271,7 +283,6 @@ impl Backend {
                 }
 
                 if rs.source_cnt == rs.source_ready_cnt {
-                    rob_slot.state = ROBSlotState::DISPATCHED;
                     self.rs_table.enqueue_ready(rob_slot.rs_index);
                 }
             }
@@ -290,44 +301,72 @@ impl Backend {
                 break;
             }
 
-            let rob_slot_index = self.rob.next_executed();
+            let rob_slot_index = self.rob.last_executed();
             let mut rob_slot = self.rob.get_mut(rob_slot_index);
+
+            let invalidated = rob_slot.invalidated;
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            if instr.opcode == Opcode::EXIT {
-                self.exit = true;
-            }
+            if invalidated {} else {
+                if instr.opcode == Opcode::EXIT {
+                    self.exit = true;
+                }
 
-            if self.trace.retire {
-                println!("Retiring {}", instr);
-            }
+                if self.trace.retire {
+                    println!("Retiring {}", instr);
+                }
 
-            if instr.is_control() {
-                frontend_control.halted = false;
-            }
+                perf_monitors.retire_cnt += 1;
 
-            perf_monitors.retire_cnt += 1;
+                for sink_index in 0..instr.sink_cnt as usize {
+                    let sink = instr.sink[sink_index];
+                    if let Operand::Register(arch_reg) = sink {
+                        let rat_entry = self.rat.get_mut(arch_reg);
+                        let rat_phys_reg = rat_entry.phys_reg;
+                        let rs_phys_reg = rob_slot.sink[sink_index].get_register();
 
-            for sink_index in 0..instr.sink_cnt as usize {
-                let sink = instr.sink[sink_index];
-                if let Operand::Register(arch_reg) = sink {
-                    let rat_entry = self.rat.get_mut(arch_reg);
-                    let rat_phys_reg = rat_entry.phys_reg;
-                    let rs_phys_reg = rob_slot.sink[sink_index].get_register();
+                        // only when the physical register on the rat is the same as te physical register used for that
+                        // instruction, the rat entry should be invalidated
+                        if rat_phys_reg == rs_phys_reg {
+                            rat_entry.valid = false;
+                        }
 
-                    // only when the physical register on the rat is the same as te physical register used for that
-                    // instruction, the rat entry should be invalidated
-                    if rat_phys_reg == rs_phys_reg {
-                        rat_entry.valid = false;
+                        self.phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+                        self.phys_reg_file.deallocate(rs_phys_reg);
+                        arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
                     }
+                }
 
-                    self.phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-                    self.phys_reg_file.deallocate(rs_phys_reg);
-                    arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
+                if instr.is_branch()){
+                    if (rob_slot.branch_target_actual != rob_slot.branch_target_predicted) {
+                        // the branch was not correctly predicted
+
+                        perf_monitors.branch_misprediction_cnt += 1;
+
+                        // get rid of the instruction queue content
+                        self.instr_queue.borrow_mut().flush();
+
+                        // resteer the frontend
+                        arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
+
+
+                        // all the instructions that in the rob after the existing instr should now be marked
+                        // as speculative failure.
+
+                        // every instruction that is issued and doesn't have a RS: immediately mark it.
+                        // every instruction that is issued and does have a RS:
+                        // mark it and what do RS?
+                        // every instruction that is dispatched, it will be dealt with on retirement
+                    } else {
+                        // the branch was correctly predicted
+                        perf_monitors.branch_good_predictions_cnt += 1;
+                    }
                 }
             }
+
+            self.rob.next_executed();
         }
     }
 
@@ -345,6 +384,10 @@ impl Backend {
             let rob_slot_index = rs.rob_slot_index;
 
             let rob_slot = self.rob.get_mut(rob_slot_index);
+
+            // todo: here we need to deal with the bad speculative state of the instruction
+            // so we are not going to allocate an eu, we just mark it as executed.
+
             rob_slot.state = ROBSlotState::DISPATCHED;
 
             let eu_index = self.eu_table.allocate();
@@ -378,7 +421,11 @@ impl Backend {
                 break;
             }
 
-            let instr = instr_queue.peek();
+            let head_index = instr_queue.head_index();
+            let mut slot = instr_queue.get_mut(head_index);
+
+            let branch_target_predicted = slot.branch_target_predicted;
+            let instr = Rc::clone(&slot.instr);
 
             if instr.sb_sync() && self.memory_subsystem.borrow().sb.size() > 0 {
                 return;
@@ -388,8 +435,6 @@ impl Backend {
                 return;
             }
 
-            instr_queue.dequeue();
-
             let rob_slot_index = self.rob.allocate();
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
@@ -397,10 +442,15 @@ impl Backend {
                 println!("issue: Issued [{}]", instr);
             }
 
+            rob_slot.invalidated = false;
+            rob_slot.branch_target_predicted = branch_target_predicted;
+            rob_slot.branch_target_actual = 0;
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
 
             perf_monitors.issue_cnt += 1;
+
+            instr_queue.head_bump();
         }
 
         // try to put as many instructions from the rob, into reservation stations
@@ -426,7 +476,8 @@ impl Backend {
             if self.trace.issue {
                 println!("issue: Issued found RS [{}]", instr);
             }
-            rob_slot.state = ROBSlotState::ISSUED;
+
+            // todo: the state should already be issued.
             rob_slot.result.clear();
             rob_slot.rs_index = rs_index;
 
@@ -500,7 +551,6 @@ impl Backend {
             rob_slot.sink = rs.sink;
 
             if rs.source_ready_cnt == rs.source_cnt {
-                rob_slot.state = ROBSlotState::DISPATCHED;
                 self.rs_table.enqueue_ready(rs_index);
             }
         }

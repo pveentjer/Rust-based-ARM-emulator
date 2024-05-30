@@ -12,6 +12,8 @@ use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordT
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 pub struct PerfCounters {
+    pub branch_misprediction_cnt: u64,
+    pub branch_good_predictions_cnt: u64,
     pub decode_cnt: u64,
     pub issue_cnt: u64,
     pub dispatch_cnt: u64,
@@ -22,7 +24,16 @@ pub struct PerfCounters {
 
 impl PerfCounters {
     pub fn new() -> Self {
-        Self { decode_cnt: 0, issue_cnt: 0, dispatch_cnt: 0, execute_cnt: 0, retire_cnt: 0, cycle_cnt: 0 }
+        Self {
+            decode_cnt: 0,
+            issue_cnt: 0,
+            dispatch_cnt: 0,
+            execute_cnt: 0,
+            retire_cnt: 0,
+            cycle_cnt: 0,
+            branch_misprediction_cnt:0,
+            branch_good_predictions_cnt:0,
+        }
     }
 }
 

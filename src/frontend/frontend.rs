@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{EXIT, InstrQueue, Opcode, Program, WordType};
+use crate::instructions::instructions::{EXIT, Instr, InstrQueue, Opcode, Program, WordType};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -65,6 +65,11 @@ impl Frontend {
                         break;
                     }
 
+                    // todo: we still need mechanism to 'stall' the pipeline. E.g
+
+                    // MOV IP, 10
+                    // B foobar
+
                     let pc_value = arch_reg_file.get_value(PC) as usize;
                     let instr = if program.code.len() == pc_value {
                         // at the end of the program
@@ -81,21 +86,47 @@ impl Frontend {
                         self.exit = true;
                     }
 
-                    let is_control = instr.is_control();
+                    let tail_index = instr_queue.tail_index();
+                    let mut slot = instr_queue.get_mut(tail_index);
 
-                    // todo: what about cloning?
-                    instr_queue.enqueue(instr);
-
-                    // move the PC to the next instruction.
-                    arch_reg_file.set_value(PC, (pc_value + 1) as WordType);
-                    perf_counters.decode_cnt += 1;
-
-                    if is_control {
-                        frontend_control.halted = true;
-                        return;
+                    if instr.is_branch() {
+                        let branch_target = Self::predict(pc_value, &instr);
+                        slot.branch_target_predicted = branch_target;
+                        arch_reg_file.set_value(PC, (branch_target) as WordType);
+                    } else {
+                        // move the PC to the next instruction.
+                        arch_reg_file.set_value(PC, (pc_value + 1) as WordType);
                     }
+                    slot.instr = instr;
+                    instr_queue.tail_bump();
+                    perf_counters.decode_cnt += 1;
                 }
             }
+        }
+    }
+
+    // A static branch predictor that will speculate that backwards branches are always taken
+    fn predict(ip: usize, instr: &Instr) -> usize {
+        let branch_target = match instr.opcode {
+            Opcode::B => instr.source[0].get_code_address() as usize,
+            Opcode::BX => 0,
+            Opcode::BL => 0,
+            Opcode::CBNZ |
+            Opcode::CBZ => instr.source[1].get_code_address() as usize,
+            Opcode::BNE |
+            Opcode::BLE |
+            Opcode::BLT |
+            Opcode::BGE |
+            Opcode::BGT |
+            Opcode::BEQ => instr.source[0].get_code_address() as usize,
+            _ => unreachable!(),
+        };
+
+        if branch_target < ip {
+            // backwards branches are always taken
+            branch_target
+        } else {
+            ip + 1
         }
     }
 }

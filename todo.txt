@@ -1,11 +1,19 @@
 TODO
 
+- what to do with instructions that are behind a branch and the branch did a mis prediction
+  we could drain the rob
+    for ISSUED instructions: make sure they don't dispatch
+    for DISPATCHED instructions:
+
+
+- every instruction should have address so that we know its position
+
 - inconsistent usage of pub/pub(crate)
 
 - add DSB
 
-- can the B instruction be optimized since the branch is always taken. Currently it will stop the ROB until the
-  instruction has retired and this leads to a stall.
+- can the B instruction be optimized since the branch is always taken. Currently it will stop placing
+ instructions in the instruction queue until B has retired and this leads to a stall.
 
 - unit tests!
 
