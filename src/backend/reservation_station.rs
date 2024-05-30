@@ -11,8 +11,7 @@ pub(crate) enum RSState {
 }
 
 pub(crate) struct RS {
-    pub(crate) sb_pos: u16,
-    pub(crate) rob_slot_index: u16,
+     pub(crate) rob_slot_index: u16,
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
     pub(crate) source_cnt: u8,
@@ -32,7 +31,6 @@ impl RS {
             source_ready_cnt: 0,
             sink_cnt: 0,
             sink: [Unused, Unused],
-            sb_pos: 0,
             rob_slot_index: 0,
         }
     }

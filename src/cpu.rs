@@ -18,8 +18,9 @@ pub struct PerfCounters {
     pub issue_cnt: u64,
     pub dispatch_cnt: u64,
     pub execute_cnt: u64,
-    pub retire_cnt: u64,
+    pub retired_cnt: u64,
     pub cycle_cnt: u64,
+    pub bad_speculation_cnt: u64,
 }
 
 impl PerfCounters {
@@ -29,8 +30,9 @@ impl PerfCounters {
             issue_cnt: 0,
             dispatch_cnt: 0,
             execute_cnt: 0,
-            retire_cnt: 0,
+            retired_cnt: 0,
             cycle_cnt: 0,
+            bad_speculation_cnt: 0,
             branch_misprediction_cnt:0,
             branch_good_predictions_cnt:0,
         }
@@ -165,8 +167,8 @@ impl CPU {
                          perf_counters.issue_cnt,
                          perf_counters.dispatch_cnt,
                          perf_counters.execute_cnt,
-                         perf_counters.retire_cnt,
-                         perf_counters.retire_cnt as f32 / perf_counters.cycle_cnt as f32
+                         perf_counters.retired_cnt,
+                         perf_counters.retired_cnt as f32 / perf_counters.cycle_cnt as f32
                 );
             }
             self.memory_subsystem.borrow_mut().do_cycle();

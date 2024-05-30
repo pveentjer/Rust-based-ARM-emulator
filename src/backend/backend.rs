@@ -178,7 +178,7 @@ impl Backend {
 
                     // Update pc
                     rob_slot.result.push(pc_update as i64);
-                    rob_slot.branch_target_actual = pc_update;
+                    rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::CBZ | Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_immediate();
@@ -240,7 +240,7 @@ impl Backend {
                     Operand::Memory(addr) => {
                         let result = rob_slot.result[sink_index as usize];
                         // a store to memory
-                        memory_subsystem.sb.store(rs.sb_pos, addr, result);
+                        memory_subsystem.sb.store(rob_slot.sb_pos, addr, result);
                     }
                     Operand::Immediate(_) | Operand::Code(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
                 }
@@ -304,12 +304,14 @@ impl Backend {
             let rob_slot_index = self.rob.last_executed();
             let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
-            let invalidated = rob_slot.invalidated;
-
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
-            if invalidated {} else {
+            if rob_slot.invalidated {
+                perf_monitors.bad_speculation_cnt += 1;
+            } else {
+                perf_monitors.retired_cnt += 1;
+
                 if instr.opcode == Opcode::EXIT {
                     self.exit = true;
                 }
@@ -318,29 +320,8 @@ impl Backend {
                     println!("Retiring {}", instr);
                 }
 
-                perf_monitors.retire_cnt += 1;
-
-                for sink_index in 0..instr.sink_cnt as usize {
-                    let sink = instr.sink[sink_index];
-                    if let Operand::Register(arch_reg) = sink {
-                        let rat_entry = self.rat.get_mut(arch_reg);
-                        let rat_phys_reg = rat_entry.phys_reg;
-                        let rs_phys_reg = rob_slot.sink[sink_index].get_register();
-
-                        // only when the physical register on the rat is the same as te physical register used for that
-                        // instruction, the rat entry should be invalidated
-                        if rat_phys_reg == rs_phys_reg {
-                            rat_entry.valid = false;
-                        }
-
-                        self.phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-                        self.phys_reg_file.deallocate(rs_phys_reg);
-                        arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
-                    }
-                }
-
-                if instr.is_branch()){
-                    if (rob_slot.branch_target_actual != rob_slot.branch_target_predicted) {
+                if instr.is_branch() {
+                    if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
                         // the branch was not correctly predicted
 
                         perf_monitors.branch_misprediction_cnt += 1;
@@ -351,18 +332,52 @@ impl Backend {
                         // resteer the frontend
                         arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
 
-
                         // all the instructions that in the rob after the existing instr should now be marked
-                        // as speculative failure.
-
+                        // as invalidated.
                         // every instruction that is issued and doesn't have a RS: immediately mark it.
+                        //      how does does it move on to the final stage?
                         // every instruction that is issued and does have a RS:
-                        // mark it and what do RS?
+                        //      how does it move on to the final stage?
+                        //      mark it and what do RS?
                         // every instruction that is dispatched, it will be dealt with on retirement
+                        // todo: store buffer.
                     } else {
                         // the branch was correctly predicted
                         perf_monitors.branch_good_predictions_cnt += 1;
                     }
+                }
+            }
+
+            for sink_index in 0..instr.sink_cnt as usize {
+                let sink = instr.sink[sink_index];
+                match sink {
+                    Operand::Register(arch_reg) => {
+                        let rat_entry = self.rat.get_mut(arch_reg);
+                        let rat_phys_reg = rat_entry.phys_reg;
+                        let rs_phys_reg = rob_slot.sink[sink_index].get_register();
+
+                        // only when the physical register on the rat is the same as the physical register used for that
+                        // instruction, the rat entry should be invalidated
+                        if rat_phys_reg == rs_phys_reg {
+                            rat_entry.valid = false;
+                        }
+
+                        self.phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+                        self.phys_reg_file.deallocate(rs_phys_reg);
+
+                        // We update the architectural registers only if the rob_slot wasn't invalidated.
+                        if !rob_slot.invalidated {
+                            arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
+                        }
+                    }
+                    Operand::Memory(_) => {
+                        if rob_slot.invalidated{
+                            self.memory_subsystem.borrow_mut().sb.invalidate(rob_slot.)
+                        }else{
+                            self.memory_subsystem.borrow_mut().sb.commit(rob_slot.)
+                        }
+                    }
+                    _=>unreachable!(),
                 }
             }
 
@@ -541,7 +556,7 @@ impl Backend {
                         // sb in program order. And since sb will commit to the coherent cache
                         // (in this case directly to memory), the stores will become visible
                         // in program order.
-                        rs.sb_pos = memory_subsystem.sb.allocate();
+                        rob_slot.sb_pos = memory_subsystem.sb.allocate();
                     }
                     Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
                         panic!("Illegal sink {:?}", instr_sink)

@@ -6,7 +6,7 @@ use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum ROBSlotState {
     // the initial state
-    INVALID,
+    IDLE,
     // the instruction is issued into the rob
     ISSUED,
     // the instruction is dispatched to an EU where it will be processed
@@ -25,6 +25,7 @@ pub(crate) struct ROBSlot {
     pub(crate) invalidated: bool,
     pub(crate) branch_target_predicted: usize,
     pub(crate) branch_target_actual: usize,
+    pub(crate) sb_pos: u16,
 }
 
 pub(crate) struct ROB {
@@ -43,13 +44,14 @@ impl ROB {
             slots.push(ROBSlot {
                 index: k,
                 instr: None,
-                state: ROBSlotState::INVALID,
+                state: ROBSlotState::IDLE,
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: 0,
                 sink: [Unused, Unused],
                 invalidated: false,
                 branch_target_predicted: 0,
                 branch_target_actual: 0,
+                sb_pos: 0,
             });
         }
 
