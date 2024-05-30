@@ -246,7 +246,7 @@ impl Backend {
                 }
             }
 
-            rs.state = RSState::FREE;
+            rs.state = RSState::IDLE;
             self.rs_table.deallocate(rs_index);
 
             rob_slot.state = ROBSlotState::EXECUTED;
@@ -261,7 +261,7 @@ impl Backend {
             // Iterate over all RS and replace every matching physical register, by the value
             for rs_index in 0..rs_table_capacity {
                 let rs = self.rs_table.get_mut(rs_index);
-                if rs.state == RSState::FREE {
+                if rs.state == RSState::IDLE {
                     continue;
                 }
 
@@ -371,13 +371,13 @@ impl Backend {
                         }
                     }
                     Operand::Memory(_) => {
-                        if rob_slot.invalidated{
-                            self.memory_subsystem.borrow_mut().sb.invalidate(rob_slot.)
-                        }else{
-                            self.memory_subsystem.borrow_mut().sb.commit(rob_slot.)
+                        if rob_slot.invalidated {
+                            self.memory_subsystem.borrow_mut().sb.invalidate(rob_slot.sb_pos)
+                        } else {
+                            self.memory_subsystem.borrow_mut().sb.commit(rob_slot.sb_pos)
                         }
                     }
-                    _=>unreachable!(),
+                    _ => unreachable!(),
                 }
             }
 
@@ -393,32 +393,35 @@ impl Backend {
                 break;
             }
 
+
             let rs_index = self.rs_table.deque_ready();
             let rs = self.rs_table.get_mut(rs_index);
 
             let rob_slot_index = rs.rob_slot_index;
-
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
-            // todo: here we need to deal with the bad speculative state of the instruction
-            // so we are not going to allocate an eu, we just mark it as executed.
+            if rob_slot.invalidated {
+                rs.state = RSState::IDLE;
+                self.rs_table.deallocate(rs_index);
 
-            rob_slot.state = ROBSlotState::DISPATCHED;
+                rob_slot.state = ROBSlotState::EXECUTED;
+            } else {
+                rob_slot.state = ROBSlotState::DISPATCHED;
 
-            let eu_index = self.eu_table.allocate();
+                let eu_index = self.eu_table.allocate();
 
-            let mut eu = self.eu_table.get_mut(eu_index);
+                let mut eu = self.eu_table.get_mut(eu_index);
 
-            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-            let instr = Rc::clone(&rc);
+                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+                let instr = Rc::clone(&rc);
 
-            eu.rs_index = rs_index;
-            eu.cycles_remaining = instr.cycles;
+                eu.rs_index = rs_index;
+                eu.cycles_remaining = instr.cycles;
 
-            if self.trace.dispatch {
-                println!("Dispatched [{}]", instr);
+                if self.trace.dispatch {
+                    println!("Dispatched [{}]", instr);
+                }
             }
-
             perf_monitors.dispatch_cnt += 1;
         }
     }

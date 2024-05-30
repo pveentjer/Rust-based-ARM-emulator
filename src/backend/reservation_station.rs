@@ -6,12 +6,13 @@ use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemon
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum RSState {
-    FREE,
+    IDLE,
     BUSY,
 }
 
+// A single reservation station
 pub(crate) struct RS {
-     pub(crate) rob_slot_index: u16,
+    pub(crate) rob_slot_index: u16,
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
     pub(crate) source_cnt: u8,
@@ -25,7 +26,7 @@ impl RS {
     fn new() -> Self {
         Self {
             opcode: Opcode::NOP,
-            state: RSState::FREE,
+            state: RSState::IDLE,
             source_cnt: 0,
             source: [Unused, Unused, Unused],
             source_ready_cnt: 0,

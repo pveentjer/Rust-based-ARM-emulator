@@ -1,8 +1,9 @@
 use crate::instructions::instructions::RegisterType;
 
 pub(crate) struct RATEntry {
+    // the physical register in the arch register to phys register mapping
     pub(crate) phys_reg: RegisterType,
-    // The number of pending writes; if 0, then the entry is not valid
+    // if the entry currently contains a valid architectural to physical register mapping
     pub(crate) valid: bool,
 }
 
