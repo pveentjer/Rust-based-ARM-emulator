@@ -9,9 +9,11 @@ pub(crate) enum ROBSlotState {
     IDLE,
     // the instruction is issued into the rob
     ISSUED,
+    // the instruction has been issued and has a reservation station
+    ISSUED_WITH_RS,
     // the instruction is dispatched to an EU where it will be processed
     DISPATCHED,
-
+    // rhw instruction has executed
     EXECUTED,
 }
 

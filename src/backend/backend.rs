@@ -294,8 +294,9 @@ impl Backend {
     fn cycle_retire(&mut self) {
         let mut arch_reg_file = self.arch_reg_file.borrow_mut();
         let mut perf_monitors = self.perf_counters.borrow_mut();
+        let mut phys_reg_file = &mut self.phys_reg_file;
         let mut frontend_control = self.frontend_control.borrow_mut();
-
+        let mut memory_subsytem = self.memory_subsystem.borrow_mut();
         for _ in 0..self.retire_n_wide {
             if !self.rob.head_has_executed() {
                 break;
@@ -332,6 +333,8 @@ impl Backend {
                         // resteer the frontend
                         arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
 
+                        for h in self.rob.
+
                         // all the instructions that in the rob after the existing instr should now be marked
                         // as invalidated.
                         // every instruction that is issued and doesn't have a RS: immediately mark it.
@@ -362,8 +365,8 @@ impl Backend {
                             rat_entry.valid = false;
                         }
 
-                        self.phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-                        self.phys_reg_file.deallocate(rs_phys_reg);
+                        phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+                        phys_reg_file.deallocate(rs_phys_reg);
 
                         // We update the architectural registers only if the rob_slot wasn't invalidated.
                         if !rob_slot.invalidated {
@@ -372,9 +375,9 @@ impl Backend {
                     }
                     Operand::Memory(_) => {
                         if rob_slot.invalidated {
-                            self.memory_subsystem.borrow_mut().sb.invalidate(rob_slot.sb_pos)
+                            memory_subsytem.sb.invalidate(rob_slot.sb_pos)
                         } else {
-                            self.memory_subsystem.borrow_mut().sb.commit(rob_slot.sb_pos)
+                            memory_subsytem.sb.commit(rob_slot.sb_pos)
                         }
                     }
                     _ => unreachable!(),
@@ -392,7 +395,6 @@ impl Backend {
             if !self.rs_table.has_ready() || !self.eu_table.has_free() {
                 break;
             }
-
 
             let rs_index = self.rs_table.deque_ready();
             let rs = self.rs_table.get_mut(rs_index);
@@ -480,6 +482,8 @@ impl Backend {
             let rob_slot_index = self.rob.next_issued();
             let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
+            // todo: deal with invalidation
+
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
@@ -495,7 +499,7 @@ impl Backend {
                 println!("issue: Issued found RS [{}]", instr);
             }
 
-            // todo: the state should already be issued.
+            rob_slot.state = ROBSlotState::ISSUED_WITH_RS;
             rob_slot.result.clear();
             rob_slot.rs_index = rs_index;
 
