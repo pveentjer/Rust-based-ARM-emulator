@@ -9,11 +9,9 @@ pub(crate) enum ROBSlotState {
     IDLE,
     // the instruction is issued into the rob
     ISSUED,
-    // the instruction has been issued and has a reservation station
-    ISSUED_WITH_RS,
     // the instruction is dispatched to an EU where it will be processed
     DISPATCHED,
-    // rhw instruction has executed
+    // the instruction has executed
     EXECUTED,
 }
 
@@ -22,24 +20,42 @@ pub(crate) struct ROBSlot {
     pub(crate) state: ROBSlotState,
     pub(crate) index: u16,
     pub(crate) result: Vec<WordType>,
-    pub(crate) rs_index: u16,
+    pub(crate) rs_index: Option<u16>,
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
-    pub(crate) invalidated: bool,
+    pub(crate) invalid: bool,
     pub(crate) branch_target_predicted: usize,
     pub(crate) branch_target_actual: usize,
     pub(crate) sb_pos: u16,
 }
 
+impl ROBSlot{
+
+     fn reset(&mut self){
+        self.result.clear();
+        self.invalid = false;
+        self.branch_target_predicted = 0;
+        self.branch_target_actual = 0;
+        self.state = ROBSlotState::IDLE;
+        self.rs_index = None;
+        self.instr = None;
+        self.invalid = false;
+        self.sb_pos = 0;
+    }
+}
+
 pub(crate) struct ROB {
-    capacity: u16,
-    issued: u64,
-    // everything before this point is retired.
-    head: u64,
-    tail: u64,
-    slots: Vec<ROBSlot>,
+    pub(crate) capacity: u16,
+    pub(crate) seq_issued: u64,
+    pub(crate) seq_dispatched: u64,
+    pub(crate) seq_rs_allocated: u64,
+    pub(crate) seq_retired: u64,
+    pub(crate) head: u64,
+    pub(crate) tail: u64,
+    pub(crate) slots: Vec<ROBSlot>,
 }
 
 impl ROB {
+
     pub(crate) fn new(capacity: u16) -> Self {
         let mut slots = Vec::with_capacity(capacity as usize);
         for k in 0..capacity {
@@ -48,9 +64,9 @@ impl ROB {
                 instr: None,
                 state: ROBSlotState::IDLE,
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
-                rs_index: 0,
+                rs_index: None,
                 sink: [Unused, Unused],
-                invalidated: false,
+                invalid: false,
                 branch_target_predicted: 0,
                 branch_target_actual: 0,
                 sb_pos: 0,
@@ -59,7 +75,10 @@ impl ROB {
 
         Self {
             capacity,
-            issued: 0,
+            seq_issued: 0,
+            seq_dispatched:0,
+            seq_rs_allocated:0,
+            seq_retired:0,
             tail: 0,
             head: 0,
             slots,
@@ -67,59 +86,46 @@ impl ROB {
     }
 
     pub(crate) fn get_mut(&mut self, slot_index: u16) -> &mut ROBSlot {
+        // todo: should be between head and tail
         &mut self.slots[slot_index as usize]
     }
 
     pub(crate) fn allocate(&mut self) -> u16 {
-        assert!(self.has_space(), "ROB: Can't allocate if no space.");
+        assert!(self.has_space(), "ROB: Can't allocate if the ROB has no space.");
 
-        let index = (self.tail % self.capacity as u64) as u16;
+        let index = self.to_index(self.tail);
         self.tail += 1;
         return index;
     }
 
-    // Are there any rob entries that have been issued, but have not yet been dispatched.
-    pub(crate) fn has_issued(&self) -> bool {
-        return self.tail > self.issued;
+    pub(crate) fn to_index(&self, seq: u64) ->u16{
+        (seq % self.capacity as u64) as u16
     }
 
-    pub(crate) fn next_issued(&mut self) -> u16 {
-        assert!(self.has_issued(), "ROB: can't issue next since there are none");
-        let index = (self.issued % self.capacity as u64) as u16;
-        self.issued += 1;
-        return index;
+    // Deallocates
+    pub(crate) fn deallocate(&mut self){
+        assert!(!self.is_empty(),"ROB: Can't deallocate if ROB is empty");
+
+        let index = self.to_index(self.head) as usize;
+        self.slots[index].reset();
+        self.head+1;
     }
 
-    pub(crate) fn head_has_executed(&self) -> bool {
-        // todo: we should not passed issued
-        // we should not pass the head
-        if self.tail == self.head {
-            return false;
+    // Invalidates all the items in the rob. Once a rob entry has been invalidated,
+    // its effects will be ignored.
+    pub(crate) fn invalidate(&mut self){
+        for k in self.head .. self.tail {
+            let index = self.to_index(k) as usize;
+            self.slots[index].invalid = true;
         }
-
-        let index = (self.head % self.capacity as u64) as u16;
-        let rob_slot = &self.slots[index as usize];
-        return rob_slot.state == ROBSlotState::EXECUTED;
-    }
-
-    pub(crate) fn last_executed(&self)->u16{
-        if self.tail == self.head {
-            panic!();
-        }
-
-        (self.head % self.capacity as u64) as u16
-    }
-
-    pub(crate) fn next_executed(&mut self) -> u16 {
-        assert!(self.head_has_executed(), "ROB: can't next_executed because there are no slots in executed state");
-
-        let index = (self.head % self.capacity as u64) as u16;
-        self.head += 1;
-        return index;
     }
 
     pub(crate) fn size(&self) -> u16 {
         return (self.tail - self.head) as u16;
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        return self.head == self.tail;
     }
 
     pub(crate) fn has_space(&self) -> bool {

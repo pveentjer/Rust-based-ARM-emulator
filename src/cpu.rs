@@ -43,6 +43,7 @@ impl PerfCounters {
 pub struct Trace {
     pub decode: bool,
     pub issue: bool,
+    pub allocate_rs:bool,
     pub dispatch: bool,
     pub execute: bool,
     pub retire: bool,

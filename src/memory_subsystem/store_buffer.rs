@@ -24,7 +24,7 @@ struct SBEntry {
 }
 
 impl SBEntry {
-    fn reset(&mut self){
+    fn reset(&mut self) {
         self.state = IDLE;
         self.addr = 0;
         self.value = 0;
@@ -61,6 +61,10 @@ impl SB {
 
     pub(crate) fn size(&self) -> u16 {
         return (self.tail - self.head) as u16;
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.size() == 0
     }
 
     pub(crate) fn has_space(&self) -> bool {
@@ -111,8 +115,7 @@ impl SB {
 
     pub(crate) fn do_cycle(&mut self, memory: &mut Vec<WordType>) {
         for _ in 0..self.lfb_count {
-            if self.tail == self.head {
-                // store buffer is empty
+            if self.is_empty() {
                 break;
             }
 
@@ -128,6 +131,7 @@ impl SB {
                     self.head += 1;
                 }
                 INVALIDATED => {
+                    // an invalidated store will not be written to memory
                     sb_entry.reset();
                     self.head += 1;
                 }
