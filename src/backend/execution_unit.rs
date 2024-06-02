@@ -1,8 +1,15 @@
 /// A single execution unit.
 pub(crate) struct EU {
     pub(crate) index: u8,
-    pub(crate) rs_index: u16,
+    pub(crate) rs_index: Option<u16>,
     pub(crate) cycles_remaining: u8,
+}
+
+impl EU{
+    fn reset(&mut self){
+        self.rs_index = None;
+        self.cycles_remaining = 0;
+    }
 }
 
 /// The table containing all execution units of a CPU core.
@@ -17,7 +24,7 @@ impl EUTable {
         let mut free_stack = Vec::with_capacity(capacity as usize);
         let mut array = Vec::with_capacity(capacity as usize);
         for i in 0..capacity {
-            array.push(EU { index: i, cycles_remaining: 0, rs_index: 0 });
+            array.push(EU { index: i, cycles_remaining: 0, rs_index: None });
             free_stack.push(i);
         }
 
@@ -45,6 +52,8 @@ impl EUTable {
     }
 
     pub(crate) fn deallocate(&mut self, eu_index: u8) {
+        let eu = self.array.get_mut(eu_index as usize).unwrap();
+        eu.reset();
         self.free_stack.push(eu_index);
     }
 }

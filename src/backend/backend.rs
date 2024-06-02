@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::io::stdout;
 use std::rc::Rc;
 
 use crate::backend::execution_unit::EUTable;
@@ -105,7 +106,6 @@ impl Backend {
             let rob_slot_index = self.rob.allocate();
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
-
             if self.trace.issue {
                 println!("Issued [{}]", instr);
             }
@@ -113,7 +113,7 @@ impl Backend {
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
             rob_slot.branch_target_predicted = branch_target_predicted;
-
+            self.rob.seq_issued += 1;
             perf_monitors.issue_cnt += 1;
 
             instr_queue.head_bump();
@@ -126,108 +126,104 @@ impl Backend {
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
         for _ in 0..self.issue_n_wide {
-            if self.rob.seq_dispatched == self.rob.seq_rs_allocated || !self.rs_table.has_ready() {
-                return;
+            if self.rob.seq_rs_allocated == self.rob.seq_issued || !self.rs_table.has_free() {
+                break;
             }
 
             let rob_slot_index = self.rob.to_index(self.rob.seq_rs_allocated);
             let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
-            if rob_slot.invalid {
-                rob_slot.state = ROBSlotState::DISPATCHED;
-            } else {
-                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-                let instr = Rc::clone(&rc);
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
 
-                if instr.mem_stores > 0 && !memory_subsystem.sb.has_space() {
-                    // we can't allocate a slot in the store buffer, we are done
-                    break;
-                }
+            if instr.mem_stores > 0 && !memory_subsystem.sb.has_space() {
+                // we can't allocate a slot in the store buffer, we are done
+                break;
+            }
 
-                let rs_index = self.rs_table.allocate();
-                let mut rs = self.rs_table.get_mut(rs_index);
+            let rs_index = self.rs_table.allocate();
+            let mut rs = self.rs_table.get_mut(rs_index);
 
-                rob_slot.rs_index = Some(rs_index);
+            rob_slot.rs_index = Some(rs_index);
 
-                rs.rob_slot_index = rob_slot_index;
-                //println!("cycle_issue: rob_slot_index  {}", rs.rob_slot_index);
-                rs.opcode = instr.opcode;
-                rs.state = RSState::BUSY;
+            rs.rob_slot_index = Some(rob_slot_index);
 
-                rs.source_cnt = instr.source_cnt;
-                rs.source_ready_cnt = 0;
+            //println!("cycle_issue: rob_slot_index  {}", rs.rob_slot_index);
+            rs.opcode = instr.opcode;
+            rs.state = RSState::BUSY;
+            rs.source_cnt = instr.source_cnt;
 
-                // Register renaming of the source operands
-                for source_index in 0..instr.source_cnt as usize {
-                    let instr_source = &instr.source[source_index];
-                    let rs_source = &rs.source[source_index];
-                    match instr_source {
-                        Operand::Register(arch_reg) => {
-                            let rat_entry = self.rat.get(*arch_reg);
-                            if rat_entry.valid {
-                                let phys_reg_entry = self.phys_reg_file.get(rat_entry.phys_reg);
-                                if phys_reg_entry.has_value {
+            // Register renaming of the source operands
+            for source_index in 0..instr.source_cnt as usize {
+                let instr_source = &instr.source[source_index];
+                let rs_source = &rs.source[source_index];
+                match instr_source {
+                    Operand::Register(arch_reg) => {
+                        let rat_entry = self.rat.get(*arch_reg);
+                        if rat_entry.valid {
+                            let phys_reg_entry = self.phys_reg_file.get(rat_entry.phys_reg);
+                            if phys_reg_entry.has_value {
 
-                                    //we got lucky, there is a value in the physical register.
-                                    rs.source[source_index] = Operand::Immediate(phys_reg_entry.value);
-                                    rs.source_ready_cnt += 1;
-                                } else {
-                                    // cdb broadcast will update
-                                    rs.source[source_index] = Operand::Register(rat_entry.phys_reg);
-                                }
-                            } else {
-                                let value = arch_reg_file.get_value(*arch_reg);
-                                rs.source[source_index] = Operand::Immediate(value);
+                                //we got lucky, there is a value in the physical register.
+                                rs.source[source_index] = Operand::Immediate(phys_reg_entry.value);
                                 rs.source_ready_cnt += 1;
+                            } else {
+                                // cdb broadcast will update
+                                rs.source[source_index] = Operand::Register(rat_entry.phys_reg);
                             }
-                        }
-                        Operand::Memory(_) | Operand::Immediate(_) | Operand::Code(_) => {
-                            rs.source[source_index] = *instr_source;
+                        } else {
+                            let value = arch_reg_file.get_value(*arch_reg);
+                            rs.source[source_index] = Operand::Immediate(value);
                             rs.source_ready_cnt += 1;
                         }
-                        Operand::Unused =>
-                            panic!("Illegal source {:?}", rs_source)
                     }
-                }
-
-                // Register renaming of the sink operands.
-                rs.sink_cnt = instr.sink_cnt;
-                for sink_index in 0..instr.sink_cnt as usize {
-                    let instr_sink = instr.sink[sink_index];
-                    match instr_sink {
-                        Operand::Register(arch_reg) => {
-                            let phys_reg = self.phys_reg_file.allocate();
-                            // update the RAT entry to point to the newest phys_reg
-                            let rat_entry = self.rat.get_mut(arch_reg);
-                            rat_entry.phys_reg = phys_reg;
-                            rat_entry.valid = true;
-
-                            // Update the sink on the RS.
-                            rs.sink[sink_index] = Operand::Register(phys_reg);
-                        }
-                        Operand::Memory(_) => {
-                            rs.sink[sink_index] = instr_sink;
-                            // since the instructions are issued in program order, a slot is allocated in the
-                            // sb in program order. And since sb will commit to the coherent cache
-                            // (in this case directly to memory), the stores will become visible
-                            // in program order.
-                            rob_slot.sb_pos = memory_subsystem.sb.allocate();
-                        }
-                        Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
-                            panic!("Illegal sink {:?}", instr_sink)
-                        }
+                    Operand::Memory(_) | Operand::Immediate(_) | Operand::Code(_) => {
+                        rs.source[source_index] = *instr_source;
+                        rs.source_ready_cnt += 1;
                     }
-                }
-                rob_slot.sink = rs.sink;
-
-                if rs.source_ready_cnt == rs.source_cnt {
-                    self.rs_table.enqueue_ready(rs_index);
-                }
-
-                if self.trace.allocate_rs {
-                    println!("Allocate RS [{}]", instr);
+                    Operand::Unused =>
+                        panic!("Illegal source {:?}", rs_source)
                 }
             }
+
+            // Register renaming of the sink operands.
+            rs.sink_cnt = instr.sink_cnt;
+            for sink_index in 0..instr.sink_cnt as usize {
+                let instr_sink = instr.sink[sink_index];
+                match instr_sink {
+                    Operand::Register(arch_reg) => {
+                        let phys_reg = self.phys_reg_file.allocate();
+                        // update the RAT entry to point to the newest phys_reg
+                        let rat_entry = self.rat.get_mut(arch_reg);
+                        rat_entry.phys_reg = phys_reg;
+                        rat_entry.valid = true;
+
+                        // Update the sink on the RS.
+                        rs.sink[sink_index] = Operand::Register(phys_reg);
+                    }
+                    Operand::Memory(_) => {
+                        rs.sink[sink_index] = instr_sink;
+                        // since the instructions are issued in program order, a slot is allocated in the
+                        // sb in program order. And since sb will commit to the coherent cache
+                        // (in this case directly to memory), the stores will become visible
+                        // in program order.
+                        rob_slot.sb_pos = memory_subsystem.sb.allocate();
+                    }
+                    Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
+                        panic!("Illegal sink {:?}", instr_sink)
+                    }
+                }
+            }
+            rob_slot.sink = rs.sink;
+
+            if rs.source_ready_cnt == rs.source_cnt {
+                self.rs_table.enqueue_ready(rs_index);
+            }
+
+            if self.trace.allocate_rs {
+                println!("Allocate RS [{}]", instr);
+            }
+
             self.rob.seq_rs_allocated += 1;
         }
     }
@@ -240,35 +236,29 @@ impl Backend {
                 break;
             }
 
+
             let rs_index = self.rs_table.deque_ready();
             let rs = self.rs_table.get_mut(rs_index);
 
-            let rob_slot_index = rs.rob_slot_index;
+            let rob_slot_index = rs.rob_slot_index.unwrap();
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
-            // todo:
+            assert!(!rob_slot.invalid,"rob_slot should be valid");
 
-            if rob_slot.invalid {
-                rs.state = RSState::IDLE;
-                self.rs_table.deallocate(rs_index);
+            rob_slot.state = ROBSlotState::DISPATCHED;
 
-                rob_slot.state = ROBSlotState::EXECUTED;
-            } else {
-                rob_slot.state = ROBSlotState::DISPATCHED;
+            let eu_index = self.eu_table.allocate();
+            rob_slot.eu_index = Some(eu_index);
+            let mut eu = self.eu_table.get_mut(eu_index);
 
-                let eu_index = self.eu_table.allocate();
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
 
-                let mut eu = self.eu_table.get_mut(eu_index);
+            eu.rs_index = Some(rs_index);
+            eu.cycles_remaining = instr.cycles;
 
-                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-                let instr = Rc::clone(&rc);
-
-                eu.rs_index = rs_index;
-                eu.cycles_remaining = instr.cycles;
-
-                if self.trace.dispatch {
-                    println!("Dispatched [{}]", instr);
-                }
+            if self.trace.dispatch {
+                println!("Dispatched [{}]", instr);
             }
             perf_monitors.dispatch_cnt += 1;
         }
@@ -278,25 +268,30 @@ impl Backend {
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
         let mut perf_monitors = self.perf_counters.borrow_mut();
 
+        // todo: we should only iterate over the used execution units.
         for eu_index in 0..self.eu_table.capacity {
             let mut eu = self.eu_table.get_mut(eu_index);
             if eu.cycles_remaining == 0 {
                 // eu is free, ignore it.
                 continue;
             }
+
+            let rs_index = eu.rs_index.unwrap();
+            let mut rs = self.rs_table.get_mut(rs_index);
+
+            let rob_index = rs.rob_slot_index.unwrap();
+            let mut rob_slot = self.rob.get_mut(rob_index);
+
+            assert!(!rob_slot.invalid,"rob_slot should be valid");
+
             eu.cycles_remaining -= 1;
+
             if eu.cycles_remaining > 0 {
                 // the execution unit isn't finished with its work
                 continue;
             }
 
             // it is the last cycle; so lets give this Eu some real work
-            let rs_index = eu.rs_index;
-            let mut rs = self.rs_table.get_mut(rs_index);
-
-            let rob_index = rs.rob_slot_index;
-            let mut rob_slot = self.rob.get_mut(rob_index);
-
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
@@ -427,6 +422,7 @@ impl Backend {
             }
 
             let eu_index = eu.index;
+            rob_slot.eu_index = None;
             self.eu_table.deallocate(eu_index);
 
             for sink_index in 0..rs.sink_cnt {
@@ -448,9 +444,7 @@ impl Backend {
                 }
             }
 
-            rs.state = RSState::IDLE;
             self.rs_table.deallocate(rs_index);
-
             rob_slot.state = ROBSlotState::EXECUTED;
             perf_monitors.execute_cnt += 1;
         }
@@ -467,7 +461,7 @@ impl Backend {
                     continue;
                 }
 
-                let rob_slot_index = rs.rob_slot_index;
+                let rob_slot_index = rs.rob_slot_index.unwrap();
                 let rob_slot = self.rob.get_mut(rob_slot_index);
                 if rob_slot.state != ROBSlotState::ISSUED {
                     continue;
@@ -494,110 +488,138 @@ impl Backend {
     }
 
     fn cycle_retire(&mut self) {
-        let mut arch_reg_file = self.arch_reg_file.borrow_mut();
-        let mut perf_monitors = self.perf_counters.borrow_mut();
-        let mut phys_reg_file = &mut self.phys_reg_file;
-        let mut frontend_control = self.frontend_control.borrow_mut();
-        let mut memory_subsytem = self.memory_subsystem.borrow_mut();
-        for _ in 0..self.retire_n_wide {
-            let rob_slot_index = self.rob.to_index(self.rob.seq_retired);
-            let mut rob_slot = self.rob.get_mut(rob_slot_index);
+        let mut bad_speculation = false;
 
-            if rob_slot.state != ROBSlotState::EXECUTED {
-                break;
-            }
+        {
+            let mut arch_reg_file = self.arch_reg_file.borrow_mut();
+            let mut perf_monitors = self.perf_counters.borrow_mut();
+            let mut phys_reg_file = &mut self.phys_reg_file;
+            let mut frontend_control = self.frontend_control.borrow_mut();
+            let mut memory_subsytem = self.memory_subsystem.borrow_mut();
 
-            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-            let instr = Rc::clone(&rc);
+            for _ in 0..self.retire_n_wide {
+                let rob_slot_index = self.rob.to_index(self.rob.seq_retired);
+                let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
-            let mut bad_speculation = false;
-            if rob_slot.invalid {
-                perf_monitors.bad_speculation_cnt += 1;
-            } else {
-                perf_monitors.retired_cnt += 1;
-
-                if instr.opcode == Opcode::EXIT {
-                    self.exit = true;
+                if rob_slot.state != ROBSlotState::EXECUTED {
+                    break;
                 }
 
-                if self.trace.retire {
-                    println!("Retiring {}", instr);
-                }
+                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+                let instr = Rc::clone(&rc);
 
-                if instr.is_branch() {
-                    if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
-                        bad_speculation = true;
-                        // the branch was not correctly predicted
+                if rob_slot.invalid {
+                    println!("Invalid slot found while retiring");
+                    perf_monitors.bad_speculation_cnt += 1;
+                } else {
+                    perf_monitors.retired_cnt += 1;
 
-                        perf_monitors.branch_misprediction_cnt += 1;
-
-                        // get rid of the instruction queue content
-                        self.instr_queue.borrow_mut().flush();
-
-                        // resteer the frontend
-                        arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
-
-                        // for h in self.rob.
-
-                        // all the instructions that in the rob after the existing instr should now be marked
-                        // as invalidated.
-                        // every instruction that is issued and doesn't have a RS: immediately mark it.
-                        //      how does does it move on to the final stage?
-                        // every instruction that is issued and does have a RS:
-                        //      how does it move on to the final stage?
-                        //      mark it and what do RS?
-                        // every instruction that is dispatched, it will be dealt with on retirement
-                        // todo: store buffer.
-                    } else {
-                        // the branch was correctly predicted
-                        perf_monitors.branch_good_predictions_cnt += 1;
+                    if instr.opcode == Opcode::EXIT {
+                        self.exit = true;
                     }
-                }
-            }
 
-            for sink_index in 0..instr.sink_cnt as usize {
-                let sink = instr.sink[sink_index];
-                match sink {
-                    Operand::Register(arch_reg) => {
-                        let rat_entry = self.rat.get_mut(arch_reg);
-                        let rat_phys_reg = rat_entry.phys_reg;
-                        let rs_phys_reg = rob_slot.sink[sink_index].get_register();
-
-                        // only when the physical register on the rat is the same as the physical register used for that
-                        // instruction, the rat entry should be invalidated
-                        if rat_phys_reg == rs_phys_reg {
-                            rat_entry.valid = false;
-                        }
-
-                        phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-                        phys_reg_file.deallocate(rs_phys_reg);
-
-                        // We update the architectural registers only if the rob_slot wasn't invalidated.
-                        if !rob_slot.invalid {
-                            arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
-                        }
+                    if self.trace.retire {
+                        println!("Retiring {}", instr);
                     }
-                    Operand::Memory(_) => {
-                        if rob_slot.invalid {
-                            memory_subsytem.sb.invalidate(rob_slot.sb_pos)
+
+                    if instr.is_branch() {
+                        if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
+                            println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
+
+                            // the branch was not correctly predicted
+                            perf_monitors.branch_misprediction_cnt += 1;
+                            bad_speculation = true;
+
+                            // re-steer the frontend
+                            arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
                         } else {
-                            memory_subsytem.sb.commit(rob_slot.sb_pos)
+                            println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
+
+                            // the branch was correctly predicted
+                            perf_monitors.branch_good_predictions_cnt += 1;
                         }
                     }
-                    _ => unreachable!(),
                 }
-            }
 
-            self.rob.seq_retired += 1;
-            self.rob.deallocate();
+                for sink_index in 0..instr.sink_cnt as usize {
+                    let sink = instr.sink[sink_index];
+                    match sink {
+                        Operand::Register(arch_reg) => {
+                            let rat_entry = self.rat.get_mut(arch_reg);
+                            let rat_phys_reg = rat_entry.phys_reg;
+                            let rs_phys_reg = rob_slot.sink[sink_index].get_register();
 
-            if bad_speculation {
-                // todo: the problem state is when a rob entry has been dispatched. Because
-                // only when the operands are ready, it will be picked up and that can be
-                // in any order.
-                // But the operands for such a dispatched operand don't need to come available
-                self.rob.invalidate();
+                            // only when the physical register on the rat is the same as the physical register used for that
+                            // instruction, the rat entry should be invalidated
+                            if rat_phys_reg == rs_phys_reg {
+                                rat_entry.valid = false;
+                            }
+
+                            phys_reg_file.get_mut(rs_phys_reg).has_value = false;
+                            phys_reg_file.deallocate(rs_phys_reg);
+
+                            // We update the architectural registers only if the rob_slot wasn't invalidated.
+                            if !rob_slot.invalid {
+                            //    arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
+                            }
+                        }
+                        Operand::Memory(_) => {
+                            if rob_slot.invalid {
+                                memory_subsytem.sb.invalidate(rob_slot.sb_pos)
+                            } else {
+                                memory_subsytem.sb.commit(rob_slot.sb_pos)
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+
+                self.rob.seq_retired += 1;
+                self.rob.deallocate();
+
+                if bad_speculation {
+                    break;
+                }
             }
         }
+
+        if bad_speculation {
+            self.flush();
+        }
+    }
+
+    fn flush(&mut self) {
+        println!("Backend flush");
+
+        // get rid of the instruction queue content
+        self.instr_queue.borrow_mut().flush();
+
+        // invalidate the ROB content
+        for seq in self.rob.head..self.rob.tail {
+            let index = self.rob.to_index(seq) as usize;
+            let rob_slot = &mut self.rob.slots[index];
+            rob_slot.invalid = true;
+            rob_slot.state = ROBSlotState::EXECUTED;
+
+            // free the rs if one has been allocated
+            if rob_slot.rs_index.is_some() {
+                let rs_index = rob_slot.rs_index.unwrap();
+                rob_slot.rs_index = None;
+                self.rs_table.deallocate(rs_index);
+            };
+
+            // free the eu if one has been allocated
+            if rob_slot.eu_index.is_some() {
+                let eu_index = rob_slot.eu_index.unwrap();
+                rob_slot.eu_index = None;
+                self.eu_table.deallocate(eu_index);
+            };
+        }
+
+        self.rs_table.flush();
+
+        self.rob.seq_issued = self.rob.tail;
+        self.rob.seq_rs_allocated = self.rob.tail;
+        self.rob.seq_dispatched = self.rob.tail;
     }
 }

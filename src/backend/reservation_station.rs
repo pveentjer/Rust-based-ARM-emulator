@@ -12,7 +12,7 @@ pub(crate) enum RSState {
 
 // A single reservation station
 pub(crate) struct RS {
-    pub(crate) rob_slot_index: u16,
+    pub(crate) rob_slot_index: Option<u16>,
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
     pub(crate) source_cnt: u8,
@@ -32,8 +32,16 @@ impl RS {
             source_ready_cnt: 0,
             sink_cnt: 0,
             sink: [Unused, Unused],
-            rob_slot_index: 0,
+            rob_slot_index: None,
         }
+    }
+
+    fn reset(&mut self){
+        self.rob_slot_index = None;
+        self.state = RSState::IDLE;
+        self.sink_cnt = 0;
+        self.source_ready_cnt = 0;
+        self.source_cnt = 0;
     }
 }
 
@@ -86,13 +94,17 @@ impl RSTable {
         }
     }
 
+    fn to_index(&self, seq: u64) -> u16 {
+        (seq % self.capacity as u64) as u16
+    }
+
     pub(crate) fn get_mut(&mut self, rs_index: u16) -> &mut RS {
         return &mut self.array[rs_index as usize];
     }
 
     pub(crate) fn enqueue_ready(&mut self, rs_index: u16) {
-        let index = (self.ready_queue_tail % self.capacity as u64) as usize;
-        self.ready_queue[index] = rs_index;
+        let index = self.to_index(self.ready_queue_tail);
+        self.ready_queue[index as usize] = rs_index;
         self.ready_queue_tail += 1;
     }
 
@@ -101,9 +113,16 @@ impl RSTable {
         return self.ready_queue_head != self.ready_queue_tail;
     }
 
+    pub(crate) fn flush(&mut self) {
+        while self.has_ready(){
+            let rs_index = self.deque_ready();
+            self.deallocate(rs_index);
+        }
+    }
+
     pub(crate) fn deque_ready(&mut self) -> u16 {
         assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
-        let index = (self.ready_queue_head % self.capacity as u64) as u16;
+        let index = self.to_index(self.ready_queue_head) as u16;
         let rs_ready_index = self.ready_queue[index as usize];
 
         self.ready_queue_head += 1;
@@ -123,7 +142,9 @@ impl RSTable {
     }
 
     pub(crate) fn deallocate(&mut self, rs_index: u16) {
-        self.free_stack.push(rs_index);
+        let mut rs = &mut self.array[rs_index as usize];
+        rs.reset();
+        //self.free_stack.push(rs_index);
     }
 }
 

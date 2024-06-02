@@ -79,7 +79,7 @@ impl Frontend {
                     };
 
                     if self.trace.decode {
-                        println!("Frontend: ip_next_fetch: {} decoded {}", pc_value, instr);
+                        println!("Frontend: pc: {}  '{}'", pc_value, instr);
                     }
 
                     if instr.opcode == Opcode::EXIT {
@@ -89,14 +89,15 @@ impl Frontend {
                     let tail_index = instr_queue.tail_index();
                     let mut slot = instr_queue.get_mut(tail_index);
 
-                    if instr.is_branch() {
-                        let branch_target = Self::predict(pc_value, &instr);
-                        slot.branch_target_predicted = branch_target;
-                        arch_reg_file.set_value(PC, (branch_target) as WordType);
+                    let pc_value_next = if instr.is_branch() {
+                        slot.branch_target_predicted = Self::predict(pc_value, &instr);
+                        println!("Frontend branch predicted={}", slot.branch_target_predicted);
+                        slot.branch_target_predicted
                     } else {
-                        // move the PC to the next instruction.
-                        arch_reg_file.set_value(PC, (pc_value + 1) as WordType);
-                    }
+                        pc_value + 1
+                    };
+                    arch_reg_file.set_value(PC, pc_value_next as WordType);
+
                     slot.instr = instr;
                     instr_queue.tail_bump();
                     perf_counters.decode_cnt += 1;
@@ -108,7 +109,10 @@ impl Frontend {
     // A static branch predictor that will speculate that backwards branches are always taken
     fn predict(ip: usize, instr: &Instr) -> usize {
         let branch_target = match instr.opcode {
-            Opcode::B => instr.source[0].get_code_address() as usize,
+            Opcode::B => {
+                // this is an unconditional branch. So we can predict with 100% certainty
+                return instr.source[0].get_code_address() as usize;
+            }
             Opcode::BX => 0,
             Opcode::BL => 0,
             Opcode::CBNZ |
