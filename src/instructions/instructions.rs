@@ -379,7 +379,7 @@ pub(crate) type WordType = i64;
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
-    // The ip for the next instruction to execute.
+    // The pc of the current instr.
     pub(crate) pc: usize,
     pub(crate) branch_target_predicted: usize,
 }

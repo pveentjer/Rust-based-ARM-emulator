@@ -16,6 +16,8 @@ pub(crate) enum ROBSlotState {
 }
 
 pub(crate) struct ROBSlot {
+    // the pc of the current instr.
+    pub(crate) pc: usize,
     pub(crate) instr: Option<Rc<Instr>>,
     pub(crate) state: ROBSlotState,
     pub(crate) index: u16,
@@ -27,8 +29,7 @@ pub(crate) struct ROBSlot {
     pub(crate) branch_target_actual: usize,
     pub(crate) sb_pos: u16,
     pub(crate) eu_index: Option<u8>,
-    // the address of the instruction after the current instr
-    pub(crate) pc: usize,
+
 }
 
 impl ROBSlot {
