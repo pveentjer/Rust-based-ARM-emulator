@@ -66,7 +66,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::STR => "STR",
         Opcode::NOP => "NOP",
         Opcode::PRINTR => "PRINTR",
-        Opcode::MOV => "PRINTR",
+        Opcode::MOV => "MOV",
         Opcode::B => "B",
         Opcode::BX => "BX",
         Opcode::BL => "BL",
