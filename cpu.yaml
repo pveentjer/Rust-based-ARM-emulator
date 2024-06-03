@@ -1,13 +1,13 @@
 # the number of physical registers
 phys_reg_count: 64
 # the number of instructions the frontend can fetch/decode per clock cycle.
-frontend_n_wide: 4
+frontend_n_wide: 1
 # the size of the instruction queue between frontend and backend
-instr_queue_capacity: 32
+instr_queue_capacity: 1
 # the frequency of the CPU in Hz.
-frequency_hz: 10
+frequency_hz: 4
 # the number of reservation stations
-rs_count: 65000
+rs_count: 6500
 # the size of the memory in machine words
 memory_size: 128
 # the capacity of the store buffer
@@ -17,23 +17,23 @@ sb_capacity: 16
 # per clock cycle (there is also no cache)
 lfb_count: 4
 # the capacity of the reorder buffer
-rob_capacity: 128
+rob_capacity: 1
 # the number of execution units
 eu_count: 1
 # if processing of a single instruction should be traced (printed)
 trace:
   decode: false
-  issue: false
+  issue: true
   allocate_rs: false
   dispatch: false
   execute: false
   retire: true
   cycle: true
 # the number of instructions that can retire per clock cycle
-retire_n_wide: 4
+retire_n_wide: 1
 # the number of instructions that can be dispatched (sent to execution units) every clock cycle
-dispatch_n_wide: 4
+dispatch_n_wide: 1
 # the number of instructions that can be issued to the ROB or finding reservation stations, every clock cycle
-issue_n_wide: 4
+issue_n_wide: 1
 # the size of the stack
 stack_capacity: 256

@@ -92,9 +92,10 @@ impl ROB {
     }
 
     pub(crate) fn allocate(&mut self) -> u16 {
-        assert!(self.has_space(), "ROB: Can't allocate if the ROB has no space.");
+        debug_assert!(self.has_space(), "ROB: Can't allocate if the ROB has no space.");
 
         let index = self.to_index(self.tail);
+
         self.tail += 1;
         return index;
     }
@@ -105,7 +106,7 @@ impl ROB {
 
     // Deallocates
     pub(crate) fn deallocate(&mut self) {
-        assert!(!self.is_empty(), "ROB: Can't deallocate if ROB is empty");
+        debug_assert!(!self.is_empty(), "ROB: Can't deallocate if ROB is empty");
 
         let index = self.to_index(self.head) as usize;
         self.slots[index].reset();

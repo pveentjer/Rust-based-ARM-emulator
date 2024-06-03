@@ -34,7 +34,7 @@ impl PhysRegFile {
     pub(crate) fn allocate(&mut self) -> RegisterType {
         if let Some(reg) = self.free_stack.pop() {
             let phys_reg_entry = self.get(reg);
-            assert!(!phys_reg_entry.has_value, " The allocated physical register {} should not have a value", reg);
+            debug_assert!(!phys_reg_entry.has_value, " The allocated physical register {} should not have a value", reg);
             return reg;
         } else {
             panic!("No free PhysReg")
@@ -47,7 +47,7 @@ impl PhysRegFile {
         }
 
         let phys_reg_entry = self.get(reg);
-        assert!(!phys_reg_entry.has_value, " The deallocated physical register {} should not a value!", reg);
+        debug_assert!(!phys_reg_entry.has_value, " The deallocated physical register {} should not a value!", reg);
 
 
         self.free_stack.push(reg);

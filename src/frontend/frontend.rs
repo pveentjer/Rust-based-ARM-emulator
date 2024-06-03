@@ -91,7 +91,7 @@ impl Frontend {
 
                     let pc_value_next = if instr.is_branch() {
                         slot.branch_target_predicted = Self::predict(pc_value, &instr);
-                        println!("Frontend branch predicted={}", slot.branch_target_predicted);
+                        //println!("Frontend branch predicted={}", slot.branch_target_predicted);
                         slot.branch_target_predicted
                     } else {
                         pc_value + 1
@@ -99,6 +99,7 @@ impl Frontend {
                     arch_reg_file.set_value(PC, pc_value_next as WordType);
 
                     slot.instr = instr;
+
                     instr_queue.tail_bump();
                     perf_counters.decode_cnt += 1;
                 }

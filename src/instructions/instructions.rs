@@ -66,7 +66,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::STR => "STR",
         Opcode::NOP => "NOP",
         Opcode::PRINTR => "PRINTR",
-        Opcode::MOV => "PRINTR",
+        Opcode::MOV => "MOV",
         Opcode::B => "B",
         Opcode::BX => "BX",
         Opcode::BL => "BL",
@@ -225,8 +225,8 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
+            instr.set_branch();
         }
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
@@ -236,6 +236,7 @@ pub(crate) fn create_instr(opcode: Opcode,
 
             instr.sink_cnt = 1;
             instr.sink[0] = Register(PC);
+            instr.set_branch();
         }
         Opcode::BL => {
             validate_operand_count(1, operands, opcode, loc)?;
@@ -247,6 +248,7 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.sink_cnt = 2;
             instr.sink[0] = Register(LR);
             instr.sink[1] = Register(PC);
+            instr.set_branch();
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
@@ -259,6 +261,7 @@ pub(crate) fn create_instr(opcode: Opcode,
 
             instr.sink_cnt = 1;
             instr.sink[0] = Register(PC);
+            instr.set_branch();
         }
         Opcode::EXIT => {
             validate_operand_count(0, operands, opcode, loc)?;

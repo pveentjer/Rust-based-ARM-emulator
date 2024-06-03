@@ -3,8 +3,9 @@ use std::fmt::Display;
 use Operand::Unused;
 
 use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
+use crate::instructions::instructions::Opcode::NOP;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum RSState {
     IDLE,
     BUSY,
@@ -36,12 +37,13 @@ impl RS {
         }
     }
 
-    fn reset(&mut self){
+    fn reset(&mut self) {
         self.rob_slot_index = None;
+        self.opcode = NOP;
         self.state = RSState::IDLE;
-        self.sink_cnt = 0;
-        self.source_ready_cnt = 0;
         self.source_cnt = 0;
+        self.source_ready_cnt = 0;
+        self.sink_cnt = 0;
     }
 }
 
@@ -99,11 +101,25 @@ impl RSTable {
     }
 
     pub(crate) fn get_mut(&mut self, rs_index: u16) -> &mut RS {
-        return &mut self.array[rs_index as usize];
+        return &mut self.array[rs_index as usize]
+    }
+
+    // todo: delete
+    pub(crate) fn on_free_stack(&mut self, rs_index: u16) ->bool {
+        self.free_stack.contains(&rs_index)
     }
 
     pub(crate) fn enqueue_ready(&mut self, rs_index: u16) {
         let index = self.to_index(self.ready_queue_tail);
+
+        #[cfg(debug_assertions)]
+        {
+            let rs = &self.array[rs_index as usize];
+            debug_assert!(rs.state == RSState::BUSY);
+            debug_assert!(rs.rob_slot_index.is_some());
+            debug_assert!(rs.source_cnt==rs.source_cnt);
+        }
+
         self.ready_queue[index as usize] = rs_index;
         self.ready_queue_tail += 1;
     }
@@ -114,16 +130,23 @@ impl RSTable {
     }
 
     pub(crate) fn flush(&mut self) {
-        while self.has_ready(){
+        while self.has_ready() {
             let rs_index = self.deque_ready();
             self.deallocate(rs_index);
         }
     }
 
     pub(crate) fn deque_ready(&mut self) -> u16 {
-        assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
+        debug_assert!(self.has_ready(), "RSTable: can't dequeue ready when there are no ready items");
         let index = self.to_index(self.ready_queue_head) as u16;
         let rs_ready_index = self.ready_queue[index as usize];
+
+        #[cfg(debug_assertions)]
+        {
+            let rs = &self.array[rs_ready_index as usize];
+            debug_assert!(rs.state == RSState::BUSY);
+            debug_assert!(rs.rob_slot_index.is_some());
+        }
 
         self.ready_queue_head += 1;
         return rs_ready_index;
@@ -135,6 +158,9 @@ impl RSTable {
 
     pub(crate) fn allocate(&mut self) -> u16 {
         if let Some(last_element) = self.free_stack.pop() {
+            let mut rs = &mut self.array[last_element as usize];
+            debug_assert!(rs.state == RSState::IDLE);
+            rs.state = RSState::BUSY;
             return last_element;
         } else {
             panic!("No free RS")
@@ -143,8 +169,10 @@ impl RSTable {
 
     pub(crate) fn deallocate(&mut self, rs_index: u16) {
         let mut rs = &mut self.array[rs_index as usize];
+        debug_assert!(rs.state == RSState::BUSY);
+        debug_assert!(!self.free_stack.contains(&rs_index));
         rs.reset();
-        //self.free_stack.push(rs_index);
+        self.free_stack.push(rs_index);
     }
 }
 

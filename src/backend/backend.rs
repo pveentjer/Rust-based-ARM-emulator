@@ -1,11 +1,13 @@
 use std::cell::RefCell;
+use std::cmp::PartialEq;
 use std::io::stdout;
 use std::rc::Rc;
 
-use crate::backend::execution_unit::EUTable;
+use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
+use crate::backend::reorder_buffer::ROBSlotState::IDLE;
 use crate::backend::reservation_station::{RSState, RSTable};
 use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PC, PerfCounters, Trace, ZERO_FLAG};
 use crate::frontend::frontend::FrontendControl;
@@ -36,6 +38,7 @@ pub(crate) struct Backend {
     pub(crate) exit: bool,
     perf_counters: Rc<RefCell<PerfCounters>>,
 }
+
 
 impl Backend {
     pub(crate) fn new(cpu_config: &CPUConfig,
@@ -133,6 +136,10 @@ impl Backend {
             let rob_slot_index = self.rob.to_index(self.rob.seq_rs_allocated);
             let mut rob_slot = self.rob.get_mut(rob_slot_index);
 
+            debug_assert!(rob_slot.state == ROBSlotState::ISSUED);
+            debug_assert!(rob_slot.eu_index.is_none());
+            debug_assert!(rob_slot.rs_index.is_none());
+
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
@@ -143,14 +150,12 @@ impl Backend {
 
             let rs_index = self.rs_table.allocate();
             let mut rs = self.rs_table.get_mut(rs_index);
+            debug_assert!(rs.state == RSState::BUSY);
 
             rob_slot.rs_index = Some(rs_index);
 
             rs.rob_slot_index = Some(rob_slot_index);
-
-            //println!("cycle_issue: rob_slot_index  {}", rs.rob_slot_index);
             rs.opcode = instr.opcode;
-            rs.state = RSState::BUSY;
             rs.source_cnt = instr.source_cnt;
 
             // Register renaming of the source operands
@@ -236,26 +241,31 @@ impl Backend {
                 break;
             }
 
-
             let rs_index = self.rs_table.deque_ready();
             let rs = self.rs_table.get_mut(rs_index);
+            debug_assert!(rs.state == RSState::BUSY);
+
+            //println!("Cycle dispatch: opcode {:?}", rs.opcode);
+
+            //println!("RS {:?}", rs.state);
 
             let rob_slot_index = rs.rob_slot_index.unwrap();
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
-            assert!(!rob_slot.invalid,"rob_slot should be valid");
-
-            rob_slot.state = ROBSlotState::DISPATCHED;
+            debug_assert!(!rob_slot.invalid, "rob_slot should be valid");
 
             let eu_index = self.eu_table.allocate();
-            rob_slot.eu_index = Some(eu_index);
             let mut eu = self.eu_table.get_mut(eu_index);
+            debug_assert!(eu.state == EUState::BUSY);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
 
             eu.rs_index = Some(rs_index);
             eu.cycles_remaining = instr.cycles;
+
+            rob_slot.state = ROBSlotState::DISPATCHED;
+            rob_slot.eu_index = Some(eu_index);
 
             if self.trace.dispatch {
                 println!("Dispatched [{}]", instr);
@@ -271,18 +281,21 @@ impl Backend {
         // todo: we should only iterate over the used execution units.
         for eu_index in 0..self.eu_table.capacity {
             let mut eu = self.eu_table.get_mut(eu_index);
-            if eu.cycles_remaining == 0 {
-                // eu is free, ignore it.
+
+            if eu.state == EUState::IDLE {
                 continue;
             }
 
             let rs_index = eu.rs_index.unwrap();
             let mut rs = self.rs_table.get_mut(rs_index);
+            debug_assert!(rs.state == RSState::BUSY);
 
             let rob_index = rs.rob_slot_index.unwrap();
             let mut rob_slot = self.rob.get_mut(rob_index);
-
-            assert!(!rob_slot.invalid,"rob_slot should be valid");
+            debug_assert!(!rob_slot.invalid, "rob_slot should be valid");
+            debug_assert!(rob_slot.state == ROBSlotState::DISPATCHED);
+            debug_assert!(rob_slot.rs_index.is_some());
+            debug_assert!(rob_slot.eu_index.is_some());
 
             eu.cycles_remaining -= 1;
 
@@ -380,6 +393,7 @@ impl Backend {
                 Opcode::CBZ | Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_immediate();
                     let branch = rs.source[1].get_code_address();
+
                     let pc = rs.source[2].get_immediate();
                     let pc_udate = match instr.opcode {
                         Opcode::CBZ => if reg_value == 0 { branch } else { pc },
@@ -396,7 +410,6 @@ impl Backend {
                     let branch_target = rs.source[0].get_code_address();
                     let pc_update = branch_target;
                     rob_slot.branch_target_actual = pc_update as usize;
-                    rob_slot.result.push(pc_update as i64);
                 }
                 Opcode::BX => {
                     // update the PC
@@ -421,10 +434,6 @@ impl Backend {
                 Opcode::DSB => {}
             }
 
-            let eu_index = eu.index;
-            rob_slot.eu_index = None;
-            self.eu_table.deallocate(eu_index);
-
             for sink_index in 0..rs.sink_cnt {
                 let sink = rs.sink[sink_index as usize];
                 match sink {
@@ -444,7 +453,13 @@ impl Backend {
                 }
             }
 
+            let eu_index = eu.index;
+            self.eu_table.deallocate(eu_index);
+            rob_slot.eu_index = None;
+
             self.rs_table.deallocate(rs_index);
+            rob_slot.rs_index = None;
+
             rob_slot.state = ROBSlotState::EXECUTED;
             perf_monitors.execute_cnt += 1;
         }
@@ -509,7 +524,7 @@ impl Backend {
                 let instr = Rc::clone(&rc);
 
                 if rob_slot.invalid {
-                    println!("Invalid slot found while retiring");
+                    println!("Invalid ROB slot found while retiring");
                     perf_monitors.bad_speculation_cnt += 1;
                 } else {
                     perf_monitors.retired_cnt += 1;
@@ -560,7 +575,7 @@ impl Backend {
 
                             // We update the architectural registers only if the rob_slot wasn't invalidated.
                             if !rob_slot.invalid {
-                            //    arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
+                                //    arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
                             }
                         }
                         Operand::Memory(_) => {
@@ -589,7 +604,7 @@ impl Backend {
     }
 
     fn flush(&mut self) {
-        println!("Backend flush");
+        println!("------------------------------------Backend flush");
 
         // get rid of the instruction queue content
         self.instr_queue.borrow_mut().flush();
