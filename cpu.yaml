@@ -23,12 +23,12 @@ eu_count: 1
 # if processing of a single instruction should be traced (printed)
 trace:
   decode: false
-  issue: true
+  issue: false
   allocate_rs: false
   dispatch: false
   execute: false
   retire: true
-  cycle: true
+  cycle: false
 # the number of instructions that can retire per clock cycle
 retire_n_wide: 1
 # the number of instructions that can be dispatched (sent to execution units) every clock cycle

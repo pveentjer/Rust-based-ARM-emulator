@@ -70,16 +70,16 @@ impl Frontend {
                     // MOV IP, 10
                     // B foobar
 
-                    let pc_value = arch_reg_file.get_value(PC) as usize;
-                    let instr = if program.code.len() == pc_value {
+                    let pc = arch_reg_file.get_value(PC) as usize;
+                    let instr = if program.code.len() == pc {
                         // at the end of the program
                         Rc::new(EXIT)
                     } else {
-                        program.get_instr(pc_value)
+                        program.get_instr(pc)
                     };
 
                     if self.trace.decode {
-                        println!("Frontend: pc: {}  '{}'", pc_value, instr);
+                        println!("Frontend: pc: {}  '{}'", pc, instr);
                     }
 
                     if instr.opcode == Opcode::EXIT {
@@ -90,16 +90,16 @@ impl Frontend {
                     let mut slot = instr_queue.get_mut(tail_index);
 
                     let pc_value_next = if instr.is_branch() {
-                        slot.branch_target_predicted = Self::predict(pc_value, &instr);
+                        slot.branch_target_predicted = Self::predict(pc, &instr);
                         //println!("Frontend branch predicted={}", slot.branch_target_predicted);
                         slot.branch_target_predicted
                     } else {
-                        pc_value + 1
+                        pc + 1
                     };
                     arch_reg_file.set_value(PC, pc_value_next as WordType);
 
                     slot.instr = instr;
-
+                    slot.pc = pc;
                     instr_queue.tail_bump();
                     perf_counters.decode_cnt += 1;
                 }
@@ -115,7 +115,10 @@ impl Frontend {
                 return instr.source[0].get_code_address() as usize;
             }
             Opcode::BX => 0,
-            Opcode::BL => 0,
+            Opcode::BL => {
+                // this is an unconditional branch. So we can predict with 100% certainty
+                return instr.source[0].get_code_address() as usize;
+            }
             Opcode::CBNZ |
             Opcode::CBZ => instr.source[1].get_code_address() as usize,
             Opcode::BNE |

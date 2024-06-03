@@ -27,6 +27,8 @@ pub(crate) struct ROBSlot {
     pub(crate) branch_target_actual: usize,
     pub(crate) sb_pos: u16,
     pub(crate) eu_index: Option<u8>,
+    // the address of the instruction after the current instr
+    pub(crate) pc: usize,
 }
 
 impl ROBSlot {
@@ -41,6 +43,7 @@ impl ROBSlot {
         self.invalid = false;
         self.sb_pos = 0;
         self.eu_index = None;
+        self.pc = 0;
     }
 }
 
@@ -71,6 +74,7 @@ impl ROB {
                 branch_target_actual: 0,
                 sb_pos: 0,
                 eu_index: None,
+                pc: 0,
             });
         }
 

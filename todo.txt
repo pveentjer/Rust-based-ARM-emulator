@@ -1,10 +1,5 @@
 TODO
 
-- what to do with instructions that are behind a branch and the branch did a mis prediction
-  we could drain the rob
-    for ISSUED instructions: make sure they don't dispatch
-    for DISPATCHED instructions:
-
 
 - every instruction should have address so that we know its position
 

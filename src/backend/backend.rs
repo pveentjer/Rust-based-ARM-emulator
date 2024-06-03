@@ -90,11 +90,11 @@ impl Backend {
 
             // todo: register renaming should be done here.
 
-            let head_index = instr_queue.head_index();
-            let mut slot = instr_queue.get_mut(head_index);
+            let instr_queue_head_index = instr_queue.head_index();
+            let mut instr_queue_slot = instr_queue.get_mut(instr_queue_head_index);
 
-            let branch_target_predicted = slot.branch_target_predicted;
-            let instr = Rc::clone(&slot.instr);
+            let branch_target_predicted = instr_queue_slot.branch_target_predicted;
+            let instr = Rc::clone(&instr_queue_slot.instr);
 
             // If needed, synchronize of the sb being empty
             if instr.sb_sync() && self.memory_subsystem.borrow().sb.size() > 0 {
@@ -113,6 +113,7 @@ impl Backend {
                 println!("Issued [{}]", instr);
             }
 
+            rob_slot.pc = instr_queue_slot.pc;
             rob_slot.state = ROBSlotState::ISSUED;
             rob_slot.instr = Some(instr);
             rob_slot.branch_target_predicted = branch_target_predicted;
@@ -375,35 +376,40 @@ impl Backend {
                 Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
                     let target = rs.source[0].get_immediate();
                     let cpsr = rs.source[1].get_code_address();
-                    let pc = rs.source[2].get_immediate();
+                    let pc = rob_slot.pc as WordType;
+
+                    println!("rob_slot.pc {}", pc);
+
                     let pc_update = match rs.opcode {
-                        Opcode::BEQ => if cpsr == 0 { target } else { pc },
-                        Opcode::BNE => if cpsr != 0 { target } else { pc },
-                        Opcode::BLT => if cpsr < 0 { target } else { pc },
-                        Opcode::BLE => if cpsr <= 0 { target } else { pc },
-                        Opcode::BGT => if cpsr > 0 { target } else { pc },
-                        Opcode::BGE => if cpsr >= 0 { target } else { pc },
+                        Opcode::BEQ => if cpsr == 0 { target } else { pc + 1 },
+                        Opcode::BNE => if cpsr != 0 { target } else { pc + 1 },
+                        Opcode::BLT => if cpsr < 0 { target } else { pc + 1 },
+                        Opcode::BLE => if cpsr <= 0 { target } else { pc + 1 },
+                        Opcode::BGT => if cpsr > 0 { target } else { pc + 1 },
+                        Opcode::BGE => if cpsr >= 0 { target } else { pc + 1 },
                         _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
 
                     // Update pc
-                    rob_slot.result.push(pc_update as i64);
+                    //rob_slot.result.push(pc_update as i64);
                     rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::CBZ | Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_immediate();
                     let branch = rs.source[1].get_code_address();
 
-                    let pc = rs.source[2].get_immediate();
-                    let pc_udate = match instr.opcode {
-                        Opcode::CBZ => if reg_value == 0 { branch } else { pc },
-                        Opcode::CBNZ => if reg_value != 0 { branch } else { pc },
+                    let pc = rob_slot.pc as WordType;
+                    println!("{:?} rob_slot.pc={}, reg_value={} branch={}", instr.opcode, pc, reg_value, branch);
+
+                    let pc_update = match instr.opcode {
+                        Opcode::CBZ => if reg_value == 0 { branch } else { pc + 1 },
+                        Opcode::CBNZ => if reg_value != 0 { branch } else { pc + 1 },
                         _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
 
                     // update the PC
-                    rob_slot.result.push(pc_udate as i64);
-                    rob_slot.branch_target_actual = pc_udate as usize;
+                    //rob_slot.result.push(pc_udate as i64);
+                    rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::B => {
                     // update the PC
@@ -420,14 +426,11 @@ impl Backend {
                 }
                 Opcode::BL => {
                     let branch_target = rs.source[0].get_code_address();
-                    let pc = rs.source[1].get_immediate();
 
                     let pc_update = branch_target;
 
                     // update LR
-                    rob_slot.result.push(pc);
-                    // update the PC
-                    rob_slot.result.push(pc_update as i64);
+                    rob_slot.result.push((rob_slot.pc + 1) as WordType);
                     rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::EXIT => {}
@@ -575,7 +578,7 @@ impl Backend {
 
                             // We update the architectural registers only if the rob_slot wasn't invalidated.
                             if !rob_slot.invalid {
-                                //    arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
+                                arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
                             }
                         }
                         Operand::Memory(_) => {

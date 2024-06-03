@@ -241,26 +241,22 @@ pub(crate) fn create_instr(opcode: Opcode,
         Opcode::BL => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            instr.source_cnt = 2;
+            instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            instr.source[1] = Register(PC);
 
-            instr.sink_cnt = 2;
+            instr.sink_cnt = 1;
             instr.sink[0] = Register(LR);
-            instr.sink[1] = Register(PC);
             instr.set_branch();
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 3;
+            instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
             instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
-            instr.source[2] = Register(PC);
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
             instr.set_branch();
         }
         Opcode::EXIT => {
@@ -304,13 +300,12 @@ pub(crate) fn create_instr(opcode: Opcode,
         Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 3;
+            instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
             instr.source[1] = Register(CPSR);
-            instr.source[2] = Register(PC);
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
+            instr.set_branch();
         }
     }
 
@@ -384,6 +379,7 @@ pub(crate) type WordType = i64;
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
+    // The ip for the next instruction to execute.
     pub(crate) pc: usize,
     pub(crate) branch_target_predicted: usize,
 }
