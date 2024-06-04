@@ -24,6 +24,13 @@ impl RAT {
         Self { table }
     }
 
+    pub(crate) fn flush(&mut self){
+        for k in 0..self.table.len() {
+            let option = self.table.get_mut(k).unwrap();
+            option.valid=false;
+        }
+    }
+
     pub(crate) fn get(&self, arch_reg: RegisterType) -> &RATEntry {
         return self.table.get(arch_reg as usize).unwrap();
     }

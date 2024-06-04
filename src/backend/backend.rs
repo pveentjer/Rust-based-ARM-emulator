@@ -68,7 +68,7 @@ impl Backend {
     pub(crate) fn do_cycle(&mut self) {
         self.cycle_retire();
         self.cycle_eu_table();
-        self.cdb_broadcast();
+        debug_assert!(self.cdb_broadcast_buffer.is_empty());
         self.cycle_dispatch();
         self.cycle_rs_allocation();
         self.cycle_issue();
@@ -81,6 +81,8 @@ impl Backend {
 
         // try to put as many instructions into the rob
         for _ in 0..self.issue_n_wide {
+            // println!("cycle_issue: instr_queue.isempty: {}, self.rob.has_space: {}", instr_queue.is_empty(), self.rob.has_space());
+
             if instr_queue.is_empty() || !self.rob.has_space() {
                 break;
             }
@@ -127,7 +129,7 @@ impl Backend {
         let mut memory_subsystem = self.memory_subsystem.borrow_mut();
 
         for _ in 0..self.issue_n_wide {
-            if self.rob.seq_rs_allocated == self.rob.seq_issued || !self.rs_table.has_free() {
+            if self.rob.seq_rs_allocated == self.rob.seq_issued || !self.rs_table.has_idle() {
                 break;
             }
 
@@ -210,7 +212,7 @@ impl Backend {
                         // sb in program order. And since sb will commit to the coherent cache
                         // (in this case directly to memory), the stores will become visible
                         // in program order.
-                        rob_slot.sb_pos = memory_subsystem.sb.allocate();
+                        rob_slot.sb_pos = Some(memory_subsystem.sb.allocate());
                     }
                     Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
                         panic!("Illegal sink {:?}", instr_sink)
@@ -235,11 +237,13 @@ impl Backend {
         let mut perf_monitors = self.perf_counters.borrow_mut();
 
         for _ in 0..self.dispatch_n_wide {
-            if !self.rs_table.has_ready() || !self.eu_table.has_free() {
+            if !self.rs_table.has_ready() || !self.eu_table.has_idle() {
                 break;
             }
 
             let rs_index = self.rs_table.deque_ready();
+            //println!("Dispatch rs_index {}", rs_index);
+
             let rs = self.rs_table.get_mut(rs_index);
             debug_assert!(rs.state == RSState::BUSY);
 
@@ -249,8 +253,6 @@ impl Backend {
 
             let rob_slot_index = rs.rob_slot_index.unwrap();
             let rob_slot = self.rob.get_mut(rob_slot_index);
-
-            debug_assert!(!rob_slot.invalid, "rob_slot should be valid");
 
             let eu_index = self.eu_table.allocate();
             let mut eu = self.eu_table.get_mut(eu_index);
@@ -273,189 +275,194 @@ impl Backend {
     }
 
     fn cycle_eu_table(&mut self) {
-        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-        let mut perf_monitors = self.perf_counters.borrow_mut();
+        {
+            let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+            let mut perf_monitors = self.perf_counters.borrow_mut();
 
-        // todo: we should only iterate over the used execution units.
-        for eu_index in 0..self.eu_table.capacity {
-            let mut eu = self.eu_table.get_mut(eu_index);
+            // todo: we should only iterate over the used execution units.
+            for eu_index in 0..self.eu_table.capacity {
+                let mut eu = self.eu_table.get_mut(eu_index);
 
-            if eu.state == EUState::IDLE {
-                continue;
+                if eu.state == EUState::IDLE {
+                    continue;
+                }
+
+                let rs_index = eu.rs_index.unwrap();
+
+                let mut rs = self.rs_table.get_mut(rs_index);
+                debug_assert!(rs.state == RSState::BUSY);
+
+                let rob_index = rs.rob_slot_index.unwrap();
+                let mut rob_slot = self.rob.get_mut(rob_index);
+                debug_assert!(rob_slot.state == ROBSlotState::DISPATCHED,
+                              "rob_slot is not in dispatched state, but in {:?}, rs_index={}", rob_slot.state, rs_index);
+                debug_assert!(rob_slot.rs_index.is_some());
+                debug_assert!(rob_slot.eu_index.is_some());
+
+                eu.cycles_remaining -= 1;
+
+                if eu.cycles_remaining > 0 {
+                    // the execution unit isn't finished with its work
+                    continue;
+                }
+
+                // it is the last cycle; so lets give this Eu some real work
+                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+                let instr = Rc::clone(&rc);
+
+                if self.trace.execute {
+                    println!("Executing {}", instr);
+                }
+
+                match rs.opcode {
+                    Opcode::NOP => {}
+                    Opcode::ADD => rob_slot.result.push(rs.source[0].get_immediate() + rs.source[1].get_immediate()),
+                    Opcode::SUB => rob_slot.result.push(rs.source[0].get_immediate() - rs.source[1].get_immediate()),
+                    Opcode::MUL => rob_slot.result.push(rs.source[0].get_immediate() * rs.source[1].get_immediate()),
+                    Opcode::SDIV => rob_slot.result.push(rs.source[0].get_immediate() / rs.source[1].get_immediate()),
+                    Opcode::NEG => rob_slot.result.push(-rs.source[0].get_immediate()),
+                    Opcode::AND => rob_slot.result.push(rs.source[0].get_immediate() & rs.source[1].get_immediate()),
+                    Opcode::MOV => rob_slot.result.push(rs.source[0].get_immediate()),
+                    Opcode::ADR => {
+                        //todo
+                    }
+                    Opcode::ORR => rob_slot.result.push(rs.source[0].get_immediate() | rs.source[1].get_immediate()),
+                    Opcode::EOR => rob_slot.result.push(rs.source[0].get_immediate() ^ rs.source[1].get_immediate()),
+                    Opcode::MVN => rob_slot.result.push(!rs.source[0].get_immediate()),
+                    Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_immediate() as usize]),
+                    Opcode::STR => rob_slot.result.push(rs.source[0].get_immediate()),
+                    Opcode::PRINTR => {
+                        println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_immediate());
+                    }
+                    Opcode::CMP => {
+                        let rn = rs.source[0].get_immediate();
+                        let operand2 = rs.source[1].get_immediate();
+                        let cprs_value = rs.source[2].get_immediate();
+
+                        // Perform the comparison: rn - operand2
+                        let result = rn.wrapping_sub(operand2);
+
+                        // Update the CPSR flags based on the result
+                        let zero_flag = result == 0;
+                        let negative_flag = result < 0;
+                        let carry_flag = (rn as u64).wrapping_sub(operand2 as u64) > (rn as u64); // Checking for borrow
+                        let overflow_flag = ((rn ^ operand2) & (rn ^ result)) >> (std::mem::size_of::<i64>() * 8 - 1) != 0;
+
+                        let mut new_cprs_value = cprs_value;
+                        if zero_flag {
+                            new_cprs_value |= 1 << ZERO_FLAG;
+                        } else {
+                            new_cprs_value &= !(1 << ZERO_FLAG);
+                        }
+
+                        if negative_flag {
+                            new_cprs_value |= 1 << NEGATIVE_FLAG;
+                        } else {
+                            new_cprs_value &= !(1 << NEGATIVE_FLAG);
+                        }
+
+                        if carry_flag {
+                            new_cprs_value |= 1 << CARRY_FLAG;
+                        } else {
+                            new_cprs_value &= !(1 << CARRY_FLAG);
+                        }
+
+                        if overflow_flag {
+                            new_cprs_value |= 1 << OVERFLOW_FLAG;
+                        } else {
+                            new_cprs_value &= !(1 << OVERFLOW_FLAG);
+                        }
+
+                        // Update CPRS
+                        rob_slot.result.push(new_cprs_value as i64);
+                    }
+                    Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
+                        let target = rs.source[0].get_immediate();
+                        let cpsr = rs.source[1].get_code_address();
+                        let pc = rob_slot.pc as WordType;
+
+                        let pc_update = match rs.opcode {
+                            Opcode::BEQ => if cpsr == 0 { target } else { pc + 1 },
+                            Opcode::BNE => if cpsr != 0 { target } else { pc + 1 },
+                            Opcode::BLT => if cpsr < 0 { target } else { pc + 1 },
+                            Opcode::BLE => if cpsr <= 0 { target } else { pc + 1 },
+                            Opcode::BGT => if cpsr > 0 { target } else { pc + 1 },
+                            Opcode::BGE => if cpsr >= 0 { target } else { pc + 1 },
+                            _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
+                        };
+
+                        rob_slot.branch_target_actual = pc_update as usize;
+                    }
+                    Opcode::CBZ | Opcode::CBNZ => {
+                        let reg_value = rs.source[0].get_immediate();
+                        let branch = rs.source[1].get_code_address();
+                        let pc = rob_slot.pc as WordType;
+
+                        let pc_update = match instr.opcode {
+                            Opcode::CBZ => if reg_value == 0 { branch } else { pc + 1 },
+                            Opcode::CBNZ => if reg_value != 0 { branch } else { pc + 1 },
+                            _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
+                        };
+
+                        rob_slot.branch_target_actual = pc_update as usize;
+                    }
+                    Opcode::B => {
+                        // update the PC
+                        let branch_target = rs.source[0].get_code_address();
+                        let pc_update = branch_target;
+                        rob_slot.branch_target_actual = pc_update as usize;
+                    }
+                    Opcode::BX => {
+                        // update the PC
+                        let branch_target = rs.source[0].get_immediate() as i64;
+                        let pc_update = branch_target;
+                        rob_slot.branch_target_actual = pc_update as usize;
+                    }
+                    Opcode::BL => {
+                        let branch_target = rs.source[0].get_code_address();
+
+                        let pc_update = branch_target;
+
+                        // update LR
+                        rob_slot.result.push((rob_slot.pc + 1) as WordType);
+                        rob_slot.branch_target_actual = pc_update as usize;
+                    }
+                    Opcode::EXIT => {}
+                    Opcode::DSB => {}
+                }
+
+                for sink_index in 0..rs.sink_cnt {
+                    let sink = rs.sink[sink_index as usize];
+                    match sink {
+                        Operand::Register(phys_reg) => {
+                            let phys_reg_entry = self.phys_reg_file.get_mut(phys_reg);
+                            phys_reg_entry.has_value = true;
+                            let result = rob_slot.result[sink_index as usize];
+                            phys_reg_entry.value = result;
+                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: result });
+                        }
+                        Operand::Memory(addr) => {
+                            let result = rob_slot.result[sink_index as usize];
+                            // a store to memory
+                            memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), addr, result);
+                        }
+                        Operand::Immediate(_) | Operand::Code(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
+                    }
+                }
+
+                let eu_index = eu.index;
+                self.eu_table.deallocate(eu_index);
+                rob_slot.eu_index = None;
+
+                self.rs_table.deallocate(rs_index);
+                rob_slot.rs_index = None;
+
+                rob_slot.state = ROBSlotState::EXECUTED;
+                perf_monitors.execute_cnt += 1;
             }
-
-            let rs_index = eu.rs_index.unwrap();
-            let mut rs = self.rs_table.get_mut(rs_index);
-            debug_assert!(rs.state == RSState::BUSY);
-
-            let rob_index = rs.rob_slot_index.unwrap();
-            let mut rob_slot = self.rob.get_mut(rob_index);
-            debug_assert!(!rob_slot.invalid, "rob_slot should be valid");
-            debug_assert!(rob_slot.state == ROBSlotState::DISPATCHED);
-            debug_assert!(rob_slot.rs_index.is_some());
-            debug_assert!(rob_slot.eu_index.is_some());
-
-            eu.cycles_remaining -= 1;
-
-            if eu.cycles_remaining > 0 {
-                // the execution unit isn't finished with its work
-                continue;
-            }
-
-            // it is the last cycle; so lets give this Eu some real work
-            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-            let instr = Rc::clone(&rc);
-
-            if self.trace.execute {
-                println!("Executing {}", instr);
-            }
-
-            match rs.opcode {
-                Opcode::NOP => {}
-                Opcode::ADD => rob_slot.result.push(rs.source[0].get_immediate() + rs.source[1].get_immediate()),
-                Opcode::SUB => rob_slot.result.push(rs.source[0].get_immediate() - rs.source[1].get_immediate()),
-                Opcode::MUL => rob_slot.result.push(rs.source[0].get_immediate() * rs.source[1].get_immediate()),
-                Opcode::SDIV => rob_slot.result.push(rs.source[0].get_immediate() / rs.source[1].get_immediate()),
-                Opcode::NEG => rob_slot.result.push(-rs.source[0].get_immediate()),
-                Opcode::AND => rob_slot.result.push(rs.source[0].get_immediate() & rs.source[1].get_immediate()),
-                Opcode::MOV => rob_slot.result.push(rs.source[0].get_immediate()),
-                Opcode::ADR => {
-                    //todo
-                }
-                Opcode::ORR => rob_slot.result.push(rs.source[0].get_immediate() | rs.source[1].get_immediate()),
-                Opcode::EOR => rob_slot.result.push(rs.source[0].get_immediate() ^ rs.source[1].get_immediate()),
-                Opcode::MVN => rob_slot.result.push(!rs.source[0].get_immediate()),
-                Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_immediate() as usize]),
-                Opcode::STR => rob_slot.result.push(rs.source[0].get_immediate()),
-                Opcode::PRINTR => {
-                    println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_immediate());
-                }
-                Opcode::CMP => {
-                    let rn = rs.source[0].get_immediate();
-                    let operand2 = rs.source[1].get_immediate();
-                    let cprs_value = rs.source[2].get_immediate();
-
-                    // Perform the comparison: rn - operand2
-                    let result = rn.wrapping_sub(operand2);
-
-                    // Update the CPSR flags based on the result
-                    let zero_flag = result == 0;
-                    let negative_flag = result < 0;
-                    let carry_flag = (rn as u64).wrapping_sub(operand2 as u64) > (rn as u64); // Checking for borrow
-                    let overflow_flag = ((rn ^ operand2) & (rn ^ result)) >> (std::mem::size_of::<i64>() * 8 - 1) != 0;
-
-                    let mut new_cprs_value = cprs_value;
-                    if zero_flag {
-                        new_cprs_value |= 1 << ZERO_FLAG;
-                    } else {
-                        new_cprs_value &= !(1 << ZERO_FLAG);
-                    }
-
-                    if negative_flag {
-                        new_cprs_value |= 1 << NEGATIVE_FLAG;
-                    } else {
-                        new_cprs_value &= !(1 << NEGATIVE_FLAG);
-                    }
-
-                    if carry_flag {
-                        new_cprs_value |= 1 << CARRY_FLAG;
-                    } else {
-                        new_cprs_value &= !(1 << CARRY_FLAG);
-                    }
-
-                    if overflow_flag {
-                        new_cprs_value |= 1 << OVERFLOW_FLAG;
-                    } else {
-                        new_cprs_value &= !(1 << OVERFLOW_FLAG);
-                    }
-
-                    // Update CPRS
-                    rob_slot.result.push(new_cprs_value as i64);
-                }
-                Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
-                    let target = rs.source[0].get_immediate();
-                    let cpsr = rs.source[1].get_code_address();
-                    let pc = rob_slot.pc as WordType;
-
-                    let pc_update = match rs.opcode {
-                        Opcode::BEQ => if cpsr == 0 { target } else { pc + 1 },
-                        Opcode::BNE => if cpsr != 0 { target } else { pc + 1 },
-                        Opcode::BLT => if cpsr < 0 { target } else { pc + 1 },
-                        Opcode::BLE => if cpsr <= 0 { target } else { pc + 1 },
-                        Opcode::BGT => if cpsr > 0 { target } else { pc + 1 },
-                        Opcode::BGE => if cpsr >= 0 { target } else { pc + 1 },
-                        _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
-                    };
-
-                    rob_slot.branch_target_actual = pc_update as usize;
-                }
-                Opcode::CBZ | Opcode::CBNZ => {
-                    let reg_value = rs.source[0].get_immediate();
-                    let branch = rs.source[1].get_code_address();
-                    let pc = rob_slot.pc as WordType;
-
-                    let pc_update = match instr.opcode {
-                        Opcode::CBZ => if reg_value == 0 { branch } else { pc + 1 },
-                        Opcode::CBNZ => if reg_value != 0 { branch } else { pc + 1 },
-                        _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
-                    };
-
-                    rob_slot.branch_target_actual = pc_update as usize;
-                }
-                Opcode::B => {
-                    // update the PC
-                    let branch_target = rs.source[0].get_code_address();
-                    let pc_update = branch_target;
-                    rob_slot.branch_target_actual = pc_update as usize;
-                }
-                Opcode::BX => {
-                    // update the PC
-                    let branch_target = rs.source[0].get_immediate() as i64;
-                    let pc_update = branch_target;
-                    rob_slot.branch_target_actual = pc_update as usize;
-                }
-                Opcode::BL => {
-                    let branch_target = rs.source[0].get_code_address();
-
-                    let pc_update = branch_target;
-
-                    // update LR
-                    rob_slot.result.push((rob_slot.pc + 1) as WordType);
-                    rob_slot.branch_target_actual = pc_update as usize;
-                }
-                Opcode::EXIT => {}
-                Opcode::DSB => {}
-            }
-
-            for sink_index in 0..rs.sink_cnt {
-                let sink = rs.sink[sink_index as usize];
-                match sink {
-                    Operand::Register(phys_reg) => {
-                        let phys_reg_entry = self.phys_reg_file.get_mut(phys_reg);
-                        phys_reg_entry.has_value = true;
-                        let result = rob_slot.result[sink_index as usize];
-                        phys_reg_entry.value = result;
-                        self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: result });
-                    }
-                    Operand::Memory(addr) => {
-                        let result = rob_slot.result[sink_index as usize];
-                        // a store to memory
-                        memory_subsystem.sb.store(rob_slot.sb_pos, addr, result);
-                    }
-                    Operand::Immediate(_) | Operand::Code(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
-                }
-            }
-
-            let eu_index = eu.index;
-            self.eu_table.deallocate(eu_index);
-            rob_slot.eu_index = None;
-
-            self.rs_table.deallocate(rs_index);
-            rob_slot.rs_index = None;
-
-            rob_slot.state = ROBSlotState::EXECUTED;
-            perf_monitors.execute_cnt += 1;
         }
+
+        self.cdb_broadcast();
     }
 
     fn cdb_broadcast(&mut self) {
@@ -476,17 +483,22 @@ impl Backend {
                 }
 
                 let rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
+                let mut added_src_ready = false;
                 for source_index in 0..rs.source_cnt as usize {
                     let source_rs = &mut rs.source[source_index];
                     if let Operand::Register(phys_reg) = source_rs {
                         if *phys_reg == req.phys_reg {
                             rs.source[source_index] = Operand::Immediate(req.value);
                             rs.source_ready_cnt += 1;
+                            added_src_ready =true;
                         }
                     }
                 }
 
-                if rs.source_cnt == rs.source_ready_cnt {
+                // bug: it can happen that the same rs is offered multiple times
+                // one time it triggered when the allocation of rs is done
+                // and the other time here.
+                if added_src_ready && rs.source_cnt == rs.source_ready_cnt {
                     self.rs_table.enqueue_ready(rob_slot.rs_index.unwrap());
                 }
             }
@@ -516,36 +528,14 @@ impl Backend {
                 let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
                 let instr = Rc::clone(&rc);
 
-                if rob_slot.invalid {
-                    perf_monitors.bad_speculation_cnt += 1;
-                } else {
-                    perf_monitors.retired_cnt += 1;
+                perf_monitors.retired_cnt += 1;
 
-                    if instr.opcode == Opcode::EXIT {
-                        self.exit = true;
-                    }
+                if instr.opcode == Opcode::EXIT {
+                    self.exit = true;
+                }
 
-                    if self.trace.retire {
-                        println!("Retiring {}", instr);
-                    }
-
-                    if instr.is_branch() {
-                        if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
-                            println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
-
-                            // the branch was not correctly predicted
-                            perf_monitors.branch_misprediction_cnt += 1;
-                            bad_speculation = true;
-
-                            // re-steer the frontend
-                            arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
-                        } else {
-                            println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
-
-                            // the branch was correctly predicted
-                            perf_monitors.branch_good_predictions_cnt += 1;
-                        }
-                    }
+                if self.trace.retire {
+                    println!("Retiring {}", instr);
                 }
 
                 for sink_index in 0..instr.sink_cnt as usize {
@@ -553,14 +543,10 @@ impl Backend {
                     match sink {
                         Operand::Register(arch_reg) => {
                             let rat_entry = self.rat.get_mut(arch_reg);
+                            debug_assert!(rat_entry.valid);
+
                             let rat_phys_reg = rat_entry.phys_reg;
                             let rs_phys_reg = rob_slot.sink[sink_index].get_register();
-
-                            if rs_phys_reg == 0{
-
-                                println!("---Instr {}",instr);
-
-                            }
 
                             // only when the physical register on the rat is the same as the physical register used for that
                             // instruction, the rat entry should be invalidated
@@ -571,19 +557,30 @@ impl Backend {
                             phys_reg_file.get_mut(rs_phys_reg).has_value = false;
                             phys_reg_file.deallocate(rs_phys_reg);
 
-                            // We update the architectural registers only if the rob_slot wasn't invalidated.
-                            if !rob_slot.invalid {
-                                arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
-                            }
+                            arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
                         }
                         Operand::Memory(_) => {
-                            if rob_slot.invalid {
-                                memory_subsytem.sb.invalidate(rob_slot.sb_pos)
-                            } else {
-                                memory_subsytem.sb.commit(rob_slot.sb_pos)
-                            }
+                            memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())
                         }
                         _ => unreachable!(),
+                    }
+                }
+
+                if instr.is_branch() {
+                    if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
+                        println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
+
+                        // the branch was not correctly predicted
+                        perf_monitors.branch_misprediction_cnt += 1;
+                        bad_speculation = true;
+
+                        // re-steer the frontend
+                        arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
+                    } else {
+                        println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
+
+                        // the branch was correctly predicted
+                        perf_monitors.branch_good_predictions_cnt += 1;
                     }
                 }
 
@@ -602,61 +599,24 @@ impl Backend {
     }
 
     fn flush(&mut self) {
-        println!("------------------------------------Backend flush");
+        let mut perf_monitors = self.perf_counters.borrow_mut();
+        println!("======================================================");
+        println!("Backend flush");
+        println!("======================================================");
 
-        self.perf_counters.borrow_mut().pipeline_flushes += 1;
+        perf_monitors.pipeline_flushes += 1;
 
         // get rid of the instruction queue content
         self.instr_queue.borrow_mut().flush();
 
-        let tagged_rob_slot_cnt =0;
+        //        perf_monitors.bad_speculation_cnt += 1;
 
-        // invalidate the ROB content
-        for seq in self.rob.head..self.rob.tail {
-            println!("Rob entry: Invalidating seq {}",seq);
-
-            let rob_slot_index = self.rob.to_index(seq) as usize;
-            println!("Rob entry:  Invalidating rob slot entry: {}", rob_slot_index);
-
-            let rob_slot = &mut self.rob.slots[rob_slot_index];
-
-            // it is the last cycle; so lets give this Eu some real work
-            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-            let instr = Rc::clone(&rc);
-
-            println!("Rob entry:  Invalidating rob slot instr: {}", instr);
-
-            debug_assert!(rob_slot.state!=ROBSlotState::IDLE);
-
-            rob_slot.invalid = true;
-            rob_slot.state = ROBSlotState::EXECUTED;
-
-            // free the rs if one has been allocated
-            if rob_slot.rs_index.is_some() {
-                println!("Releasing rob_slot.rs_index {:?}", rob_slot.rs_index);
-                let rs_index = rob_slot.rs_index.unwrap();
-                rob_slot.rs_index = None;
-                self.rs_table.deallocate(rs_index);
-            };
-
-            // free the eu if one has been allocated
-            if rob_slot.eu_index.is_some() {
-                println!("Releasing rob_slot.eu_index {:?}", rob_slot.eu_index);
-                let eu_index = rob_slot.eu_index.unwrap();
-                rob_slot.eu_index = None;
-                self.eu_table.deallocate(eu_index);
-            };
-            tagged_rob_slot_cnt+1;
-
-
-        }
-
-        println!("Tagged rob slot count:{}",tagged_rob_slot_cnt);
-
+        self.phys_reg_file.flush();
+        self.eu_table.flush();
+        self.rob.flush();
+        self.rat.flush();
         self.rs_table.flush();
-
-        self.rob.seq_issued = self.rob.tail;
-        self.rob.seq_rs_allocated = self.rob.tail;
-        self.rob.seq_dispatched = self.rob.tail;
+        self.memory_subsystem.borrow_mut().sb.flush();
+        self.phys_reg_file.flush();
     }
 }

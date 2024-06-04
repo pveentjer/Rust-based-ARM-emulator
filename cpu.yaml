@@ -5,7 +5,7 @@ frontend_n_wide: 4
 # the size of the instruction queue between frontend and backend
 instr_queue_capacity: 64
 # the frequency of the CPU in Hz.
-frequency_hz: 40
+frequency_hz: 4
 # the number of reservation stations
 rs_count: 6500
 # the size of the memory in machine words
@@ -17,7 +17,7 @@ sb_capacity: 16
 # per clock cycle (there is also no cache)
 lfb_count: 4
 # the capacity of the reorder buffer
-rob_capacity: 2
+rob_capacity: 32
 # the number of execution units
 eu_count: 10
 # if processing of a single instruction should be traced (printed)
@@ -28,7 +28,7 @@ trace:
   dispatch: false
   execute: false
   retire: false
-  cycle: true
+  cycle: false
 # the number of instructions that can retire per clock cycle
 retire_n_wide: 2
 # the number of instructions that can be dispatched (sent to execution units) every clock cycle

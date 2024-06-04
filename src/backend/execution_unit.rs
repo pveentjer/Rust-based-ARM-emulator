@@ -25,7 +25,7 @@ impl EU {
 /// The table containing all execution units of a CPU core.
 pub(crate) struct EUTable {
     pub(crate) capacity: u8,
-    free_stack: Vec<u8>,
+    idle_stack: Vec<u8>,
     array: Vec<EU>,
 }
 
@@ -45,12 +45,22 @@ impl EUTable {
         EUTable {
             capacity,
             array,
-            free_stack,
+            idle_stack: free_stack,
         }
     }
 
-    pub(crate) fn has_free(&self) -> bool {
-        return !self.free_stack.is_empty();
+    pub(crate) fn flush(&mut self) {
+       self.idle_stack.clear();
+       for k in 0..self.capacity{
+           self.idle_stack.push(k);
+           self.array.get_mut(k as usize).unwrap().reset();
+       }
+    }
+
+    pub(crate) fn has_idle(&self) -> bool {
+       // println!("EUTable has_idle: {}",!self.idle_stack.is_empty());
+
+        return !self.idle_stack.is_empty();
     }
 
     pub(crate) fn get_mut(&mut self, eu_index: u8) -> &mut EU {
@@ -58,7 +68,7 @@ impl EUTable {
     }
 
     pub(crate) fn allocate(&mut self) -> u8 {
-        if let Some(last_element) = self.free_stack.pop() {
+        if let Some(last_element) = self.idle_stack.pop() {
             let eu = self.array.get_mut(last_element as usize).unwrap();
             debug_assert!(eu.state == EUState::IDLE);
             debug_assert!(eu.rs_index.is_none());
@@ -75,9 +85,9 @@ impl EUTable {
         let eu = self.array.get_mut(eu_index as usize).unwrap();
         debug_assert!(eu.state == EUState::BUSY);
         debug_assert!(eu.rs_index.is_some());
-        debug_assert!(!self.free_stack.contains(&eu_index));
+        debug_assert!(!self.idle_stack.contains(&eu_index));
 
         eu.reset();
-        self.free_stack.push(eu_index);
+        self.idle_stack.push(eu_index);
     }
 }

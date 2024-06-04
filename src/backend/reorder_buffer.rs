@@ -3,12 +3,14 @@ use Operand::Unused;
 
 use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType};
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum ROBSlotState {
     // the initial state
     IDLE,
     // the instruction is issued into the rob
     ISSUED,
+    //
+    //RS_ALLOCATED,
     // the instruction is dispatched to an EU where it will be processed
     DISPATCHED,
     // the instruction has executed
@@ -24,24 +26,21 @@ pub(crate) struct ROBSlot {
     pub(crate) result: Vec<WordType>,
     pub(crate) rs_index: Option<u16>,
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
-    pub(crate) invalid: bool,
     pub(crate) branch_target_predicted: usize,
     pub(crate) branch_target_actual: usize,
-    pub(crate) sb_pos: u16,
+    pub(crate) sb_pos: Option<u16>,
     pub(crate) eu_index: Option<u8>,
 }
 
 impl ROBSlot {
     fn reset(&mut self) {
         self.result.clear();
-        self.invalid = false;
         self.branch_target_predicted = 0;
         self.branch_target_actual = 0;
         self.state = ROBSlotState::IDLE;
         self.rs_index = None;
         self.instr = None;
-        self.invalid = false;
-        self.sb_pos = 0;
+        self.sb_pos = None;
         self.eu_index = None;
         self.pc = 0;
     }
@@ -69,10 +68,9 @@ impl ROB {
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: None,
                 sink: [Unused, Unused],
-                invalid: false,
                 branch_target_predicted: 0,
                 branch_target_actual: 0,
-                sb_pos: 0,
+                sb_pos: None,
                 eu_index: None,
                 pc: 0,
             });
@@ -127,5 +125,19 @@ impl ROB {
 
     pub(crate) fn has_space(&self) -> bool {
         return self.capacity > self.size();
+    }
+
+    pub(crate) fn flush(&mut self){
+        // todo: we don't need to go over the whole rob; just over the busy slots
+        for i in 0..self.capacity {
+            let slot = &mut self.slots[i as usize];
+            slot.reset();
+        }
+        self.head = 0;
+        self.tail = 0;
+        self.seq_retired = 0;
+        self.seq_issued = 0;
+        self.seq_rs_allocated = 0;
+        self.seq_dispatched = 0;
     }
 }

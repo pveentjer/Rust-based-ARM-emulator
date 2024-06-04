@@ -113,6 +113,11 @@ impl SB {
         }
     }
 
+    pub(crate) fn flush(&self) {
+        //todo
+        println!("Store buffer flush not implemented")
+    }
+
     pub(crate) fn do_cycle(&mut self, memory: &mut Vec<WordType>) {
         for _ in 0..self.lfb_count {
             if self.is_empty() {
