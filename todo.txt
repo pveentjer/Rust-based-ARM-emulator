@@ -1,9 +1,11 @@
 TODO
 
+- restore the 'control' instr
 
-- every instruction should have address so that we know its position
+- fix crash with
 
-- inconsistent usage of pub/pub(crate)
+- fix crash with rob >2
+    - it immediately starts to fail after a branch misprediction
 
 - add DSB
 
@@ -39,38 +41,10 @@ TODO
 
 DONE
 
-- BEQ
+- static branch predictor
 
-- BNE
+- fix the branch instructions to use the pc from the instr.
 
-- BLE
+- add branch monitoring
 
-- BLT
-
-- BGE
-
-- BGT
-
-- fix NOT instruction
-
-- add the CPSR (needed for CMP and relevant ops to work)
-
-- configurable asm file
-
-- cpu config from Yaml file
-
-- configurable cpu config
-
-- loader: ast operand should have access to its pos
-
-- labels: unwanted behavior that labels need to start with an _ Even though it isn't part of a label name
-
-- loader: validate memory access
-
-- loader: every instruction should have an optional label in front of it
-
-- loader: label names with underscores
-
-- loader: variable names with underscores
-
-- MemRegisterIndirect
+- add branch prediction accuracy monitoring

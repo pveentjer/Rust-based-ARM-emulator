@@ -2,7 +2,7 @@
 
 .text
 _start:
-    MOV r1, #5;
+    MOV r1, #10;
     PRINTR r1;
 _again:
     SUB r1, r1, #1;

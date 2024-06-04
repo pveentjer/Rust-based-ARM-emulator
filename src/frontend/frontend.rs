@@ -24,8 +24,7 @@ impl Frontend {
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>,
-                      arch_reg_file: Rc<RefCell<ArgRegFile>>,
-    ) -> Frontend {
+                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Frontend {
         Frontend {
             instr_queue,
             n_wide: cpu_config.frontend_n_wide,
@@ -107,18 +106,16 @@ impl Frontend {
         }
     }
 
-    // A static branch predictor that will speculate that backwards branches are always taken
+    // A static branch predictor that will speculate that backwards branches are taken.
+    // In the future better branch predictors can be added.
     fn predict(ip: usize, instr: &Instr) -> usize {
         let branch_target = match instr.opcode {
-            Opcode::B => {
-                // this is an unconditional branch. So we can predict with 100% certainty
+            Opcode::B |
+            Opcode::BL => {
+                // unconditional branches. So we can predict with 100% certainty
                 return instr.source[0].get_code_address() as usize;
             }
             Opcode::BX => 0,
-            Opcode::BL => {
-                // this is an unconditional branch. So we can predict with 100% certainty
-                return instr.source[0].get_code_address() as usize;
-            }
             Opcode::CBNZ |
             Opcode::CBZ => instr.source[1].get_code_address() as usize,
             Opcode::BNE |

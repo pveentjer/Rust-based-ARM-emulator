@@ -23,10 +23,10 @@ for concurrency control so that I get a better understanding of ownership.
 * Out of Order Execution using Tomasulo's algorithm. So only RAW dependencies are preserved.
 * Store buffer
 * Performance monitor although not exposed through model specific registers.
+* Speculative execution
 
 ### Planned CPU features
 * Support for different data types
-* Speculative execution
 * One-way fences like LDAR, STLR, LDAPR. 
 * Two-way fences like DMB
 * Serializing instructions like DSB
@@ -36,6 +36,8 @@ for concurrency control so that I get a better understanding of ownership.
 * Working cache (MESI based)
 * Write coalescing
 * Store buffer out-of-order commit to the cache
+* SVE (SIMD)
+* NEON (SIMD)
 
 ## Supported instructions
 

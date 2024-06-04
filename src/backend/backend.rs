@@ -1,13 +1,11 @@
 use std::cell::RefCell;
-use std::cmp::PartialEq;
-use std::io::stdout;
+
 use std::rc::Rc;
 
 use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reorder_buffer::ROBSlotState::IDLE;
 use crate::backend::reservation_station::{RSState, RSTable};
 use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PC, PerfCounters, Trace, ZERO_FLAG};
 use crate::frontend::frontend::FrontendControl;
@@ -38,7 +36,6 @@ pub(crate) struct Backend {
     pub(crate) exit: bool,
     perf_counters: Rc<RefCell<PerfCounters>>,
 }
-
 
 impl Backend {
     pub(crate) fn new(cpu_config: &CPUConfig,
@@ -322,7 +319,9 @@ impl Backend {
                 Opcode::NEG => rob_slot.result.push(-rs.source[0].get_immediate()),
                 Opcode::AND => rob_slot.result.push(rs.source[0].get_immediate() & rs.source[1].get_immediate()),
                 Opcode::MOV => rob_slot.result.push(rs.source[0].get_immediate()),
-                Opcode::ADR => {}
+                Opcode::ADR => {
+                    //todo
+                }
                 Opcode::ORR => rob_slot.result.push(rs.source[0].get_immediate() | rs.source[1].get_immediate()),
                 Opcode::EOR => rob_slot.result.push(rs.source[0].get_immediate() ^ rs.source[1].get_immediate()),
                 Opcode::MVN => rob_slot.result.push(!rs.source[0].get_immediate()),
@@ -378,8 +377,6 @@ impl Backend {
                     let cpsr = rs.source[1].get_code_address();
                     let pc = rob_slot.pc as WordType;
 
-                    println!("rob_slot.pc {}", pc);
-
                     let pc_update = match rs.opcode {
                         Opcode::BEQ => if cpsr == 0 { target } else { pc + 1 },
                         Opcode::BNE => if cpsr != 0 { target } else { pc + 1 },
@@ -390,16 +387,12 @@ impl Backend {
                         _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
 
-                    // Update pc
-                    //rob_slot.result.push(pc_update as i64);
                     rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::CBZ | Opcode::CBNZ => {
                     let reg_value = rs.source[0].get_immediate();
                     let branch = rs.source[1].get_code_address();
-
                     let pc = rob_slot.pc as WordType;
-                    println!("{:?} rob_slot.pc={}, reg_value={} branch={}", instr.opcode, pc, reg_value, branch);
 
                     let pc_update = match instr.opcode {
                         Opcode::CBZ => if reg_value == 0 { branch } else { pc + 1 },
@@ -407,8 +400,6 @@ impl Backend {
                         _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
                     };
 
-                    // update the PC
-                    //rob_slot.result.push(pc_udate as i64);
                     rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::B => {
@@ -421,7 +412,6 @@ impl Backend {
                     // update the PC
                     let branch_target = rs.source[0].get_immediate() as i64;
                     let pc_update = branch_target;
-                    rob_slot.result.push(pc_update);
                     rob_slot.branch_target_actual = pc_update as usize;
                 }
                 Opcode::BL => {
@@ -527,7 +517,6 @@ impl Backend {
                 let instr = Rc::clone(&rc);
 
                 if rob_slot.invalid {
-                    println!("Invalid ROB slot found while retiring");
                     perf_monitors.bad_speculation_cnt += 1;
                 } else {
                     perf_monitors.retired_cnt += 1;
@@ -566,6 +555,12 @@ impl Backend {
                             let rat_entry = self.rat.get_mut(arch_reg);
                             let rat_phys_reg = rat_entry.phys_reg;
                             let rs_phys_reg = rob_slot.sink[sink_index].get_register();
+
+                            if rs_phys_reg == 0{
+
+                                println!("---Instr {}",instr);
+
+                            }
 
                             // only when the physical register on the rat is the same as the physical register used for that
                             // instruction, the rat entry should be invalidated
@@ -609,18 +604,36 @@ impl Backend {
     fn flush(&mut self) {
         println!("------------------------------------Backend flush");
 
+        self.perf_counters.borrow_mut().pipeline_flushes += 1;
+
         // get rid of the instruction queue content
         self.instr_queue.borrow_mut().flush();
 
+        let tagged_rob_slot_cnt =0;
+
         // invalidate the ROB content
         for seq in self.rob.head..self.rob.tail {
-            let index = self.rob.to_index(seq) as usize;
-            let rob_slot = &mut self.rob.slots[index];
+            println!("Rob entry: Invalidating seq {}",seq);
+
+            let rob_slot_index = self.rob.to_index(seq) as usize;
+            println!("Rob entry:  Invalidating rob slot entry: {}", rob_slot_index);
+
+            let rob_slot = &mut self.rob.slots[rob_slot_index];
+
+            // it is the last cycle; so lets give this Eu some real work
+            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
+            let instr = Rc::clone(&rc);
+
+            println!("Rob entry:  Invalidating rob slot instr: {}", instr);
+
+            debug_assert!(rob_slot.state!=ROBSlotState::IDLE);
+
             rob_slot.invalid = true;
             rob_slot.state = ROBSlotState::EXECUTED;
 
             // free the rs if one has been allocated
             if rob_slot.rs_index.is_some() {
+                println!("Releasing rob_slot.rs_index {:?}", rob_slot.rs_index);
                 let rs_index = rob_slot.rs_index.unwrap();
                 rob_slot.rs_index = None;
                 self.rs_table.deallocate(rs_index);
@@ -628,11 +641,17 @@ impl Backend {
 
             // free the eu if one has been allocated
             if rob_slot.eu_index.is_some() {
+                println!("Releasing rob_slot.eu_index {:?}", rob_slot.eu_index);
                 let eu_index = rob_slot.eu_index.unwrap();
                 rob_slot.eu_index = None;
                 self.eu_table.deallocate(eu_index);
             };
+            tagged_rob_slot_cnt+1;
+
+
         }
+
+        println!("Tagged rob slot count:{}",tagged_rob_slot_cnt);
 
         self.rs_table.flush();
 

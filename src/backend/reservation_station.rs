@@ -130,10 +130,14 @@ impl RSTable {
     }
 
     pub(crate) fn flush(&mut self) {
+        let mut cnt = 0;
         while self.has_ready() {
             let rs_index = self.deque_ready();
+            println!("RS Flush: {}",rs_index);
             self.deallocate(rs_index);
+            cnt+=1;
         }
+        println!("RS Station flush item cnt {}",cnt);
     }
 
     pub(crate) fn deque_ready(&mut self) -> u16 {

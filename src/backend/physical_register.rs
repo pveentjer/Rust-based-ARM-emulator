@@ -1,8 +1,23 @@
 use crate::instructions::instructions::{RegisterType, WordType};
 
+#[derive(Clone, Copy, PartialEq)]
+enum PhysRegEntryState{
+    IDLE,
+    BUSY,
+}
+
 pub(crate) struct PhysRegEntry {
     pub(crate) value: WordType,
     pub(crate) has_value: bool,
+    pub(crate) state: PhysRegEntryState,
+}
+
+impl PhysRegEntry {
+    fn reset(&mut self) {
+        self.value = 0;
+        self.has_value = false;
+        self.state = PhysRegEntryState::IDLE;
+    }
 }
 
 pub(crate) struct PhysRegFile {
@@ -16,7 +31,10 @@ impl PhysRegFile {
         let mut free_stack = Vec::with_capacity(count as usize);
         let mut entries = Vec::with_capacity(count as usize);
         for i in 0..count {
-            entries.push(PhysRegEntry { value: 0, has_value: false });
+            entries.push(PhysRegEntry {
+                value: 0,
+                has_value: false,
+                state:PhysRegEntryState::IDLE });
             free_stack.push(count - 1 - i);
         }
 
@@ -24,17 +42,23 @@ impl PhysRegFile {
     }
 
     pub(crate) fn get(&self, reg: RegisterType) -> &PhysRegEntry {
-        return self.entries.get(reg as usize).unwrap();
+        let entry = self.entries.get(reg as usize).unwrap();
+        debug_assert!(entry.state == PhysRegEntryState::BUSY);
+        return entry;
     }
 
     pub(crate) fn get_mut(&mut self, reg: RegisterType) -> &mut PhysRegEntry {
-        return self.entries.get_mut(reg as usize).unwrap();
+        let entry = self.entries.get_mut(reg as usize).unwrap();
+        debug_assert!(entry.state == PhysRegEntryState::BUSY);
+        return entry;
     }
 
     pub(crate) fn allocate(&mut self) -> RegisterType {
         if let Some(reg) = self.free_stack.pop() {
-            let phys_reg_entry = self.get(reg);
-            debug_assert!(!phys_reg_entry.has_value, " The allocated physical register {} should not have a value", reg);
+            let mut entry = self.entries.get_mut(reg as usize).unwrap();
+            debug_assert!(entry.state == PhysRegEntryState::IDLE);
+            debug_assert!(!entry.has_value, " The allocated physical register {} should not have a value", reg);
+            entry.state = PhysRegEntryState::BUSY;
             return reg;
         } else {
             panic!("No free PhysReg")
@@ -42,13 +66,14 @@ impl PhysRegFile {
     }
 
     pub(crate) fn deallocate(&mut self, reg: RegisterType) {
-        if self.free_stack.contains(&reg) {
-            panic!("Phys register {} can be deallocated while it is still on the free stack", reg);
-        }
+        debug_assert!(!self.free_stack.contains(&reg), "Phys register {} can't be deallocated while it is also on the free stack", reg);
 
-        let phys_reg_entry = self.get(reg);
-        debug_assert!(!phys_reg_entry.has_value, " The deallocated physical register {} should not a value!", reg);
+        let mut entry = self.get_mut(reg);
 
+        debug_assert!(entry.state == PhysRegEntryState::BUSY);
+        debug_assert!(!entry.has_value, " The deallocated physical register {} should not have a value", reg);
+
+        entry.reset();
 
         self.free_stack.push(reg);
     }

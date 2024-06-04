@@ -21,6 +21,7 @@ pub struct PerfCounters {
     pub retired_cnt: u64,
     pub cycle_cnt: u64,
     pub bad_speculation_cnt: u64,
+    pub pipeline_flushes: u64,
 }
 
 impl PerfCounters {
@@ -33,8 +34,9 @@ impl PerfCounters {
             retired_cnt: 0,
             cycle_cnt: 0,
             bad_speculation_cnt: 0,
-            branch_misprediction_cnt:0,
-            branch_good_predictions_cnt:0,
+            branch_misprediction_cnt: 0,
+            branch_good_predictions_cnt: 0,
+            pipeline_flushes:0,
         }
     }
 }
@@ -43,7 +45,7 @@ impl PerfCounters {
 pub struct Trace {
     pub decode: bool,
     pub issue: bool,
-    pub allocate_rs:bool,
+    pub allocate_rs: bool,
     pub dispatch: bool,
     pub execute: bool,
     pub retire: bool,
@@ -161,16 +163,7 @@ impl CPU {
             self.perf_counters.borrow_mut().cycle_cnt += 1;
 
             if self.trace.cycle {
-                let perf_counters = self.perf_counters.borrow_mut();
-                println!("[Cycles:{}][Decoded={}][Issued={}][Dispatched={}][Executed={}][Retired={}][IPC={:.2}]",
-                         perf_counters.cycle_cnt,
-                         perf_counters.decode_cnt,
-                         perf_counters.issue_cnt,
-                         perf_counters.dispatch_cnt,
-                         perf_counters.execute_cnt,
-                         perf_counters.retired_cnt,
-                         perf_counters.retired_cnt as f32 / perf_counters.cycle_cnt as f32
-                );
+                self.trace_cycle();
             }
             self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.do_cycle();
@@ -179,6 +172,33 @@ impl CPU {
         }
 
         println!("Program complete!");
+    }
+
+    fn trace_cycle(&mut self) {
+        let perf_counters = self.perf_counters.borrow_mut();
+        let branch_total = perf_counters.branch_misprediction_cnt + perf_counters.branch_good_predictions_cnt;
+
+        let ipc = perf_counters.retired_cnt as f32 / perf_counters.cycle_cnt as f32;
+
+        let branch_prediction = if branch_total != 0 {
+            100.0 * perf_counters.branch_good_predictions_cnt as f32 / branch_total as f32
+        } else {
+            0.0
+        };
+
+        let mut message = String::new();
+
+        message.push_str(&format!("[Cycles:{}]", perf_counters.cycle_cnt));
+        message.push_str(&format!("[IPC={:.2}]", ipc));
+        message.push_str(&format!("[Decoded={}]", perf_counters.decode_cnt));
+        message.push_str(&format!("[Issued={}]", perf_counters.issue_cnt));
+        message.push_str(&format!("[Dispatched={}]", perf_counters.dispatch_cnt));
+        message.push_str(&format!("[Executed={}]", perf_counters.execute_cnt));
+        message.push_str(&format!("[Retired={}]", perf_counters.retired_cnt));
+        message.push_str(&format!("[Branch Tot={}, Pred={:.2}%]", branch_total, branch_prediction));
+        message.push_str(&format!("[Pipeline Flush={}]", perf_counters.pipeline_flushes));
+
+        println!("{}", message);
     }
 }
 

@@ -234,8 +234,7 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
             instr.set_branch();
         }
         Opcode::BL => {
@@ -318,7 +317,10 @@ pub(crate) fn create_instr(opcode: Opcode,
     return Ok(instr);
 }
 
-fn validate_operand_count(expected: usize, operands: &Vec<Operand>, opcode: Opcode, loc: SourceLocation) -> Result<(), String> {
+fn validate_operand_count(expected: usize,
+                          operands: &Vec<Operand>,
+                          opcode: Opcode,
+                          loc: SourceLocation) -> Result<(), String> {
     if operands.len() != expected {
         return Err(format!("Operand count mismatch. {:?} expects {} arguments, but {} are provided at {}:{}",
                            opcode, expected, operands.len(), loc.line, loc.column));
@@ -326,7 +328,10 @@ fn validate_operand_count(expected: usize, operands: &Vec<Operand>, opcode: Opco
     Ok(())
 }
 
-fn validate_operand(op_index: usize, operands: &Vec<Operand>, opcode: Opcode, acceptable_types: &[Operand]) -> Result<Operand, String> {
+fn validate_operand(op_index: usize,
+                    operands: &Vec<Operand>,
+                    opcode: Opcode,
+                    acceptable_types: &[Operand]) -> Result<Operand, String> {
     let operand = operands[op_index];
 
     for &typ in acceptable_types {
@@ -577,7 +582,7 @@ impl fmt::Display for Operand {
                     _ => write!(f, "R{}", reg),
                 }
             }  // Add a comma here
-            Immediate(val) => write!(f, "{}", val),
+            Immediate(val) => write!(f, "#{}", val),
             Memory(addr) => write!(f, "[{}]", addr),
             Code(addr) => write!(f, "[{}]", addr),
             Unused => write!(f, "Unused"),
