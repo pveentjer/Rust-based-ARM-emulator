@@ -126,25 +126,6 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
     }
 }
 
-pub(crate) fn get_register(name: &str) -> Option<u16> {
-    let name_uppercased = name.to_uppercase();
-
-    match name_uppercased.as_str() {
-        "SP" => Some(SP),
-        "LR" => Some(LR),
-        "PC" => Some(PC),
-        "FP" => Some(FP),
-        _ => {
-            let reg_name = &name_uppercased[1..];
-            let reg: u16 = reg_name.parse().unwrap();
-
-            if reg >= GENERAL_ARG_REG_CNT {
-                return None;
-            }
-            Some(reg)
-        }
-    }
-}
 
 pub(crate) fn create_instr(opcode: Opcode,
                            operands: &Vec<Operand>,
