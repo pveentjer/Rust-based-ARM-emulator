@@ -1,10 +1,9 @@
 use std::collections::{HashSet, VecDeque};
 use std::fmt;
 use std::fmt::Display;
-use std::rc::Rc;
 use Operand::Unused;
 
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
+use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
 use crate::instructions::instructions::Opcode::NOP;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -224,7 +223,7 @@ impl RSTable {
 
             self.allocated.insert(rs_index);
 
-            let mut rs = &mut self.array[rs_index as usize];
+            let rs = &mut self.array[rs_index as usize];
 
             debug_assert!(rs.state == RSState::IDLE);
             rs.state = RSState::BUSY;
@@ -236,7 +235,7 @@ impl RSTable {
     }
 
     pub(crate) fn deallocate(&mut self, rs_index: u16) {
-        let mut rs = &mut self.array[rs_index as usize];
+        let rs = &mut self.array[rs_index as usize];
 
         // debug_assert!(!self.on_ready_queue(rs_index));
 
