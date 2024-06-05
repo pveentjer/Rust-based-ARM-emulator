@@ -2,10 +2,10 @@
 
 .text
 _start:
-    MOV r0, #2;
+    MOV r0, #10;
 
 _again_outer:
-    MOV r1, #2;
+    MOV r1, #10;
 
 _again_inner:
     SUB r1, r1, #1;

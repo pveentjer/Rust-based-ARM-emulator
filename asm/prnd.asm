@@ -3,20 +3,20 @@
 .text
 
 generate_random:
-    MUL R0, R0, R1;
-    ADD R0, R0, R2;
-    AND R0, R0, R3;
+    MUL r0, r0, r1;
+    ADD r0, r0, r2;
+    AND r0, r0, r3;
     BX lr;
 
 _start:
-    MOV R0, =12345;
-    MOV R1, =1103515245;
-    MOV R2, =12345;
-    MOV R3, =0x80000000;
+    MOV r0, #12345;
+    MOV r1, #1103515245;
+    MOV r2, #12345;
+    MOV r3, #80000000;
 
     BL generate_random;
-    PRINT R0;
+    PRINTR r0;
     BL generate_random;
-    PRINT R0;
+    PRINTR r0;
     BL generate_random;
-    PRINT R0;
+    PRINTR r0;

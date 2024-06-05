@@ -568,7 +568,7 @@ impl Backend {
 
                 if instr.is_branch() {
                     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
-                        println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
+                        //println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
 
                         // the branch was not correctly predicted
                         perf_monitors.branch_misprediction_cnt += 1;
@@ -577,7 +577,7 @@ impl Backend {
                         // re-steer the frontend
                         arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
                     } else {
-                        println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
+                        //println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
 
                         // the branch was correctly predicted
                         perf_monitors.branch_good_predictions_cnt += 1;
