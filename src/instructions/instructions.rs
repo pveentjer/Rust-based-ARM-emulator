@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 use Operand::Memory;
-use crate::cpu::{CPSR, GENERAL_ARG_REG_CNT, SP};
+use crate::cpu::{CPSR, SP};
 use crate::cpu::LR;
 use crate::cpu::PC;
 use crate::cpu::FP;

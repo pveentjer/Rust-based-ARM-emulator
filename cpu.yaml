@@ -36,5 +36,3 @@ retire_n_wide: 2
 dispatch_n_wide: 2
 # the number of instructions that can be issued to the ROB or finding reservation stations, every clock cycle
 issue_n_wide: 2
-# the size of the stack
-stack_capacity: 256

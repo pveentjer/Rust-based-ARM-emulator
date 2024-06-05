@@ -32,7 +32,6 @@ pub(crate) struct Backend {
     dispatch_n_wide: u8,
     issue_n_wide: u8,
     cdb_broadcast_buffer: Vec<CDBBroadcast>,
-    stack_capacity: u32,
     pub(crate) exit: bool,
     perf_counters: Rc<RefCell<PerfCounters>>,
 }
@@ -59,7 +58,6 @@ impl Backend {
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
             frontend_control,
-            stack_capacity: cpu_config.stack_capacity,
             exit: false,
             perf_counters,
         }
@@ -514,7 +512,7 @@ impl Backend {
             let mut arch_reg_file = self.arch_reg_file.borrow_mut();
             let mut perf_monitors = self.perf_counters.borrow_mut();
             let phys_reg_file = &mut self.phys_reg_file;
-            let frontend_control = self.frontend_control.borrow_mut();
+            //let frontend_control = self.frontend_control.borrow_mut();
             let mut memory_subsytem = self.memory_subsystem.borrow_mut();
 
             for _ in 0..self.retire_n_wide {

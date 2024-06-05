@@ -216,7 +216,7 @@ impl ASTVisitor for ProgramGeneration<'_> {
             }
 
             ASTOperand::Unused() => {}
-            ASTOperand::MemRegisterIndirect(register, pos) => {
+            ASTOperand::MemRegisterIndirect(register, _pos) => {
                 // address
                 self.operand_stack.push(Operand::Register(*register as RegisterType));
                 // offset

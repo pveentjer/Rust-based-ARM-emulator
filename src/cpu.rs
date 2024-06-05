@@ -100,8 +100,6 @@ pub struct CPUConfig {
     pub dispatch_n_wide: u8,
     // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
     pub issue_n_wide: u8,
-    // The size of the stack
-    pub stack_capacity: u32,
 }
 
 impl Default for CPUConfig {
@@ -121,7 +119,6 @@ impl Default for CPUConfig {
             retire_n_wide: 4,
             dispatch_n_wide: 4,
             issue_n_wide: 4,
-            stack_capacity: 256,
         }
     }
 }
