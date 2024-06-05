@@ -1,8 +1,9 @@
 use crate::instructions::instructions::RegisterType;
 
 pub(crate) struct RATEntry {
+    // the physical register in the arch register to phys register mapping
     pub(crate) phys_reg: RegisterType,
-    // The number of pending writes; if 0, then the entry is not valid
+    // if the entry currently contains a valid architectural to physical register mapping
     pub(crate) valid: bool,
 }
 
@@ -21,6 +22,13 @@ impl RAT {
             table.push(RATEntry { phys_reg: 0, valid: false });
         }
         Self { table }
+    }
+
+    pub(crate) fn flush(&mut self){
+        for k in 0..self.table.len() {
+            let option = self.table.get_mut(k).unwrap();
+            option.valid=false;
+        }
     }
 
     pub(crate) fn get(&self, arch_reg: RegisterType) -> &RATEntry {

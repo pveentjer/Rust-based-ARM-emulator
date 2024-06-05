@@ -225,8 +225,8 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
+            instr.set_branch();
         }
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
@@ -234,35 +234,33 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
+            instr.set_branch();
         }
         Opcode::BL => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            instr.source_cnt = 2;
+            instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            instr.source[1] = Register(PC);
 
-            instr.sink_cnt = 2;
+            instr.sink_cnt = 1;
             instr.sink[0] = Register(LR);
-            instr.sink[1] = Register(PC);
+            instr.set_branch();
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 3;
+            instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
             instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
-            instr.source[2] = Register(PC);
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
+            instr.set_branch();
         }
         Opcode::EXIT => {
             validate_operand_count(0, operands, opcode, loc)?;
-            instr.set_control();
+            instr.set_branch();
         }
         Opcode::DSB => {
             validate_operand_count(0, operands, opcode, loc)?;
@@ -301,24 +299,28 @@ pub(crate) fn create_instr(opcode: Opcode,
         Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 3;
+            instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
             instr.source[1] = Register(CPSR);
-            instr.source[2] = Register(PC);
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(PC);
+            instr.sink_cnt = 0;
+            instr.set_branch();
         }
     }
 
-    if !instr.is_control() && has_control_operands(&instr) {
-        instr.set_control();
+    // todo: instructions with mess with e.g. control operand should get pipeline buble. Now they are
+    // marked as speculative.
+    if !instr.is_branch() && has_control_operands(&instr) {
+        instr.set_branch();
     }
 
     return Ok(instr);
 }
 
-fn validate_operand_count(expected: usize, operands: &Vec<Operand>, opcode: Opcode, loc: SourceLocation) -> Result<(), String> {
+fn validate_operand_count(expected: usize,
+                          operands: &Vec<Operand>,
+                          opcode: Opcode,
+                          loc: SourceLocation) -> Result<(), String> {
     if operands.len() != expected {
         return Err(format!("Operand count mismatch. {:?} expects {} arguments, but {} are provided at {}:{}",
                            opcode, expected, operands.len(), loc.line, loc.column));
@@ -326,7 +328,10 @@ fn validate_operand_count(expected: usize, operands: &Vec<Operand>, opcode: Opco
     Ok(())
 }
 
-fn validate_operand(op_index: usize, operands: &Vec<Operand>, opcode: Opcode, acceptable_types: &[Operand]) -> Result<Operand, String> {
+fn validate_operand(op_index: usize,
+                    operands: &Vec<Operand>,
+                    opcode: Opcode,
+                    acceptable_types: &[Operand]) -> Result<Operand, String> {
     let operand = operands[op_index];
 
     for &typ in acceptable_types {
@@ -377,27 +382,55 @@ pub(crate) const EXIT: Instr = Instr {
 pub(crate) type RegisterType = u16;
 pub(crate) type WordType = i64;
 
+pub(crate) struct InstrQueueSlot {
+    pub(crate) instr: Rc<Instr>,
+    // The pc of the current instr.
+    pub(crate) pc: usize,
+    pub(crate) branch_target_predicted: usize,
+}
+
 // The InstrQueue sits between frontend and backend
 pub(crate) struct InstrQueue {
-    capacity: u16,
-    head: u64,
-    tail: u64,
-    instructions: Vec<Rc<Instr>>,
+    pub(crate) capacity: u16,
+    pub(crate) head: u64,
+    pub(crate) tail: u64,
+    pub(crate) slots: Vec<InstrQueueSlot>,
 }
 
 impl InstrQueue {
     pub fn new(capacity: u16) -> Self {
-        let mut instructions = Vec::with_capacity(capacity as usize);
+        let mut slots = Vec::with_capacity(capacity as usize);
+
         for _ in 0..capacity {
-            instructions.push(Rc::new(NOP));
+            slots.push(InstrQueueSlot { pc: 0, branch_target_predicted: 0, instr: Rc::new(NOP) });
         }
 
         InstrQueue {
             capacity,
             head: 0,
             tail: 0,
-            instructions,
+            slots,
         }
+    }
+
+    pub fn head_index(&self) -> usize {
+        return (self.head % self.capacity as u64) as usize;
+    }
+
+    pub fn tail_index(&self) -> usize {
+        return (self.tail % self.capacity as u64) as usize;
+    }
+
+    pub fn get_mut(&mut self, index: usize) -> &mut InstrQueueSlot {
+        return self.slots.get_mut(index).unwrap();
+    }
+
+    pub fn tail_bump(&mut self) {
+        self.tail += 1;
+    }
+
+    pub fn head_bump(&mut self) {
+        self.head += 1;
     }
 
     pub fn size(&self) -> u16 {
@@ -412,24 +445,9 @@ impl InstrQueue {
         self.size() == self.capacity
     }
 
-    pub fn enqueue(&mut self, instr: Rc<Instr>) {
-        assert!(!self.is_full(), "Can't enqueue when InstrQueue is empty.");
-
-        let index = (self.tail % self.capacity as u64) as usize;
-        self.instructions[index] = instr;
-        self.tail += 1;
-    }
-
-    pub fn dequeue(&mut self) {
-        assert!(!self.is_empty(), "Can't dequeue when InstrQueue is empty.");
-        self.head += 1;
-    }
-
-    pub fn peek(&self) -> Rc<Instr> {
-        assert!(!self.is_empty(), "Can't peek when InstrQueue is empty.");
-
-        let index = (self.head % self.capacity as u64) as usize;
-        return Rc::clone(&self.instructions[index]);
+    pub fn flush(&mut self) {
+        self.head = 0;
+        self.tail = 0;
     }
 }
 
@@ -440,7 +458,7 @@ pub(crate) const MAX_SINK_COUNT: u8 = 2;
 // True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
 // A control instruction gets issued into the rob, but it will prevent the next instruction to be issued, so
 // That the branch condition can be determined.
-pub(crate) const INSTR_FLAG_IS_CONTROL: u8 = 0;
+pub(crate) const INSTR_FLAG_IS_BRANCH: u8 = 0;
 pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
 pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
 
@@ -459,12 +477,12 @@ pub(crate) struct Instr {
 }
 
 impl Instr {
-    pub(crate) fn is_control(&self) -> bool {
-        (self.flags & (1 << INSTR_FLAG_IS_CONTROL)) != 0
+    pub(crate) fn is_branch(&self) -> bool {
+        (self.flags & (1 << INSTR_FLAG_IS_BRANCH)) != 0
     }
 
-    pub(crate) fn set_control(&mut self) {
-        self.flags |= 1 << INSTR_FLAG_IS_CONTROL;
+    pub(crate) fn set_branch(&mut self) {
+        self.flags |= 1 << INSTR_FLAG_IS_BRANCH;
     }
 
     pub(crate) fn rob_sync(&self) -> bool {
@@ -564,7 +582,7 @@ impl fmt::Display for Operand {
                     _ => write!(f, "R{}", reg),
                 }
             }  // Add a comma here
-            Immediate(val) => write!(f, "{}", val),
+            Immediate(val) => write!(f, "#{}", val),
             Memory(addr) => write!(f, "[{}]", addr),
             Code(addr) => write!(f, "[{}]", addr),
             Unused => write!(f, "Unused"),

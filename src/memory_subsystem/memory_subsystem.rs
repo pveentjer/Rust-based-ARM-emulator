@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use crate::cpu::CPUConfig;
 use crate::instructions::instructions::{Program, WordType};
-use crate::memory_subsystem::store_buffer::StoreBuffer;
+use crate::memory_subsystem::store_buffer::SB;
 
 pub(crate) struct MemorySubsystem {
     pub(crate) memory: Vec<WordType>,
-    pub(crate) sb: StoreBuffer,
+    pub(crate) sb: SB,
 }
 
 impl MemorySubsystem {
@@ -17,7 +17,7 @@ impl MemorySubsystem {
             memory.push(0);
         }
 
-        let sb = StoreBuffer::new(cpu_config);
+        let sb = SB::new(cpu_config);
 
         MemorySubsystem {
             memory,

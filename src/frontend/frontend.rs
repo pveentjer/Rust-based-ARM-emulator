@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{EXIT, InstrQueue, Opcode, Program, WordType};
+use crate::instructions::instructions::{EXIT, Instr, InstrQueue, Opcode, Program, WordType};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -24,8 +24,7 @@ impl Frontend {
                       instr_queue: Rc<RefCell<InstrQueue>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>,
-                      arch_reg_file: Rc<RefCell<ArgRegFile>>,
-    ) -> Frontend {
+                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Frontend {
         Frontend {
             instr_queue,
             n_wide: cpu_config.frontend_n_wide,
@@ -65,37 +64,74 @@ impl Frontend {
                         break;
                     }
 
-                    let pc_value = arch_reg_file.get_value(PC) as usize;
-                    let instr = if program.code.len() == pc_value {
+                    // todo: we still need mechanism to 'stall' the pipeline. E.g
+
+                    // MOV IP, 10
+                    // B foobar
+
+                    let pc = arch_reg_file.get_value(PC) as usize;
+                    let instr = if program.code.len() == pc {
                         // at the end of the program
                         Rc::new(EXIT)
                     } else {
-                        program.get_instr(pc_value)
+                        program.get_instr(pc)
                     };
 
                     if self.trace.decode {
-                        println!("Frontend: ip_next_fetch: {} decoded {}", pc_value, instr);
+                        println!("Frontend: pc: {}  '{}'", pc, instr);
                     }
 
                     if instr.opcode == Opcode::EXIT {
                         self.exit = true;
                     }
 
-                    let is_control = instr.is_control();
+                    let tail_index = instr_queue.tail_index();
+                    let mut slot = instr_queue.get_mut(tail_index);
 
-                    // todo: what about cloning?
-                    instr_queue.enqueue(instr);
+                    let pc_value_next = if instr.is_branch() {
+                        slot.branch_target_predicted = Self::predict(pc, &instr);
+                        //println!("Frontend branch predicted={}", slot.branch_target_predicted);
+                        slot.branch_target_predicted
+                    } else {
+                        pc + 1
+                    };
+                    arch_reg_file.set_value(PC, pc_value_next as WordType);
 
-                    // move the PC to the next instruction.
-                    arch_reg_file.set_value(PC, (pc_value + 1) as WordType);
+                    slot.instr = instr;
+                    slot.pc = pc;
+                    instr_queue.tail_bump();
                     perf_counters.decode_cnt += 1;
-
-                    if is_control {
-                        frontend_control.halted = true;
-                        return;
-                    }
                 }
             }
+        }
+    }
+
+    // A static branch predictor that will speculate that backwards branches are taken.
+    // In the future better branch predictors can be added.
+    fn predict(ip: usize, instr: &Instr) -> usize {
+        let branch_target = match instr.opcode {
+            Opcode::B |
+            Opcode::BL => {
+                // unconditional branches. So we can predict with 100% certainty
+                return instr.source[0].get_code_address() as usize;
+            }
+            Opcode::BX => 0,
+            Opcode::CBNZ |
+            Opcode::CBZ => instr.source[1].get_code_address() as usize,
+            Opcode::BNE |
+            Opcode::BLE |
+            Opcode::BLT |
+            Opcode::BGE |
+            Opcode::BGT |
+            Opcode::BEQ => instr.source[0].get_code_address() as usize,
+            _ => unreachable!(),
+        };
+
+        if branch_target < ip {
+            // backwards branches are always taken
+            branch_target
+        } else {
+            ip + 1
         }
     }
 }

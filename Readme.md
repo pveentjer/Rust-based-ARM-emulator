@@ -13,7 +13,7 @@ code generation using binary translation would be orders of magnitude faster.
 ## Warning
 
 This project is toy project. I want to upgrade my Rust skills and I needed a serious
-enough challenge to work on. Also the challenge should initially be without the need 
+enough challenge to work on. Also, the challenge should initially be without the need 
 for concurrency control so that I get a better understanding of ownership. 
 
 ### CPU features 
@@ -22,20 +22,22 @@ for concurrency control so that I get a better understanding of ownership.
 * Super scalar execution
 * Out of Order Execution using Tomasulo's algorithm. So only RAW dependencies are preserved.
 * Store buffer
-* Performance monitor (although not exposed itself through registers).
+* Performance monitor although not exposed through model specific registers.
+* Speculative execution
 
 ### Planned CPU features
 * Support for different data types
-* Speculative execution
-* One way fences like LDAR, STLR, LDAPR. 
-* Two way fences like DMB
+* One-way fences like LDAR, STLR, LDAPR. 
+* Two-way fences like DMB
 * Serializing instructions like DSB
 * Exclusive access instructions like LDXR, STXR, LDAXR, STLXR
 * SMT (aka hyper-threading)
 * CMP (aka multicore)
 * Working cache (MESI based)
 * Write coalescing
-* Store buffer out of order commit to the cache
+* Store buffer out-of-order commit to the cache
+* SVE (SIMD)
+* NEON (SIMD)
 
 ## Supported instructions
 

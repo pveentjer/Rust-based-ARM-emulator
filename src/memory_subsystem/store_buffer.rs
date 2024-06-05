@@ -1,32 +1,56 @@
+use SBEntryState::{ALLOCATED, COMMITTED, IDLE, INVALIDATED, READY};
 use crate::cpu::CPUConfig;
 use crate::instructions::instructions::{WordType};
 
-struct StoreBufferEntry {
-    value: WordType,
-    addr: WordType,
-    completed: bool,
+enum SBEntryState {
+    // not used.
+    IDLE,
+    // it is allocated for a store
+    ALLOCATED,
+    // the value is stored, but it is still in speculative state. So there
+    // is no guarantee that the store is going to be written to main memory
+    READY,
+    // the value is stored, and is not any longer in speculative state
+    // and is guaranteed to be written to main memory
+    COMMITTED,
+    // the store is invalidated due to bad speculation.
+    INVALIDATED,
 }
 
-pub(crate) struct StoreBuffer {
+struct SBEntry {
+    value: WordType,
+    addr: WordType,
+    state: SBEntryState,
+}
+
+impl SBEntry {
+    fn reset(&mut self) {
+        self.state = IDLE;
+        self.addr = 0;
+        self.value = 0;
+    }
+}
+
+pub(crate) struct SB {
     head: u64,
     tail: u64,
-    entries: Vec<StoreBufferEntry>,
+    entries: Vec<SBEntry>,
     capacity: u16,
     lfb_count: u8,
 }
 
-impl StoreBuffer {
-    pub(crate) fn new(cpu_config: &CPUConfig) -> StoreBuffer {
+impl SB {
+    pub(crate) fn new(cpu_config: &CPUConfig) -> SB {
         let mut entries = Vec::with_capacity(cpu_config.sb_capacity as usize);
         for _ in 0..cpu_config.sb_capacity {
-            entries.push(StoreBufferEntry {
+            entries.push(SBEntry {
                 value: 0,
                 addr: 0,
-                completed: false,
+                state: IDLE,
             })
         }
 
-        StoreBuffer {
+        SB {
             capacity: cpu_config.sb_capacity,
             head: 0,
             tail: 0,
@@ -39,6 +63,10 @@ impl StoreBuffer {
         return (self.tail - self.head) as u16;
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.size() == 0
+    }
+
     pub(crate) fn has_space(&self) -> bool {
         return self.size() < self.capacity;
     }
@@ -47,40 +75,73 @@ impl StoreBuffer {
         assert!(self.has_space(), "StoreBuffer: can't allocate because there is no space");
 
         let index = (self.tail % self.capacity as u64) as usize;
+        self.entries[index].state = ALLOCATED;
         self.tail += 1;
         return index as u16;
     }
 
     pub(crate) fn store(&mut self, index: u16, addr: WordType, value: WordType) {
         let sb_entry = &mut self.entries[index as usize];
-        sb_entry.addr = addr;
-        sb_entry.value = value;
-        sb_entry.completed = true;
+
+        match sb_entry.state {
+            ALLOCATED => {
+                sb_entry.addr = addr;
+                sb_entry.value = value;
+                sb_entry.state = READY;
+            }
+            INVALIDATED => {}
+            _ => unreachable!(),
+        }
+    }
+
+    pub(crate) fn commit(&mut self, index: u16) {
+        let sb_entry = &mut self.entries[index as usize];
+
+        match sb_entry.state {
+            READY => sb_entry.state = COMMITTED,
+            _ => unreachable!(),
+        }
+    }
+
+    pub(crate) fn invalidate(&mut self, index: u16) {
+        let sb_entry = &mut self.entries[index as usize];
+
+        match sb_entry.state {
+            ALLOCATED |
+            READY => sb_entry.state = INVALIDATED,
+            _ => unreachable!(),
+        }
+    }
+
+    pub(crate) fn flush(&self) {
+        //todo
+        println!("Store buffer flush not implemented")
     }
 
     pub(crate) fn do_cycle(&mut self, memory: &mut Vec<WordType>) {
         for _ in 0..self.lfb_count {
-            if self.tail == self.head {
-                // store buffer is empty
+            if self.is_empty() {
                 break;
             }
 
             let index = (self.head % self.capacity as u64) as usize;
             let mut sb_entry = &mut self.entries[index];
-            if !sb_entry.completed {
-                // the store buffer isn't empty, but there is a slot that didn't receive a store yet
-                // We stop, so that we ensure that all stores in the store buffer, will be written
-                // to memory in program order.
-                return;
+            match sb_entry.state {
+                ALLOCATED |
+                READY => {}
+                COMMITTED => {
+                    // write the store to memory
+                    memory[sb_entry.addr as usize] = sb_entry.value;
+                    sb_entry.reset();
+                    self.head += 1;
+                }
+                INVALIDATED => {
+                    // an invalidated store will not be written to memory
+                    sb_entry.reset();
+                    self.head += 1;
+                }
+                _ => unreachable!(),
             }
-
-            memory[sb_entry.addr as usize] = sb_entry.value;
-
-            sb_entry.completed = false;
-            sb_entry.value = 0;
-            sb_entry.addr = 0;
-
-            self.head += 1;
         }
     }
 }
