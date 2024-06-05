@@ -1,6 +1,6 @@
 use crate::instructions::instructions::{RegisterType, WordType};
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum PhysRegEntryState {
     IDLE,
     BUSY,
@@ -94,4 +94,17 @@ impl PhysRegFile {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn test_allocate() {
+        let mut regs = PhysRegFile::new(256);
+        let reg = regs.allocate();
+        assert_eq!(reg, 0);
+
+        let entry = regs.get_mut(reg);
+        assert_eq!(entry.state, PhysRegEntryState::BUSY);
+    }
+}

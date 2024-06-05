@@ -1,5 +1,7 @@
 TODO
 
+- there is no back pressure if there are no physical registers.
+
 - optimize the flush of the ROB (idle entries can be skipped)
 
 - implement store buffer flush
