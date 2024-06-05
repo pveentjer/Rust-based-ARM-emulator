@@ -52,6 +52,20 @@ pub struct Trace {
     pub cycle: bool,
 }
 
+impl Default for Trace {
+    fn default() -> Self {
+        Trace {
+            decode: false,
+            issue: false,
+            allocate_rs: false,
+            dispatch: false,
+            execute: false,
+            retire: false,
+            cycle: false,
+        }
+    }
+}
+
 #[derive(Clone, Deserialize, Debug)]
 pub struct CPUConfig {
     // the number of physical registers
@@ -86,6 +100,28 @@ pub struct CPUConfig {
     pub issue_n_wide: u8,
     // The size of the stack
     pub stack_capacity: u32,
+}
+
+impl Default for CPUConfig {
+    fn default() -> Self {
+        CPUConfig {
+            phys_reg_count: 64,
+            frontend_n_wide: 4,
+            instr_queue_capacity: 64,
+            frequency_hz: 4,
+            rs_count: 64,
+            memory_size: 128,
+            sb_capacity: 16,
+            lfb_count: 4,
+            rob_capacity: 32,
+            eu_count: 10,
+            trace: Trace::default(),
+            retire_n_wide: 4,
+            dispatch_n_wide: 4,
+            issue_n_wide: 4,
+            stack_capacity: 256,
+        }
+    }
 }
 
 pub fn load_cpu_config(file_path: &str) -> Result<CPUConfig, Box<dyn Error>> {
