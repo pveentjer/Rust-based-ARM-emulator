@@ -1,7 +1,5 @@
 TODO
 
-- option to trace pipeline flushes
-
 - optimize the flush of the ROB (idle entries can be skipped)
 
 - implement store buffer flush
@@ -38,6 +36,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- option to trace pipeline flushes
 
 - case insensitive registers
 

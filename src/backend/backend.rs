@@ -490,7 +490,7 @@ impl Backend {
                         if *phys_reg == req.phys_reg {
                             rs.source[source_index] = Operand::Immediate(req.value);
                             rs.source_ready_cnt += 1;
-                            added_src_ready =true;
+                            added_src_ready = true;
                         }
                     }
                 }
@@ -600,9 +600,10 @@ impl Backend {
 
     fn flush(&mut self) {
         let mut perf_monitors = self.perf_counters.borrow_mut();
-        println!("======================================================");
-        println!("Backend flush");
-        println!("======================================================");
+
+        if self.trace.pipeline_flush {
+            println!("Pipeline flush");
+        }
 
         perf_monitors.pipeline_flushes += 1;
         perf_monitors.bad_speculation_cnt += self.rob.size() as u64;

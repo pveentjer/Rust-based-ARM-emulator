@@ -29,6 +29,7 @@ trace:
   execute: false
   retire: false
   cycle: false
+  pipeline_flush: false
 # the number of instructions that can retire per clock cycle
 retire_n_wide: 2
 # the number of instructions that can be dispatched (sent to execution units) every clock cycle

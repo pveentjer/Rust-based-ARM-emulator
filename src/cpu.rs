@@ -50,6 +50,7 @@ pub struct Trace {
     pub execute: bool,
     pub retire: bool,
     pub cycle: bool,
+    pub pipeline_flush: bool,
 }
 
 impl Default for Trace {
@@ -62,6 +63,7 @@ impl Default for Trace {
             execute: false,
             retire: false,
             cycle: false,
+            pipeline_flush: false,
         }
     }
 }
