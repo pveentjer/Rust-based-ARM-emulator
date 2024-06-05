@@ -273,3 +273,64 @@ impl ArgRegFile {
         arch_reg.value = value;
     }
 }
+
+// This is super ugly; the test will be moved to its own directory
+#[cfg(test)]
+mod tests {
+    use crate::loader::loader::{load_from_string, LoadError};
+    use super::*;
+
+    #[test]
+    fn test_run() {
+        let mut cpu_config = CPUConfig::default();
+        cpu_config.frequency_hz = 1000;
+
+        let src = r#"
+.text
+    MOV r0, #1;
+    MOV r1, #2;
+    ADD r2, r0, r1;
+"#;
+        let program = load_program(&cpu_config, src);
+        let mut cpu = CPU::new(&cpu_config);
+        cpu.run(&program);
+
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(0), 1 as WordType);
+        assert_eq!(reg_file.get_value(1), 2 as WordType);
+        assert_eq!(reg_file.get_value(2), 3 as WordType);
+    }
+
+    fn load_program(cpu_config: &CPUConfig, src: &str) -> Rc<Program> {
+        let load_result = load_from_string(cpu_config.clone(), src.to_string());
+        let program = match load_result {
+            Ok(p) => Rc::new(p),
+            Err(err) => {
+                match err {
+                    LoadError::ParseError(msg) => {
+                        println!("{}", msg);
+                        assert!(false);
+                        unreachable!();
+                    }
+
+                    LoadError::AnalysisError(msg_vec) => {
+                        for msg in msg_vec {
+                            println!("{}", msg);
+                        }
+                        assert!(false);
+                        unreachable!();
+                    }
+                    LoadError::NotFoundError(msg) => {
+                        println!("{}", msg);
+                        unreachable!();
+                    }
+                    LoadError::IOError(msg) => {
+                        println!("{}", msg);
+                        unreachable!();
+                    }
+                }
+            }
+        };
+        program
+    }
+}

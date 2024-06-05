@@ -79,7 +79,7 @@ impl PhysRegFile {
     }
 
     pub(crate) fn deallocate(&mut self, reg: RegisterType) {
-       // println!("Phys Register: deallocate {}",reg);
+        // println!("Phys Register: deallocate {}",reg);
 
         debug_assert!(!self.free_stack.contains(&reg), "Phys register {} can't be deallocated while it is also on the free stack", reg);
 
@@ -100,11 +100,13 @@ mod tests {
 
     #[test]
     fn test_allocate() {
-        let mut regs = PhysRegFile::new(256);
-        let reg = regs.allocate();
+        let mut reg_file = PhysRegFile::new(256);
+        let reg = reg_file.allocate();
         assert_eq!(reg, 0);
 
-        let entry = regs.get_mut(reg);
+        let entry = reg_file.get(reg);
         assert_eq!(entry.state, PhysRegEntryState::BUSY);
+        assert_eq!(entry.has_value, false);
+        assert_eq!(entry.value, 0);
     }
 }
