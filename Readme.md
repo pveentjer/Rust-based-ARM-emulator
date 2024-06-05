@@ -18,12 +18,12 @@ for concurrency control so that I get a better understanding of ownership.
 
 ### CPU features 
 
-* Pipelined execution
-* Super scalar execution
+* Pipelined Execution
+* Super Scalar Execution
 * Out of Order Execution using Tomasulo's algorithm. So only RAW dependencies are preserved.
-* Store buffer
+* Speculative Execution
+* Store Buffer
 * Performance monitor although not exposed through model specific registers.
-* Speculative execution
 
 ### Planned CPU features
 * Support for different data types
