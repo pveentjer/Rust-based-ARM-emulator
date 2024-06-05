@@ -282,9 +282,7 @@ mod tests {
 
     #[test]
     fn test_run() {
-        let mut cpu_config = CPUConfig::default();
-        cpu_config.frequency_hz = 1000;
-
+        let cpu_config = new_test_cpuconfig();
         let src = r#"
 .text
     MOV r0, #1;
@@ -299,6 +297,111 @@ mod tests {
         assert_eq!(reg_file.get_value(0), 1 as WordType);
         assert_eq!(reg_file.get_value(1), 2 as WordType);
         assert_eq!(reg_file.get_value(2), 3 as WordType);
+    }
+
+    #[test]
+    fn test_loop() {
+        let cpu_config = new_test_cpuconfig();
+
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #20;
+loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CBNZ r0, loop;
+"#;
+        let program = load_program(&cpu_config, src);
+        let mut cpu = CPU::new(&cpu_config);
+        cpu.run(&program);
+
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(0), 0 as WordType);
+        assert_eq!(reg_file.get_value(1), 30 as WordType);
+    }
+
+
+    #[test]
+    fn test_waw() {
+        let src = r#"
+.text
+    MOV r0, #1;
+    MOV r0, #2;
+    MOV r0, #3;
+    MOV r0, #4;
+    MOV r0, #5;
+    MOV r0, #6;
+    MOV r0, #7;
+    MOV r0, #8;
+"#;
+
+        let cpu = run(src);
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(0), 8 as WordType);
+    }
+
+    #[test]
+    fn test_dependency_chain() {
+        let src = r#"
+.text
+    MOV r0, #1;
+    MOV r1, r0;
+    MOV r2, r1;
+    MOV r3, r2;
+    MOV r4, r3;
+    MOV r5, r4;
+    MOV r6, r5;
+    MOV r7, r6;
+    MOV r8, r7;
+"#;
+
+        let cpu = run(src);
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(8), 1 as WordType);
+    }
+
+    fn run(src: &str) -> CPU {
+        let cpu_config = new_test_cpuconfig();
+
+
+        let program = load_program(&cpu_config, src);
+        let mut cpu = CPU::new(&cpu_config);
+        cpu.run(&program);
+        cpu
+    }
+
+
+    #[test]
+    fn test_nested_loop() {
+        let cpu_config = new_test_cpuconfig();
+        let src = r#"
+.text
+    MOV r0, #10;
+
+_loop_outer:
+    MOV r1, #10;
+
+_loop_inner:
+    SUB r1, r1, #1;
+    ADD r2, r2, #1;
+    CBNZ r1, _loop_inner;
+
+    SUB r0, r0, #1;
+    CBNZ r0, _loop_outer;
+"#;
+        let program = load_program(&cpu_config, src);
+        let mut cpu = CPU::new(&cpu_config);
+        cpu.run(&program);
+
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(2), 100 as WordType);
+    }
+
+    fn new_test_cpuconfig() -> CPUConfig {
+        let mut cpu_config = CPUConfig::default();
+        cpu_config.frequency_hz = 1000;
+        cpu_config
     }
 
     fn load_program(cpu_config: &CPUConfig, src: &str) -> Rc<Program> {
