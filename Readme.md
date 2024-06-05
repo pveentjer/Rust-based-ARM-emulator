@@ -22,6 +22,7 @@ for concurrency control so that I get a better understanding of ownership.
 * Super Scalar Execution
 * Out of Order Execution using Tomasulo's algorithm. So only RAW dependencies are preserved.
 * Speculative Execution
+* Branch prediction (static only ATM)
 * Store Buffer
 * Performance monitor although not exposed through model specific registers.
 
