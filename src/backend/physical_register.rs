@@ -9,7 +9,7 @@ enum PhysRegEntryState {
 pub(crate) struct PhysRegEntry {
     pub(crate) value: WordType,
     pub(crate) has_value: bool,
-    pub(crate) state: PhysRegEntryState,
+    state: PhysRegEntryState,
 }
 
 impl PhysRegEntry {
@@ -56,7 +56,7 @@ impl PhysRegFile {
 
     pub(crate) fn allocate(&mut self) -> RegisterType {
         if let Some(reg) = self.free_stack.pop() {
-            let mut entry = self.entries.get_mut(reg as usize).unwrap();
+            let entry = self.entries.get_mut(reg as usize).unwrap();
             debug_assert!(entry.state == PhysRegEntryState::IDLE);
             debug_assert!(!entry.has_value, " The allocated physical register {} should not have a value", reg);
             entry.state = PhysRegEntryState::BUSY;
@@ -83,7 +83,7 @@ impl PhysRegFile {
 
         debug_assert!(!self.free_stack.contains(&reg), "Phys register {} can't be deallocated while it is also on the free stack", reg);
 
-        let mut entry = self.get_mut(reg);
+        let entry = self.get_mut(reg);
 
         debug_assert!(entry.state == PhysRegEntryState::BUSY);
         debug_assert!(!entry.has_value, " The deallocated physical register {} should not have a value", reg);
