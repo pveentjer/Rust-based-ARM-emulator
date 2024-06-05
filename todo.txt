@@ -1,5 +1,7 @@
 TODO
 
+- option to trace pipeline flushes
+
 - optimize the flush of the ROB (idle entries can be skipped)
 
 - implement store buffer flush
@@ -14,7 +16,7 @@ TODO
 
 - support for precise exceptions
 
-- syntax: case insensitive keywords/registers
+- syntax: case insensitive keywords
 
 - syntax: single line comments
 
@@ -36,6 +38,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- case insensitive registers
 
 - recording number of instruction that will not retire due to bad speculation
 
