@@ -13,6 +13,7 @@ mod frontend;
 mod backend;
 mod instructions;
 mod memory_subsystem;
+mod cpu_tests;
 
 
 lalrpop_mod!(pub assembly, "/loader/assembly.rs");

@@ -1,5 +1,9 @@
 TODO
 
+- integration test that loads data
+
+- integration test that stores data
+
 - there is no back pressure if there are no physical registers.
 
 - optimize the flush of the ROB (idle entries can be skipped)
@@ -11,8 +15,6 @@ TODO
 - add DSB
 
 - unit tests!
-
-- integration tests!
 
 - support for precise exceptions
 
@@ -26,10 +28,6 @@ TODO
 
 - syntax: unwanted semicolon after instructions
 
-- instruction print should use labels
-
-- instructions should keep their labels
-
 - store to load forwarding: currently the store in the sb isn't seen
 
 - implement print of memory
@@ -38,6 +36,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- integration tests!
 
 - option to trace pipeline flushes
 
