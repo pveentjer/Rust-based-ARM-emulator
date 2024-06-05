@@ -125,7 +125,7 @@ impl SB {
             }
 
             let index = (self.head % self.capacity as u64) as usize;
-            let mut sb_entry = &mut self.entries[index];
+            let sb_entry = &mut self.entries[index];
             match sb_entry.state {
                 ALLOCATED |
                 READY => {}
