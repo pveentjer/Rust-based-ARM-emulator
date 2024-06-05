@@ -47,7 +47,7 @@ impl Frontend {
             None => return,
             Some(program) => {
                 let mut instr_queue = self.instr_queue.borrow_mut();
-                let mut frontend_control = self.frontend_control.borrow_mut();
+                let frontend_control = self.frontend_control.borrow_mut();
                 let mut perf_counters = self.perf_counters.borrow_mut();
                 let mut arch_reg_file = self.arch_reg_file.borrow_mut();
 
@@ -86,7 +86,7 @@ impl Frontend {
                     }
 
                     let tail_index = instr_queue.tail_index();
-                    let mut slot = instr_queue.get_mut(tail_index);
+                    let slot = instr_queue.get_mut(tail_index);
 
                     let pc_value_next = if instr.is_branch() {
                         slot.branch_target_predicted = Self::predict(pc, &instr);

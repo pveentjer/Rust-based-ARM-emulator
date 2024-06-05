@@ -177,8 +177,6 @@ impl CPU {
             Rc::clone(&arch_reg_file),
         );
 
-        let x = Duration::from_micros(1_000_000 / cpu_config.frequency_hz);
-
         CPU {
             backend,
             frontend,
