@@ -289,8 +289,6 @@ fn is_valid_variable_name(name: &String) -> bool {
     true
 }
 
-
-// for the time being we always return the same program
 pub fn load_from_file(cpu_config: CPUConfig, path_str: &str) -> Result<Program, LoadError> {
     let path = Path::new(path_str);
 
