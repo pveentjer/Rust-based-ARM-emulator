@@ -1,6 +1,6 @@
 TODO
 
-- recording number of instruction that will not retire due to bad speculation
+- optimize the flush of the ROB (idle entries can be skipped)
 
 - implement store buffer flush
 
@@ -36,3 +36,6 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- recording number of instruction that will not retire due to bad speculation
+

@@ -605,11 +605,9 @@ impl Backend {
         println!("======================================================");
 
         perf_monitors.pipeline_flushes += 1;
+        perf_monitors.bad_speculation_cnt += self.rob.size() as u64;
 
-        // get rid of the instruction queue content
         self.instr_queue.borrow_mut().flush();
-
-        //        perf_monitors.bad_speculation_cnt += 1;
 
         self.phys_reg_file.flush();
         self.eu_table.flush();
