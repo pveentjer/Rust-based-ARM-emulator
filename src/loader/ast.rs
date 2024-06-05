@@ -98,17 +98,17 @@ pub struct ASTAssemblyFile {
 }
 
 pub trait ASTVisitor {
-    fn visit_operand(&mut self, ast_operand: &ASTOperand) -> bool { true }
-    fn visit_data(&mut self, ast_data: &ASTData) -> bool { true }
-    fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool { true }
-    fn visit_directive(&mut self, ast_directive: &ASTDirective) -> bool { true }
-    fn visit_label(&mut self, ast_label: &ASTLabel) -> bool { true }
-    fn visit_text_section(&mut self, ast_label: &ASTTextSection) -> bool { true }
-    fn visit_text_line(&mut self, ast_text_line: &ASTTextLine) -> bool { true }
-    fn visit_data_section(&mut self, ast_label: &ASTDataSection) -> bool { true }
-    fn visit_data_line(&mut self, ast_data_line: &ASTDataLine) -> bool { true }
-    fn visit_preamble(&mut self, ast_preamble: &ASTPreamble) -> bool { true }
-    fn visit_assembly_file(&mut self, ast_assembly: &ASTAssemblyFile) -> bool { true }
+    fn visit_operand(&mut self, _ast_operand: &ASTOperand) -> bool { true }
+    fn visit_data(&mut self, _ast_data: &ASTData) -> bool { true }
+    fn visit_instr(&mut self, _ast_instr: &ASTInstr) -> bool { true }
+    fn visit_directive(&mut self, _ast_directive: &ASTDirective) -> bool { true }
+    fn visit_label(&mut self, _ast_label: &ASTLabel) -> bool { true }
+    fn visit_text_section(&mut self, _ast_label: &ASTTextSection) -> bool { true }
+    fn visit_text_line(&mut self, _ast_text_line: &ASTTextLine) -> bool { true }
+    fn visit_data_section(&mut self, _ast_label: &ASTDataSection) -> bool { true }
+    fn visit_data_line(&mut self, _ast_data_line: &ASTDataLine) -> bool { true }
+    fn visit_preamble(&mut self, _ast_preamble: &ASTPreamble) -> bool { true }
+    fn visit_assembly_file(&mut self, _ast_assembly: &ASTAssemblyFile) -> bool { true }
 }
 
 

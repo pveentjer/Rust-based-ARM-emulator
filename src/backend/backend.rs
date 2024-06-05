@@ -90,7 +90,7 @@ impl Backend {
             // todo: register renaming should be done here.
 
             let instr_queue_head_index = instr_queue.head_index();
-            let mut instr_queue_slot = instr_queue.get_mut(instr_queue_head_index);
+            let instr_queue_slot = instr_queue.get_mut(instr_queue_head_index);
 
             let branch_target_predicted = instr_queue_slot.branch_target_predicted;
             let instr = Rc::clone(&instr_queue_slot.instr);
@@ -134,7 +134,7 @@ impl Backend {
             }
 
             let rob_slot_index = self.rob.to_index(self.rob.seq_rs_allocated);
-            let mut rob_slot = self.rob.get_mut(rob_slot_index);
+            let rob_slot = self.rob.get_mut(rob_slot_index);
 
             debug_assert!(rob_slot.state == ROBSlotState::ISSUED);
             debug_assert!(rob_slot.eu_index.is_none());
@@ -149,7 +149,7 @@ impl Backend {
             }
 
             let rs_index = self.rs_table.allocate();
-            let mut rs = self.rs_table.get_mut(rs_index);
+            let rs = self.rs_table.get_mut(rs_index);
             debug_assert!(rs.state == RSState::BUSY);
 
             rob_slot.rs_index = Some(rs_index);
@@ -255,7 +255,7 @@ impl Backend {
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
             let eu_index = self.eu_table.allocate();
-            let mut eu = self.eu_table.get_mut(eu_index);
+            let eu = self.eu_table.get_mut(eu_index);
             debug_assert!(eu.state == EUState::BUSY);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
@@ -281,7 +281,7 @@ impl Backend {
 
             // todo: we should only iterate over the used execution units.
             for eu_index in 0..self.eu_table.capacity {
-                let mut eu = self.eu_table.get_mut(eu_index);
+                let eu = self.eu_table.get_mut(eu_index);
 
                 if eu.state == EUState::IDLE {
                     continue;
@@ -289,11 +289,11 @@ impl Backend {
 
                 let rs_index = eu.rs_index.unwrap();
 
-                let mut rs = self.rs_table.get_mut(rs_index);
+                let rs = self.rs_table.get_mut(rs_index);
                 debug_assert!(rs.state == RSState::BUSY);
 
                 let rob_index = rs.rob_slot_index.unwrap();
-                let mut rob_slot = self.rob.get_mut(rob_index);
+                let rob_slot = self.rob.get_mut(rob_index);
                 debug_assert!(rob_slot.state == ROBSlotState::DISPATCHED,
                               "rob_slot is not in dispatched state, but in {:?}, rs_index={}", rob_slot.state, rs_index);
                 debug_assert!(rob_slot.rs_index.is_some());
@@ -513,13 +513,13 @@ impl Backend {
         {
             let mut arch_reg_file = self.arch_reg_file.borrow_mut();
             let mut perf_monitors = self.perf_counters.borrow_mut();
-            let mut phys_reg_file = &mut self.phys_reg_file;
-            let mut frontend_control = self.frontend_control.borrow_mut();
+            let phys_reg_file = &mut self.phys_reg_file;
+            let frontend_control = self.frontend_control.borrow_mut();
             let mut memory_subsytem = self.memory_subsystem.borrow_mut();
 
             for _ in 0..self.retire_n_wide {
                 let rob_slot_index = self.rob.to_index(self.rob.seq_retired);
-                let mut rob_slot = self.rob.get_mut(rob_slot_index);
+                let rob_slot = self.rob.get_mut(rob_slot_index);
 
                 if rob_slot.state != ROBSlotState::EXECUTED {
                     break;
