@@ -17,7 +17,7 @@ use crate::loader::loader::LoadError::AnalysisError;
 
 struct Loader {
     cpu_config: CPUConfig,
-    path: String,
+    src: String,
     heap_limit: u32,
     code: Vec<Instr>,
     data_section: HashMap::<String, Rc<Data>>,
@@ -25,29 +25,21 @@ struct Loader {
     instr_cnt: usize,
     entry_point: usize,
     errors: Vec<String>,
-    input_string: String,
 }
 
 pub enum LoadError {
     NotFoundError(String),
+    IOError(String),
     ParseError(String),
     AnalysisError(Vec<String>),
 }
 
 impl Loader {
     fn load(&mut self) -> Result<Program, LoadError> {
-        let mut input = match fs::read_to_string(&self.path) {
-            Ok(content) => content,
-            Err(err) => {
-                panic!("Error reading file: {}", err);
-            }
-        };
 
-        if !input.ends_with('\n') {
-            input.push('\n');
+        if !self.src.ends_with('\n') {
+            self.src.push('\n');
         }
-
-        self.input_string = input;
 
         let assembly = match self.parse() {
             Ok(value) => value,
@@ -73,7 +65,8 @@ impl Loader {
     }
 
     fn parse(&mut self) -> Result<ASTAssemblyFile, Result<Program, LoadError>> {
-        let x = &self.input_string;
+        // todo: ugly variable name
+        let x = &self.src;
         let parse_result = assembly::AssemblyFileParser::new()
             .parse(x.as_str());
 
@@ -105,9 +98,9 @@ impl Loader {
     fn to_source_location(&self, offset: usize) -> SourceLocation {
         let mut line = 1;
         let mut col = 1;
-        let string = &self.input_string;
-        let input = string.as_str();
-        for (i, c) in input.char_indices() {
+        let src = &self.src;
+        let src_slice = src.as_str();
+        for (i, c) in src_slice.char_indices() {
             if i == offset {
                 break;
             }
@@ -296,25 +289,37 @@ fn is_valid_variable_name(name: &String) -> bool {
     true
 }
 
+
 // for the time being we always return the same program
-pub fn load(cpu_config: CPUConfig, path_str: &str) -> Result<Program, LoadError> {
+pub fn load_from_file(cpu_config: CPUConfig, path_str: &str) -> Result<Program, LoadError> {
     let path = Path::new(path_str);
 
     if !path.exists() {
         return Err(LoadError::NotFoundError(format!("File '{}' does not exist.", path_str)));
     }
 
+    let src = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(err) => {
+            return Err(LoadError::IOError(err.to_string()));
+        }
+    };
+
+    return load_from_string(cpu_config, src);
+}
+
+pub fn load_from_string(cpu_config: CPUConfig, src: String) -> Result<Program, LoadError> {
+
     let mut loader = Loader {
         heap_limit: 0,
         cpu_config,
-        path: String::from(path_str),
+        src,
         code: Vec::new(),
         data_section: HashMap::<String, Rc<Data>>::new(),
         labels: HashMap::<String, usize>::new(),
         instr_cnt: 0,
         entry_point: 0,
         errors: Vec::new(),
-        input_string: String::new(),
     };
 
     return loader.load();

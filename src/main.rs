@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 use crate::cpu::{CPU, load_cpu_config};
-use crate::loader::loader::{load, LoadError};
+use crate::loader::loader::{load_from_file, LoadError};
 
 mod cpu;
 mod loader;
@@ -43,7 +43,7 @@ fn main() {
 
     let path = opt.file.to_str().unwrap();
     println!("Loading {}", path);
-    let load_result = load(cpu_config.clone(), path);
+    let load_result = load_from_file(cpu_config.clone(), path);
     let program = match load_result {
         Ok(p) => Rc::new(p),
         Err(err) => {
@@ -61,6 +61,10 @@ fn main() {
                     exit(1);
                 }
                 LoadError::NotFoundError(msg) => {
+                    println!("{}", msg);
+                    exit(1);
+                }
+                LoadError::IOError(msg) => {
                     println!("{}", msg);
                     exit(1);
                 }
