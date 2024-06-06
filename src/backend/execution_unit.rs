@@ -33,8 +33,7 @@ impl EU {
 
     pub fn cycle(&mut self,
                  rs: &mut RS,
-                 rob_slot: &mut ROBSlot,
-                 instr: Rc<Instr>) {
+                 rob_slot: &mut ROBSlot) {
         debug_assert!(self.state == EUState::EXECUTING);
         debug_assert!(self.cycles_remaining > 0);
 
@@ -46,6 +45,7 @@ impl EU {
         self.state = EUState::COMPLETED;
 
         if self.trace {
+            let instr = rob_slot.instr.as_ref().unwrap();
             println!("Executing {}", instr);
         }
 
@@ -64,7 +64,7 @@ impl EU {
             Opcode::MVN => self.execute_MVN(rs, rob_slot),
             Opcode::LDR => self.execute_LDR(rs, rob_slot),
             Opcode::STR => self.execute_STR(rs, rob_slot),
-            Opcode::PRINTR => self.execute_PRINTR(rs, &instr),
+            Opcode::PRINTR => self.execute_PRINTR(rs, rob_slot),
             Opcode::CMP => self.execute_CMP(rs, rob_slot),
             Opcode::BEQ => self.execute_BEQ(rs, rob_slot),
             Opcode::BNE => self.execute_BNE(rs, rob_slot),
@@ -221,7 +221,9 @@ impl EU {
         rob_slot.result.push(new_cprs_value as i64);
     }
 
-    fn execute_PRINTR(&mut self, rs: &mut RS, instr: &Rc<Instr>) {
+    fn execute_PRINTR(&mut self, rs: &mut RS,rob_slot: &mut ROBSlot) {
+        let instr = rob_slot.instr.as_ref().unwrap();
+
         println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_immediate());
     }
 

@@ -137,8 +137,7 @@ impl Backend {
             debug_assert!(rob_slot.eu_index.is_none());
             debug_assert!(rob_slot.rs_index.is_none());
 
-            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-            let instr = Rc::clone(&rc);
+            let instr = rob_slot.instr.as_ref().unwrap();
 
             if instr.mem_stores > 0 && !memory_subsystem.sb.has_space() {
                 // we can't allocate a slot in the store buffer, we are done
@@ -250,8 +249,7 @@ impl Backend {
             let eu = self.eu_table.get_mut(eu_index);
             debug_assert!(eu.state == EUState::EXECUTING);
 
-            let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-            let instr = Rc::clone(&rc);
+            let instr = rob_slot.instr.as_ref().unwrap();
 
             eu.rs_index = Some(rs_index);
             eu.cycles_remaining = instr.cycles;
@@ -292,11 +290,7 @@ impl Backend {
                 debug_assert!(rob_slot.rs_index.is_some());
                 debug_assert!(rob_slot.eu_index.is_some());
 
-                // it is the last cycle; so lets give this Eu some real work
-                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-                let instr = Rc::clone(&rc);
-
-                eu.cycle(rs, rob_slot, instr);
+                eu.cycle(rs, rob_slot);
 
                 if eu.state == EUState::EXECUTING {
                     continue;
@@ -400,8 +394,7 @@ impl Backend {
                     break;
                 }
 
-                let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
-                let instr = Rc::clone(&rc);
+                let instr = rob_slot.instr.as_ref().unwrap();
 
                 perf_monitors.retired_cnt += 1;
 
