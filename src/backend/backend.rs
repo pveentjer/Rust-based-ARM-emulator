@@ -8,7 +8,7 @@ use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, Operand, RegisterType};
+use crate::instructions::instructions::{DWordType, InstrQueue, Opcode, Operand, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {

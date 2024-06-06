@@ -218,7 +218,7 @@ impl EU {
         }
 
         // Update CPRS
-        rob_slot.result.push(new_cprs_value as i64);
+        rob_slot.result.push(new_cprs_value as u64);
     }
 
     fn execute_PRINTR(&mut self, rs: &mut RS,rob_slot: &mut ROBSlot) {
@@ -240,14 +240,6 @@ impl EU {
         rob_slot.result.push(!rs.source[0].get_immediate())
     }
 
-    fn execute_EOR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() ^ rs.source[1].get_immediate())
-    }
-
-    fn execute_ORR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() | rs.source[1].get_immediate())
-    }
-
     fn execute_MOV(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         rob_slot.result.push(rs.source[0].get_immediate())
     }
@@ -256,28 +248,59 @@ impl EU {
         panic!("ADR is not implemented");
     }
 
+    fn execute_EOR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn ^ operand2;
+        rob_slot.result.push(rd)
+    }
+
+    fn execute_ORR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn | operand2;
+        rob_slot.result.push(rd)
+    }
+
     fn execute_AND(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() & rs.source[1].get_immediate())
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn & operand2;
+        rob_slot.result.push(rd)
     }
 
     fn execute_NEG(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(-rs.source[0].get_immediate())
+        let rn = rs.source[0].get_immediate();
+        let rd = rn.wrapping_neg();
+        rob_slot.result.push(rd)
     }
 
     fn execute_SDIV(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() / rs.source[1].get_immediate())
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn / operand2;
+        rob_slot.result.push(rd)
     }
 
     fn execute_mul(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() * rs.source[1].get_immediate())
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn * operand2;
+        rob_slot.result.push(rd)
     }
 
     fn execute_SUB(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() - rs.source[1].get_immediate())
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn - operand2;
+        rob_slot.result.push(rd)
     }
 
     fn execute_ADD(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate() + rs.source[1].get_immediate())
+        let rn = rs.source[0].get_immediate();
+        let operand2 = rs.source[1].get_immediate();
+        let rd = rn + operand2;
+        rob_slot.result.push(rd)
     }
 }
 

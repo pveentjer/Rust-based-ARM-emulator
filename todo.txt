@@ -1,7 +1,5 @@
 TODO
 
-- the WordType should be an unsigned u64
-
 - dedicated EU for ALU, LOAD/STORE etc
 
 - integration test that loads data
@@ -40,6 +38,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- the DWordType should be an unsigned u64
 
 - EU doesn't need Instr to be passed to cycle method
 

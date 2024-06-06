@@ -366,7 +366,7 @@ pub(crate) const EXIT: Instr = Instr {
 };
 
 pub(crate) type RegisterType = u16;
-pub(crate) type DWordType = i64;
+pub(crate) type DWordType = u64;
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
