@@ -322,8 +322,6 @@ impl EUTable {
     }
 
     pub(crate) fn has_idle(&self) -> bool {
-        // println!("EUTable has_idle: {}",!self.idle_stack.is_empty());
-
         return !self.idle_stack.is_empty();
     }
 

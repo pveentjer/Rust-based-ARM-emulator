@@ -277,7 +277,12 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.sink_cnt = 1;
             instr.sink[0] = Register(CPSR);
         }
-        Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
+        Opcode::BEQ |
+        Opcode::BNE |
+        Opcode::BLT |
+        Opcode::BLE |
+        Opcode::BGT |
+        Opcode::BGE => {
             validate_operand_count(2, operands, opcode, loc)?;
 
             instr.source_cnt = 2;
@@ -289,11 +294,11 @@ pub(crate) fn create_instr(opcode: Opcode,
         }
     }
 
-    // todo: instructions with mess with e.g. control operand should get pipeline buble. Now they are
-    // marked as speculative.
-    if !instr.is_branch() && has_control_operands(&instr) {
-        instr.set_branch();
-    }
+    // todo: handling of instructions with control like modifying the IP need to be detected.
+    //
+    // if !instr.is_branch() && has_control_operands(&instr) {
+    //     instr.set_branch();
+    // }
 
     return Ok(instr);
 }

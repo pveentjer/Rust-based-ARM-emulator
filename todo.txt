@@ -1,8 +1,8 @@
 TODO
 
-- dedicated EU for ALU, LOAD/STORE etc
-
 - the WordType should be an unsigned u64
+
+- dedicated EU for ALU, LOAD/STORE etc
 
 - integration test that loads data
 
