@@ -58,9 +58,7 @@ impl EU {
             Opcode::NEG => Self::execute_NEG(rs, rob_slot),
             Opcode::AND => Self::execute_AND(rs, rob_slot),
             Opcode::MOV => Self::execute_MOV(rs, rob_slot),
-            Opcode::ADR => {
-                //todo
-            }
+            Opcode::ADR => Self::execute_ADR(rs, rob_slot),
             Opcode::ORR => Self::execute_ORR(rs, rob_slot),
             Opcode::EOR => Self::execute_EOR(rs, rob_slot),
             Opcode::MVN => Self::execute_MVN(rs, rob_slot),
@@ -250,6 +248,10 @@ impl EU {
 
     fn execute_MOV(rs: &mut RS, rob_slot: &mut ROBSlot) {
         rob_slot.result.push(rs.source[0].get_immediate())
+    }
+
+    fn execute_ADR(rs: &mut RS, rob_slot: &mut ROBSlot) {
+        panic!("ADR is not implemented");
     }
 
     fn execute_AND(rs: &mut RS, rob_slot: &mut ROBSlot) {
