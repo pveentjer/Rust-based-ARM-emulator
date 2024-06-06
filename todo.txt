@@ -1,5 +1,9 @@
 TODO
 
+- EU doesn't need Instr to be passed to cycle method
+
+- EU should have access to memory subsystem on construction
+
 - dedicated EU for ALU, LOAD/STORE etc
 
 - the WordType should be an unsigned u64

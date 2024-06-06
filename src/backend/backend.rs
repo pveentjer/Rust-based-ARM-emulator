@@ -45,13 +45,13 @@ impl Backend {
         Backend {
             trace: cpu_config.trace.clone(),
             instr_queue,
-            memory_subsystem,
+            memory_subsystem:Rc::clone(&memory_subsystem),
             arch_reg_file,
             rs_table: RSTable::new(cpu_config.rs_count),
             phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
             rat: RAT::new(cpu_config.phys_reg_count),
             rob: ROB::new(cpu_config.rob_capacity),
-            eu_table: EUTable::new(cpu_config),
+            eu_table: EUTable::new(cpu_config, memory_subsystem),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
@@ -268,7 +268,6 @@ impl Backend {
 
     fn cycle_eu_table(&mut self) {
         {
-            let mut memory_subsystem = self.memory_subsystem.borrow_mut();
             let mut perf_monitors = self.perf_counters.borrow_mut();
 
             // todo: we should only iterate over the used execution units.
@@ -297,7 +296,7 @@ impl Backend {
                 let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
                 let instr = Rc::clone(&rc);
 
-                eu.cycle(&mut memory_subsystem, rs, rob_slot, instr);
+                eu.cycle(rs, rob_slot, instr);
 
                 if eu.state == EUState::EXECUTING {
                     continue;
@@ -318,6 +317,7 @@ impl Backend {
                         Operand::Memory(addr) => {
                             let result = rob_slot.result[sink_index as usize];
                             // a store to memory
+                            let mut memory_subsystem = self.memory_subsystem.borrow_mut();
                             memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), addr, result);
                         }
                         Operand::Immediate(_) | Operand::Code(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
