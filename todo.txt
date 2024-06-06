@@ -1,9 +1,5 @@
 TODO
 
-- EU doesn't need Instr to be passed to cycle method
-
-- EU should have access to memory subsystem on construction
-
 - dedicated EU for ALU, LOAD/STORE etc
 
 - the WordType should be an unsigned u64
@@ -12,7 +8,7 @@ TODO
 
 - integration test that stores data
 
-- there is no back pressure if there are no physical registers.
+- there is no back pressure if there are no physical registers, just panic
 
 - optimize the flush of the ROB (idle entries can be skipped)
 
@@ -44,6 +40,10 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- EU doesn't need Instr to be passed to cycle method
+
+- EU should have access to memory subsystem on construction
 
 - pull out the execute method for EU
 

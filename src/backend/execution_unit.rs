@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::RS;
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, ZERO_FLAG};
-use crate::instructions::instructions::{DWordType, Instr, Opcode, Operand};
+use crate::instructions::instructions::{DWordType, Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 /// A single execution unit.

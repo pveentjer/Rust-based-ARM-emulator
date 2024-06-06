@@ -512,8 +512,12 @@ impl fmt::Display for Instr {
             Opcode::CMP => write!(f, "{}, {}", self.source[0], self.source[1])?,
             Opcode::EXIT => {}
             Opcode::DSB => {}
-            Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE =>
-                write!(f, "{}", self.source[0])?,
+            Opcode::BEQ |
+            Opcode::BNE |
+            Opcode::BLT |
+            Opcode::BLE |
+            Opcode::BGT |
+            Opcode::BGE => write!(f, "{}", self.source[0])?,
         }
 
         if let Some(loc) = self.loc {
