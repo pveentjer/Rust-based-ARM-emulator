@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-
 use std::rc::Rc;
 
 use crate::backend::execution_unit::{EUState, EUTable};
@@ -7,9 +6,9 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
-use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PC, PerfCounters, Trace, ZERO_FLAG};
+use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, DWordType};
+use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, Operand, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
@@ -52,7 +51,7 @@ impl Backend {
             phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
             rat: RAT::new(cpu_config.phys_reg_count),
             rob: ROB::new(cpu_config.rob_capacity),
-            eu_table: EUTable::new(cpu_config.eu_count),
+            eu_table: EUTable::new(cpu_config),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
@@ -240,21 +239,16 @@ impl Backend {
             }
 
             let rs_index = self.rs_table.deque_ready();
-            //println!("Dispatch rs_index {}", rs_index);
 
             let rs = self.rs_table.get_mut(rs_index);
             debug_assert!(rs.state == RSState::BUSY);
-
-            //println!("Cycle dispatch: opcode {:?}", rs.opcode);
-
-            //println!("RS {:?}", rs.state);
 
             let rob_slot_index = rs.rob_slot_index.unwrap();
             let rob_slot = self.rob.get_mut(rob_slot_index);
 
             let eu_index = self.eu_table.allocate();
             let eu = self.eu_table.get_mut(eu_index);
-            debug_assert!(eu.state == EUState::BUSY);
+            debug_assert!(eu.state == EUState::EXECUTING);
 
             let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
             let instr = Rc::clone(&rc);
@@ -285,6 +279,8 @@ impl Backend {
                     continue;
                 }
 
+                debug_assert!(eu.state == EUState::EXECUTING);
+
                 let rs_index = eu.rs_index.unwrap();
 
                 let rs = self.rs_table.get_mut(rs_index);
@@ -297,137 +293,17 @@ impl Backend {
                 debug_assert!(rob_slot.rs_index.is_some());
                 debug_assert!(rob_slot.eu_index.is_some());
 
-                eu.cycles_remaining -= 1;
-
-                if eu.cycles_remaining > 0 {
-                    // the execution unit isn't finished with its work
-                    continue;
-                }
-
                 // it is the last cycle; so lets give this Eu some real work
                 let rc = <Option<Rc<Instr>> as Clone>::clone(&rob_slot.instr).unwrap();
                 let instr = Rc::clone(&rc);
 
-                if self.trace.execute {
-                    println!("Executing {}", instr);
+                eu.cycle(&mut memory_subsystem, rs, rob_slot, instr);
+
+                if eu.state == EUState::EXECUTING {
+                    continue;
                 }
 
-                match rs.opcode {
-                    Opcode::NOP => {}
-                    Opcode::ADD => rob_slot.result.push(rs.source[0].get_immediate() + rs.source[1].get_immediate()),
-                    Opcode::SUB => rob_slot.result.push(rs.source[0].get_immediate() - rs.source[1].get_immediate()),
-                    Opcode::MUL => rob_slot.result.push(rs.source[0].get_immediate() * rs.source[1].get_immediate()),
-                    Opcode::SDIV => rob_slot.result.push(rs.source[0].get_immediate() / rs.source[1].get_immediate()),
-                    Opcode::NEG => rob_slot.result.push(-rs.source[0].get_immediate()),
-                    Opcode::AND => rob_slot.result.push(rs.source[0].get_immediate() & rs.source[1].get_immediate()),
-                    Opcode::MOV => rob_slot.result.push(rs.source[0].get_immediate()),
-                    Opcode::ADR => {
-                        //todo
-                    }
-                    Opcode::ORR => rob_slot.result.push(rs.source[0].get_immediate() | rs.source[1].get_immediate()),
-                    Opcode::EOR => rob_slot.result.push(rs.source[0].get_immediate() ^ rs.source[1].get_immediate()),
-                    Opcode::MVN => rob_slot.result.push(!rs.source[0].get_immediate()),
-                    Opcode::LDR => rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_immediate() as usize]),
-                    Opcode::STR => rob_slot.result.push(rs.source[0].get_immediate()),
-                    Opcode::PRINTR => {
-                        println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_immediate());
-                    }
-                    Opcode::CMP => {
-                        let rn = rs.source[0].get_immediate();
-                        let operand2 = rs.source[1].get_immediate();
-                        let cprs_value = rs.source[2].get_immediate();
-
-                        // Perform the comparison: rn - operand2
-                        let result = rn.wrapping_sub(operand2);
-
-                        // Update the CPSR flags based on the result
-                        let zero_flag = result == 0;
-                        let negative_flag = result < 0;
-                        let carry_flag = (rn as u64).wrapping_sub(operand2 as u64) > (rn as u64); // Checking for borrow
-                        let overflow_flag = ((rn ^ operand2) & (rn ^ result)) >> (std::mem::size_of::<i64>() * 8 - 1) != 0;
-
-                        let mut new_cprs_value = cprs_value;
-                        if zero_flag {
-                            new_cprs_value |= 1 << ZERO_FLAG;
-                        } else {
-                            new_cprs_value &= !(1 << ZERO_FLAG);
-                        }
-
-                        if negative_flag {
-                            new_cprs_value |= 1 << NEGATIVE_FLAG;
-                        } else {
-                            new_cprs_value &= !(1 << NEGATIVE_FLAG);
-                        }
-
-                        if carry_flag {
-                            new_cprs_value |= 1 << CARRY_FLAG;
-                        } else {
-                            new_cprs_value &= !(1 << CARRY_FLAG);
-                        }
-
-                        if overflow_flag {
-                            new_cprs_value |= 1 << OVERFLOW_FLAG;
-                        } else {
-                            new_cprs_value &= !(1 << OVERFLOW_FLAG);
-                        }
-
-                        // Update CPRS
-                        rob_slot.result.push(new_cprs_value as i64);
-                    }
-                    Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
-                        let target = rs.source[0].get_immediate();
-                        let cpsr = rs.source[1].get_code_address();
-                        let pc = rob_slot.pc as DWordType;
-
-                        let pc_update = match rs.opcode {
-                            Opcode::BEQ => if cpsr == 0 { target } else { pc + 1 },
-                            Opcode::BNE => if cpsr != 0 { target } else { pc + 1 },
-                            Opcode::BLT => if cpsr < 0 { target } else { pc + 1 },
-                            Opcode::BLE => if cpsr <= 0 { target } else { pc + 1 },
-                            Opcode::BGT => if cpsr > 0 { target } else { pc + 1 },
-                            Opcode::BGE => if cpsr >= 0 { target } else { pc + 1 },
-                            _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
-                        };
-
-                        rob_slot.branch_target_actual = pc_update as usize;
-                    }
-                    Opcode::CBZ | Opcode::CBNZ => {
-                        let reg_value = rs.source[0].get_immediate();
-                        let branch = rs.source[1].get_code_address();
-                        let pc = rob_slot.pc as DWordType;
-
-                        let pc_update = match instr.opcode {
-                            Opcode::CBZ => if reg_value == 0 { branch } else { pc + 1 },
-                            Opcode::CBNZ => if reg_value != 0 { branch } else { pc + 1 },
-                            _ => unreachable!("Unhandled opcode {:?}", rs.opcode),
-                        };
-
-                        rob_slot.branch_target_actual = pc_update as usize;
-                    }
-                    Opcode::B => {
-                        // update the PC
-                        let branch_target = rs.source[0].get_code_address();
-                        let pc_update = branch_target;
-                        rob_slot.branch_target_actual = pc_update as usize;
-                    }
-                    Opcode::BX => {
-                        // update the PC
-                        let branch_target = rs.source[0].get_immediate() as i64;
-                        let pc_update = branch_target;
-                        rob_slot.branch_target_actual = pc_update as usize;
-                    }
-                    Opcode::BL => {
-                        let branch_target = rs.source[0].get_code_address();
-
-                        let pc_update = branch_target;
-
-                        // update LR
-                        rob_slot.result.push((rob_slot.pc + 1) as DWordType);
-                        rob_slot.branch_target_actual = pc_update as usize;
-                    }
-                    Opcode::EXIT => {}
-                    Opcode::DSB => {}
-                }
+                debug_assert!(eu.state == EUState::COMPLETED);
 
                 for sink_index in 0..rs.sink_cnt {
                     let sink = rs.sink[sink_index as usize];
@@ -462,6 +338,7 @@ impl Backend {
 
         self.cdb_broadcast();
     }
+
 
     fn cdb_broadcast(&mut self) {
         let rs_table_capacity = self.rs_table.capacity;
