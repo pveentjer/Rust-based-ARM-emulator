@@ -361,7 +361,7 @@ pub(crate) const EXIT: Instr = Instr {
 };
 
 pub(crate) type RegisterType = u16;
-pub(crate) type WordType = i64;
+pub(crate) type DWordType = i64;
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
@@ -528,12 +528,12 @@ impl fmt::Display for Instr {
 pub(crate) enum Operand {
     Register(RegisterType),
     // The operand is directly specified in the instruction itself.
-    Immediate(WordType),
+    Immediate(DWordType),
 
     // todo: rename to direct?
-    Memory(WordType),
+    Memory(DWordType),
 
-    Code(WordType),
+    Code(DWordType),
 
     Unused,
 }
@@ -582,21 +582,21 @@ impl Operand {
         }
     }
 
-    pub(crate) fn get_immediate(&self) -> WordType {
+    pub(crate) fn get_immediate(&self) -> DWordType {
         match self {
             Operand::Immediate(constant) => *constant,
             _ => panic!("Operand is not a Constant but of type {:?}", self),
         }
     }
 
-    pub(crate) fn get_code_address(&self) -> WordType {
+    pub(crate) fn get_code_address(&self) -> DWordType {
         match self {
             Operand::Code(constant) => *constant,
             _ => panic!("Operand is not a Code but of type {:?}", self),
         }
     }
 
-    pub(crate) fn get_memory_addr(&self) -> WordType {
+    pub(crate) fn get_memory_addr(&self) -> DWordType {
         match self {
             Memory(addr) => *addr,
             _ => panic!("Operand is not a Memory but of type {:?}", self),
@@ -605,7 +605,7 @@ impl Operand {
 }
 
 pub struct Data {
-    pub value: WordType,
+    pub value: DWordType,
     pub offset: u64,
 }
 

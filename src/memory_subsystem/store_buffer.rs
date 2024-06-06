@@ -1,6 +1,6 @@
 use SBEntryState::{ALLOCATED, COMMITTED, IDLE, INVALIDATED, READY};
 use crate::cpu::CPUConfig;
-use crate::instructions::instructions::{WordType};
+use crate::instructions::instructions::{DWordType};
 
 enum SBEntryState {
     // not used.
@@ -18,8 +18,8 @@ enum SBEntryState {
 }
 
 struct SBEntry {
-    value: WordType,
-    addr: WordType,
+    value: DWordType,
+    addr: DWordType,
     state: SBEntryState,
 }
 
@@ -80,7 +80,7 @@ impl SB {
         return index as u16;
     }
 
-    pub(crate) fn store(&mut self, index: u16, addr: WordType, value: WordType) {
+    pub(crate) fn store(&mut self, index: u16, addr: DWordType, value: DWordType) {
         let sb_entry = &mut self.entries[index as usize];
 
         match sb_entry.state {
@@ -118,7 +118,7 @@ impl SB {
         println!("Store buffer flush not implemented")
     }
 
-    pub(crate) fn do_cycle(&mut self, memory: &mut Vec<WordType>) {
+    pub(crate) fn do_cycle(&mut self, memory: &mut Vec<DWordType>) {
         for _ in 0..self.lfb_count {
             if self.is_empty() {
                 break;

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use crate::cpu::{CPU, CPUConfig};
-use crate::instructions::instructions::{Program, WordType};
+use crate::instructions::instructions::{Program, DWordType};
 
 // This is super ugly; the test will be moved to its own directory
 #[cfg(test)]
@@ -22,9 +22,9 @@ mod tests {
         cpu.run(&program);
 
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(0), 1 as WordType);
-        assert_eq!(reg_file.get_value(1), 2 as WordType);
-        assert_eq!(reg_file.get_value(2), 3 as WordType);
+        assert_eq!(reg_file.get_value(0), 1 as DWordType);
+        assert_eq!(reg_file.get_value(1), 2 as DWordType);
+        assert_eq!(reg_file.get_value(2), 3 as DWordType);
     }
 
     #[test]
@@ -45,8 +45,8 @@ loop:
         cpu.run(&program);
 
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(0), 0 as WordType);
-        assert_eq!(reg_file.get_value(1), 30 as WordType);
+        assert_eq!(reg_file.get_value(0), 0 as DWordType);
+        assert_eq!(reg_file.get_value(1), 30 as DWordType);
     }
 
 
@@ -90,7 +90,7 @@ loop:
         let mut cpu = CPU::new(&cpu_config);
         cpu.run(&program);
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(0), 5 as WordType);
+        assert_eq!(reg_file.get_value(0), 5 as DWordType);
     }
 
     #[test]
@@ -109,7 +109,7 @@ loop:
 
         let cpu = run(src);
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(0), 8 as WordType);
+        assert_eq!(reg_file.get_value(0), 8 as DWordType);
     }
 
     #[test]
@@ -129,7 +129,7 @@ loop:
 
         let cpu = run(src);
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(8), 1 as WordType);
+        assert_eq!(reg_file.get_value(8), 1 as DWordType);
     }
 
     fn run(src: &str) -> CPU {
@@ -163,7 +163,7 @@ _loop_inner:
         cpu.run(&program);
 
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(2), 100 as WordType);
+        assert_eq!(reg_file.get_value(2), 100 as DWordType);
     }
 
     fn new_test_cpu_config() -> CPUConfig {

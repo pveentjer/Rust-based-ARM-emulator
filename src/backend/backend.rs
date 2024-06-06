@@ -9,12 +9,12 @@ use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RSState, RSTable};
 use crate::cpu::{ArgRegFile, CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PC, PerfCounters, Trace, ZERO_FLAG};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, WordType};
+use crate::instructions::instructions::{Instr, InstrQueue, Opcode, Operand, RegisterType, DWordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
     phys_reg: RegisterType,
-    value: WordType,
+    value: DWordType,
 }
 
 pub(crate) struct Backend {
@@ -377,7 +377,7 @@ impl Backend {
                     Opcode::BEQ | Opcode::BNE | Opcode::BLT | Opcode::BLE | Opcode::BGT | Opcode::BGE => {
                         let target = rs.source[0].get_immediate();
                         let cpsr = rs.source[1].get_code_address();
-                        let pc = rob_slot.pc as WordType;
+                        let pc = rob_slot.pc as DWordType;
 
                         let pc_update = match rs.opcode {
                             Opcode::BEQ => if cpsr == 0 { target } else { pc + 1 },
@@ -394,7 +394,7 @@ impl Backend {
                     Opcode::CBZ | Opcode::CBNZ => {
                         let reg_value = rs.source[0].get_immediate();
                         let branch = rs.source[1].get_code_address();
-                        let pc = rob_slot.pc as WordType;
+                        let pc = rob_slot.pc as DWordType;
 
                         let pc_update = match instr.opcode {
                             Opcode::CBZ => if reg_value == 0 { branch } else { pc + 1 },
@@ -422,7 +422,7 @@ impl Backend {
                         let pc_update = branch_target;
 
                         // update LR
-                        rob_slot.result.push((rob_slot.pc + 1) as WordType);
+                        rob_slot.result.push((rob_slot.pc + 1) as DWordType);
                         rob_slot.branch_target_actual = pc_update as usize;
                     }
                     Opcode::EXIT => {}
@@ -573,7 +573,7 @@ impl Backend {
                         bad_speculation = true;
 
                         // re-steer the frontend
-                        arch_reg_file.set_value(PC, rob_slot.branch_target_actual as WordType);
+                        arch_reg_file.set_value(PC, rob_slot.branch_target_actual as DWordType);
                     } else {
                         //println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
 

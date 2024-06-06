@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
 use crate::cpu::CPUConfig;
-use crate::instructions::instructions::{Program, WordType};
+use crate::instructions::instructions::{Program, DWordType};
 use crate::memory_subsystem::store_buffer::SB;
 
 pub(crate) struct MemorySubsystem {
-    pub(crate) memory: Vec<WordType>,
+    pub(crate) memory: Vec<DWordType>,
     pub(crate) sb: SB,
 }
 

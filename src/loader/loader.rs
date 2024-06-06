@@ -9,7 +9,7 @@ use regex::Regex;
 use crate::{assembly};
 
 use crate::cpu::{CPUConfig, GENERAL_ARG_REG_CNT};
-use crate::instructions::instructions::{create_instr, Data, get_opcode, Instr, Opcode, Operand, Program, RegisterType, SourceLocation, WordType};
+use crate::instructions::instructions::{create_instr, Data, get_opcode, Instr, Opcode, Operand, Program, RegisterType, SourceLocation, DWordType};
 use crate::instructions::instructions::Operand::Register;
 use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
@@ -144,7 +144,7 @@ impl ASTVisitor for SymbolScan<'_> {
         }
 
         self.loader.data_section.insert(ast_data.name.clone(),
-                                        Rc::new(Data { value: ast_data.value as WordType, offset: self.loader.heap_limit as u64 }));
+                                        Rc::new(Data { value: ast_data.value as DWordType, offset: self.loader.heap_limit as u64 }));
         self.loader.heap_limit += 1;
         true
     }
@@ -188,12 +188,12 @@ impl ASTVisitor for ProgramGeneration<'_> {
                 self.operand_stack.push(Register(*reg as RegisterType));
             }
             ASTOperand::Immediate(value, _) => {
-                self.operand_stack.push(Operand::Immediate(*value as WordType));
+                self.operand_stack.push(Operand::Immediate(*value as DWordType));
             }
             ASTOperand::Label(label_name, pos) => {
                 match self.loader.labels.get(label_name) {
                     Some(code_address) => {
-                        self.operand_stack.push(Operand::Code(*code_address as WordType));
+                        self.operand_stack.push(Operand::Code(*code_address as DWordType));
                     }
                     None => {
                         let loc = self.loader.to_source_location(*pos);
@@ -205,7 +205,7 @@ impl ASTVisitor for ProgramGeneration<'_> {
             ASTOperand::AddressOf(label_name, pos) => {
                 match self.loader.data_section.get(label_name) {
                     Some(data) => {
-                        self.operand_stack.push(Operand::Immediate(data.offset as WordType));
+                        self.operand_stack.push(Operand::Immediate(data.offset as DWordType));
                     }
                     None => {
                         let loc = self.loader.to_source_location(*pos);

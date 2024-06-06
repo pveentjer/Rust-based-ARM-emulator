@@ -1,4 +1,4 @@
-use crate::instructions::instructions::{RegisterType, WordType};
+use crate::instructions::instructions::{RegisterType, DWordType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum PhysRegEntryState {
@@ -7,7 +7,7 @@ enum PhysRegEntryState {
 }
 
 pub(crate) struct PhysRegEntry {
-    pub(crate) value: WordType,
+    pub(crate) value: DWordType,
     pub(crate) has_value: bool,
     state: PhysRegEntryState,
 }

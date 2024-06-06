@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use Operand::Unused;
 
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, WordType};
+use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, DWordType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum ROBSlotState {
@@ -23,7 +23,7 @@ pub(crate) struct ROBSlot {
     pub(crate) instr: Option<Rc<Instr>>,
     pub(crate) state: ROBSlotState,
     pub(crate) index: u16,
-    pub(crate) result: Vec<WordType>,
+    pub(crate) result: Vec<DWordType>,
     pub(crate) rs_index: Option<u16>,
     pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
     pub(crate) branch_target_predicted: usize,

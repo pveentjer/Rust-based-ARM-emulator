@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{EXIT, Instr, InstrQueue, Opcode, Program, WordType};
+use crate::instructions::instructions::{EXIT, Instr, InstrQueue, Opcode, Program, DWordType};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -39,7 +39,7 @@ impl Frontend {
 
     pub(crate) fn init(&mut self, program: &Rc<Program>) {
         self.program_option = Some(Rc::clone(program));
-        self.arch_reg_file.borrow_mut().set_value(PC, program.entry_point as WordType);
+        self.arch_reg_file.borrow_mut().set_value(PC, program.entry_point as DWordType);
     }
 
     pub(crate) fn do_cycle(&mut self) {
@@ -95,7 +95,7 @@ impl Frontend {
                     } else {
                         pc + 1
                     };
-                    arch_reg_file.set_value(PC, pc_value_next as WordType);
+                    arch_reg_file.set_value(PC, pc_value_next as DWordType);
 
                     slot.instr = instr;
                     slot.pc = pc;

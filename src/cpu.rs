@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
-use crate::instructions::instructions::{InstrQueue, Program, RegisterType, WordType};
+use crate::instructions::instructions::{InstrQueue, Program, RegisterType, DWordType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 pub struct PerfCounters {
@@ -152,7 +152,7 @@ impl CPU {
             ArgRegFile::new(GENERAL_ARG_REG_CNT + SPECIAL_ARG_REG_CNT)));
 
         // on ARM the stack grows down (from larger address to smaller address)
-        arch_reg_file.borrow_mut().set_value(SP, cpu_config.memory_size as WordType);
+        arch_reg_file.borrow_mut().set_value(SP, cpu_config.memory_size as DWordType);
 
         let frontend_control = Rc::new(RefCell::new(
             FrontendControl { halted: false }));
@@ -247,7 +247,7 @@ pub const CARRY_FLAG: u8 = 29;
 pub const OVERFLOW_FLAG: u8 = 28;
 
 struct ArgRegEntry {
-    value: WordType,
+    value: DWordType,
 }
 
 pub struct ArgRegFile {
@@ -264,11 +264,11 @@ impl ArgRegFile {
         ArgRegFile { entries: array }
     }
 
-    pub fn get_value(&self, reg: RegisterType) -> WordType {
+    pub fn get_value(&self, reg: RegisterType) -> DWordType {
         return self.entries.get(reg as usize).unwrap().value;
     }
 
-    pub fn set_value(&mut self, reg: RegisterType, value: WordType) {
+    pub fn set_value(&mut self, reg: RegisterType, value: DWordType) {
         let arch_reg = self.entries.get_mut(reg as usize).unwrap();
         arch_reg.value = value;
     }

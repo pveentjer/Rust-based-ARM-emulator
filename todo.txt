@@ -1,5 +1,7 @@
 TODO
 
+- the WordType should be an unsigned u64
+
 - integration test that loads data
 
 - integration test that stores data
@@ -36,6 +38,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- the WordType should be called DWordType
 
 - integration tests!
 
