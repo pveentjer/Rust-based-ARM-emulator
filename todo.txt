@@ -1,5 +1,7 @@
 TODO
 
+- option to disable speculative execution
+
 - dedicated EU for ALU, LOAD/STORE etc
 
 - integration test that loads data

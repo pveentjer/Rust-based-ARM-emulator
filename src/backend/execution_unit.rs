@@ -285,21 +285,21 @@ impl EU {
     fn execute_mul(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].get_immediate();
         let operand2 = rs.source[1].get_immediate();
-        let rd = rn * operand2;
+        let rd = rn.wrapping_mul(operand2);
         rob_slot.result.push(rd)
     }
 
     fn execute_SUB(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].get_immediate();
         let operand2 = rs.source[1].get_immediate();
-        let rd = rn - operand2;
+        let rd = rn.wrapping_sub(operand2);
         rob_slot.result.push(rd)
     }
 
     fn execute_ADD(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].get_immediate();
         let operand2 = rs.source[1].get_immediate();
-        let rd = rn + operand2;
+        let rd = rn.wrapping_add(operand2);
         rob_slot.result.push(rd)
     }
 }
