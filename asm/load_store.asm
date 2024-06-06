@@ -1,9 +1,9 @@
 .global _start
 
 .data
-    var_a: .word 10
-    var_b: .word 20
-    var_c: .word 0
+    var_a: .dword 10
+    var_b: .dword 20
+    var_c: .dword 0
 
 .text
 

@@ -148,7 +148,7 @@ DataLine: ASTDataLine = {
 }
 
 Data: ASTData = {
-    <start:@L> <n:VariableName> ":" ".word" <v:Integer> => ASTData{name:n, value:v, pos:start}
+    <start:@L> <n:VariableName> ":" ".dword" <v:Integer> => ASTData{name:n, value:v, pos:start}
 }
 
 DataSection:ASTDataSection = {

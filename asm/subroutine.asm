@@ -1,9 +1,9 @@
 .global _start
 
 .section .data
-    a1: .word 1
-    a2: .word 1
-    loop_count: .word 10
+    a1: .dword 1
+    a2: .dword 1
+    loop_count: .dword 10
 .section .text
 
 _add_numbers:

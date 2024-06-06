@@ -1,7 +1,7 @@
 .global start
 .data
-            var_a: .word 40
-            var_b: .word 0
+            var_a: .dword 40
+            var_b: .dword 0
 .text
 start:
             MOV r1, =var_a;

@@ -1,6 +1,6 @@
 .global start
 .section .data
-    a: .word 10
+    a: .dword 10
 .section .text
 
 start:

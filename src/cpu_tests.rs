@@ -54,9 +54,9 @@ loop:
 //     fn test_load_store() {
 //         let src = r#"
 // .data
-//     var_a: .word 5
-//     var_b: .word 10
-//     var_c: .word 0
+//     var_a: .dword 5
+//     var_b: .dword 10
+//     var_c: .dword 0
 // .text
 //     MOV r0, =var_a;
 //     LDR r0, r0;
@@ -80,7 +80,7 @@ loop:
     fn test_load() {
         let src = r#"
 .data
-    var_a: .word 5
+    var_a: .dword 5
 .text
     MOV r0, =var_a;
     LDR r0, r0;

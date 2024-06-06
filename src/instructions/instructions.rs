@@ -483,7 +483,6 @@ impl Instr {
     }
 }
 
-
 impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ", mnemonic(self.opcode))?;
