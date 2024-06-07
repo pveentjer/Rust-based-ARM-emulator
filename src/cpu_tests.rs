@@ -9,12 +9,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_run() {
+    fn test_add() {
         let cpu_config = new_test_cpu_config();
         let src = r#"
 .text
-    MOV r0, #1;
-    MOV r1, #2;
+    MOV r0, #100;
+    MOV r1, #10;
     ADD r2, r0, r1;
 "#;
         let program = load_program(&cpu_config, src);
@@ -22,9 +22,48 @@ mod tests {
         cpu.run(&program);
 
         let reg_file = cpu.arch_reg_file.borrow();
-        assert_eq!(reg_file.get_value(0), 1 as DWordType);
-        assert_eq!(reg_file.get_value(1), 2 as DWordType);
-        assert_eq!(reg_file.get_value(2), 3 as DWordType);
+        assert_eq!(reg_file.get_value(0), 100 as DWordType);
+        assert_eq!(reg_file.get_value(1), 10 as DWordType);
+        assert_eq!(reg_file.get_value(2), 110 as DWordType);
+    }
+
+
+    #[test]
+    fn test_sub() {
+        let cpu_config = new_test_cpu_config();
+        let src = r#"
+.text
+    MOV r0, #100;
+    MOV r1, #10;
+    SUB r2, r0, r1;
+"#;
+        let program = load_program(&cpu_config, src);
+        let mut cpu = CPU::new(&cpu_config);
+        cpu.run(&program);
+
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(0), 100 as DWordType);
+        assert_eq!(reg_file.get_value(1), 10 as DWordType);
+        assert_eq!(reg_file.get_value(2), 90 as DWordType);
+    }
+
+    #[test]
+    fn test_mul() {
+        let cpu_config = new_test_cpu_config();
+        let src = r#"
+.text
+    MOV r0, #100;
+    MOV r1, #10;
+    MUL r2, r0, r1;
+"#;
+        let program = load_program(&cpu_config, src);
+        let mut cpu = CPU::new(&cpu_config);
+        cpu.run(&program);
+
+        let reg_file = cpu.arch_reg_file.borrow();
+        assert_eq!(reg_file.get_value(0), 100 as DWordType);
+        assert_eq!(reg_file.get_value(1), 10 as DWordType);
+        assert_eq!(reg_file.get_value(2), 1000 as DWordType);
     }
 
     #[test]
@@ -144,7 +183,7 @@ loop:
 
 
     #[test]
-    fn test_nested_loop() {
+    fn test_nested_CBNZ() {
         let cpu_config = new_test_cpu_config();
         let src = r#"
 .text
