@@ -1,12 +1,23 @@
-TODO
+BUGS
 
-- integration test: subroutine
+- STR broken: allocation of the store doesn't work.
+
+- implement store buffer flush
+
+- there is no back pressure if there are no physical registers, just panic
+    - each instruction should track how many physical registers it needs
+    and don't allow for an instruction to get a rs if there are not sufficient
+    physical registers.
+
+- restore the 'control' instr
+
+- store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
+
+TODO
 
 - integration test: stack push
 
 - integration test: stack pop
-
-- STR broken: allocation of the store doesn't work.
 
 - Backend.cycle_eu_table should move to EUTable.
 
@@ -14,20 +25,9 @@ TODO
 
 - dedicated EU for ALU, LOAD/STORE etc
 
-- there is no back pressure if there are no physical registers, just panic
-    - each instruction should track how many physical registers it needs
-    and don't allow for an instruction to get a rs if there are not sufficient
-    physical registers.
-
 - optimize the flush of the ROB (idle entries can be skipped)
 
-- implement store buffer flush
-
-- restore the 'control' instr
-
 - add DSB
-
-- unit tests!
 
 - support for precise exceptions
 
@@ -41,14 +41,14 @@ TODO
 
 - syntax: unwanted semicolon after instructions
 
-- store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
-
-- implement print of memory
-
 - CPU metrics frequency:
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- option to display the metrics after the program has completed
+
+- integration test: subroutine
 
 - integration test: easy way to test that a variable has some value
 
