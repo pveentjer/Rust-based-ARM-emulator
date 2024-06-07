@@ -1,14 +1,21 @@
 TODO
 
+- Backend.cycle_eu_table should move to EUTable.
+
 - option to disable speculative execution
 
 - dedicated EU for ALU, LOAD/STORE etc
+
+- integration test: easy way to test that a variable has some value
 
 - integration test that loads data
 
 - integration test that stores data
 
 - there is no back pressure if there are no physical registers, just panic
+    - each instruction should track how many physical registers it needs
+    and don't allow for an instruction to get a rs if there are not sufficient
+    physical registers.
 
 - optimize the flush of the ROB (idle entries can be skipped)
 
@@ -32,7 +39,7 @@ TODO
 
 - syntax: unwanted semicolon after instructions
 
-- store to load forwarding: currently the store in the sb isn't seen
+- store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
 
 - implement print of memory
 
@@ -40,6 +47,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- improved overflow/underflow handling of ADD/SUB/MUL.
 
 - the DWordType should be an unsigned u64
 

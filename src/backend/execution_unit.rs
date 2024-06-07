@@ -53,7 +53,7 @@ impl EU {
             Opcode::NOP => {}
             Opcode::ADD => self.execute_ADD(rs, rob_slot),
             Opcode::SUB => self.execute_SUB(rs, rob_slot),
-            Opcode::MUL => self.execute_mul(rs, rob_slot),
+            Opcode::MUL => self.execute_MUL(rs, rob_slot),
             Opcode::SDIV => self.execute_SDIV(rs, rob_slot),
             Opcode::NEG => self.execute_NEG(rs, rob_slot),
             Opcode::AND => self.execute_AND(rs, rob_slot),
@@ -217,7 +217,6 @@ impl EU {
             new_cprs_value &= !(1 << OVERFLOW_FLAG);
         }
 
-        // Update CPRS
         rob_slot.result.push(new_cprs_value as u64);
     }
 
@@ -282,7 +281,7 @@ impl EU {
         rob_slot.result.push(rd)
     }
 
-    fn execute_mul(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+    fn execute_MUL(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].get_immediate();
         let operand2 = rs.source[1].get_immediate();
         let rd = rn.wrapping_mul(operand2);
