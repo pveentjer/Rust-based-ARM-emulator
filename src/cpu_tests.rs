@@ -299,10 +299,6 @@ _start:
             } else {
                 panic!("CPU is not initialized");
             }
-
-            // if Some(value) == cpu.memory_subsystem.borrow().memory.get(10) {} else {
-            //     assert_
-            // }
         }
     }
 }
