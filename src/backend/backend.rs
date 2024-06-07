@@ -204,6 +204,7 @@ impl Backend {
                     }
                     Operand::Memory(_) => {
                         rs.sink[sink_index] = instr_sink;
+                        println!("Backend allocating SB entry");
                         // since the instructions are issued in program order, a slot is allocated in the
                         // sb in program order. And since sb will commit to the coherent cache
                         // (in this case directly to memory), the stores will become visible

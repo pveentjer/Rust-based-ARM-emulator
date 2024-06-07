@@ -74,6 +74,8 @@ impl SB {
     pub(crate) fn allocate(&mut self) -> u16 {
         assert!(self.has_space(), "StoreBuffer: can't allocate because there is no space");
 
+        println!("SB:Store allocate");
+
         let index = (self.tail % self.capacity as u64) as usize;
         self.entries[index].state = ALLOCATED;
         self.tail += 1;
@@ -81,6 +83,8 @@ impl SB {
     }
 
     pub(crate) fn store(&mut self, index: u16, addr: DWordType, value: DWordType) {
+        println!("SB:Store value={}",value);
+
         let sb_entry = &mut self.entries[index as usize];
 
         match sb_entry.state {
@@ -96,6 +100,8 @@ impl SB {
 
     pub(crate) fn commit(&mut self, index: u16) {
         let sb_entry = &mut self.entries[index as usize];
+
+        println!("SB:Commit");
 
         match sb_entry.state {
             READY => sb_entry.state = COMMITTED,

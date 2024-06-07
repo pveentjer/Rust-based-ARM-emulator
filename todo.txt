@@ -1,5 +1,13 @@
 TODO
 
+- integration test: subroutine
+
+- integration test: stack push
+
+- integration test: stack pop
+
+- STR broken: allocation of the store doesn't work.
+
 - Backend.cycle_eu_table should move to EUTable.
 
 - option to disable speculative execution
@@ -7,10 +15,6 @@ TODO
 - dedicated EU for ALU, LOAD/STORE etc
 
 - integration test: easy way to test that a variable has some value
-
-- integration test that loads data
-
-- integration test that stores data
 
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs
@@ -47,6 +51,12 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- integration test for STR
+
+- add test harness
+
+- integration test for LDR
 
 - improved overflow/underflow handling of ADD/SUB/MUL.
 

@@ -130,13 +130,13 @@ pub fn load_cpu_config(file_path: &str) -> Result<CPUConfig, Box<dyn Error>> {
 }
 
 pub struct CPU {
-    backend: Backend,
-    frontend: Frontend,
-    memory_subsystem: Rc<RefCell<MemorySubsystem>>,
+    pub(crate) backend: Backend,
+    pub(crate) frontend: Frontend,
+    pub(crate) memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     pub(crate) arch_reg_file: Rc<RefCell<ArgRegFile>>,
-    cycle_period: Duration,
-    trace: Trace,
-    perf_counters: Rc<RefCell<PerfCounters>>,
+    pub(crate) cycle_period: Duration,
+    pub(crate) trace: Trace,
+    pub(crate) perf_counters: Rc<RefCell<PerfCounters>>,
 }
 
 impl CPU {

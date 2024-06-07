@@ -227,6 +227,7 @@ impl EU {
     }
 
     fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+        println!("execute STR");
         rob_slot.result.push(rs.source[0].get_immediate())
     }
 
