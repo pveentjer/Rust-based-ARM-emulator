@@ -228,12 +228,15 @@ impl EU {
 
     fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         println!("execute STR");
-        rob_slot.result.push(rs.source[0].get_immediate())
+        let value = rs.source[0].get_immediate();
+        rob_slot.result.push(value)
     }
 
     fn execute_LDR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let memory_subsystem = self.memory_subsystem.borrow_mut();
-        rob_slot.result.push(memory_subsystem.memory[rs.source[0].get_immediate() as usize])
+        let address = rs.source[0].get_immediate() as usize;
+        let value = memory_subsystem.memory[address];
+        rob_slot.result.push(value)
     }
 
     fn execute_MVN(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {

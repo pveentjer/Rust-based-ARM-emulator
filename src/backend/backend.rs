@@ -440,7 +440,7 @@ impl Backend {
                         //println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
 
                         // the branch was not correctly predicted
-                        perf_monitors.branch_misprediction_cnt += 1;
+                        perf_monitors.branch_miss_prediction_cnt += 1;
                         bad_speculation = true;
 
                         // re-steer the frontend

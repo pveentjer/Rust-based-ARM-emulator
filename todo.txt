@@ -14,8 +14,6 @@ TODO
 
 - dedicated EU for ALU, LOAD/STORE etc
 
-- integration test: easy way to test that a variable has some value
-
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs
     and don't allow for an instruction to get a rs if there are not sufficient
@@ -51,6 +49,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- integration test: easy way to test that a variable has some value
 
 - integration test for STR
 

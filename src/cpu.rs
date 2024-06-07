@@ -12,7 +12,7 @@ use crate::instructions::instructions::{InstrQueue, Program, RegisterType, DWord
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 pub struct PerfCounters {
-    pub branch_misprediction_cnt: u64,
+    pub branch_miss_prediction_cnt: u64,
     pub branch_good_predictions_cnt: u64,
     pub decode_cnt: u64,
     pub issue_cnt: u64,
@@ -24,6 +24,7 @@ pub struct PerfCounters {
     pub pipeline_flushes: u64,
 }
 
+
 impl PerfCounters {
     pub fn new() -> Self {
         Self {
@@ -34,7 +35,7 @@ impl PerfCounters {
             retired_cnt: 0,
             cycle_cnt: 0,
             bad_speculation_cnt: 0,
-            branch_misprediction_cnt: 0,
+            branch_miss_prediction_cnt: 0,
             branch_good_predictions_cnt: 0,
             pipeline_flushes:0,
         }
@@ -207,7 +208,7 @@ impl CPU {
 
     fn trace_cycle(&mut self) {
         let perf_counters = self.perf_counters.borrow_mut();
-        let branch_total = perf_counters.branch_misprediction_cnt + perf_counters.branch_good_predictions_cnt;
+        let branch_total = perf_counters.branch_miss_prediction_cnt + perf_counters.branch_good_predictions_cnt;
 
         let ipc = perf_counters.retired_cnt as f32 / perf_counters.cycle_cnt as f32;
 
