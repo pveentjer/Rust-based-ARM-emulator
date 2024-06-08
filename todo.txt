@@ -1,5 +1,7 @@
 BUGS
 
+- perf counters need to be shared with EU
+
 - STR broken: allocation of the store doesn't work.
 
 - implement store buffer flush
@@ -26,8 +28,6 @@ TODO
 - dedicated EU for ALU, LOAD/STORE etc
 
 - optimize the flush of the ROB (idle entries can be skipped)
-
-- add DSB
 
 - support for precise exceptions
 

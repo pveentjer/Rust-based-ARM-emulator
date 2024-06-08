@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::RS;
-use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, ZERO_FLAG};
+use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
 use crate::instructions::instructions::{DWordType, Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
@@ -13,6 +13,7 @@ pub(crate) struct EU {
     pub(crate) cycles_remaining: u8,
     pub(crate) state: EUState,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
+    perf_counters: Rc<RefCell<PerfCounters>>,
     trace: bool,
 }
 
@@ -43,6 +44,7 @@ impl EU {
             return;
         }
         self.state = EUState::COMPLETED;
+        self.perf_counters.borrow_mut().execute_cnt += 1;
 
         if self.trace {
             let instr = rob_slot.instr.as_ref().unwrap();
@@ -316,7 +318,9 @@ pub(crate) struct EUTable {
 
 impl EUTable {
     pub(crate) fn new(cpu_config: &CPUConfig,
-                      memory_subsystem: Rc<RefCell<MemorySubsystem>>) -> EUTable {
+                      memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
+                      perf_counters: &Rc<RefCell<PerfCounters>>,
+    ) -> EUTable {
         let capacity = cpu_config.eu_count;
         let mut free_stack = Vec::with_capacity(capacity as usize);
         let mut array = Vec::with_capacity(capacity as usize);
@@ -327,7 +331,8 @@ impl EUTable {
                 rs_index: None,
                 state: EUState::IDLE,
                 trace: cpu_config.trace.execute,
-                memory_subsystem: Rc::clone(&memory_subsystem),
+                memory_subsystem: Rc::clone(memory_subsystem),
+                perf_counters: Rc::clone(perf_counters),
             });
             free_stack.push(i);
         }

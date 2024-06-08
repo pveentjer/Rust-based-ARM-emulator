@@ -51,7 +51,7 @@ impl Backend {
             phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
             rat: RAT::new(cpu_config.phys_reg_count),
             rob: ROB::new(cpu_config.rob_capacity),
-            eu_table: EUTable::new(cpu_config, memory_subsystem),
+            eu_table: EUTable::new(cpu_config, &memory_subsystem, &perf_counters),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
@@ -73,7 +73,7 @@ impl Backend {
 
     // issues as many instructions from the instruction queue into the rob as possible.
     fn cycle_issue(&mut self) {
-        let mut perf_monitors = self.perf_counters.borrow_mut();
+        let mut perf_counters = self.perf_counters.borrow_mut();
         let mut instr_queue = self.instr_queue.borrow_mut();
 
         // try to put as many instructions into the rob
@@ -114,7 +114,7 @@ impl Backend {
             rob_slot.instr = Some(instr);
             rob_slot.branch_target_predicted = branch_target_predicted;
             self.rob.seq_issued += 1;
-            perf_monitors.issue_cnt += 1;
+            perf_counters.issue_cnt += 1;
 
             instr_queue.head_bump();
         }
@@ -231,7 +231,7 @@ impl Backend {
     }
 
     fn cycle_dispatch(&mut self) {
-        let mut perf_monitors = self.perf_counters.borrow_mut();
+        let mut perf_counters = self.perf_counters.borrow_mut();
 
         for _ in 0..self.dispatch_n_wide {
             if !self.rs_table.has_ready() || !self.eu_table.has_idle() {
@@ -261,14 +261,12 @@ impl Backend {
             if self.trace.dispatch {
                 println!("Dispatched [{}]", instr);
             }
-            perf_monitors.dispatch_cnt += 1;
+            perf_counters.dispatch_cnt += 1;
         }
     }
 
     fn cycle_eu_table(&mut self) {
         {
-            let mut perf_monitors = self.perf_counters.borrow_mut();
-
             // todo: we should only iterate over the used execution units.
             for eu_index in 0..self.eu_table.capacity {
                 let eu = self.eu_table.get_mut(eu_index);
@@ -327,7 +325,6 @@ impl Backend {
                 rob_slot.rs_index = None;
 
                 rob_slot.state = ROBSlotState::EXECUTED;
-                perf_monitors.execute_cnt += 1;
             }
         }
 
@@ -382,7 +379,7 @@ impl Backend {
 
         {
             let mut arch_reg_file = self.arch_reg_file.borrow_mut();
-            let mut perf_monitors = self.perf_counters.borrow_mut();
+            let mut perf_counters = self.perf_counters.borrow_mut();
             let phys_reg_file = &mut self.phys_reg_file;
             //let frontend_control = self.frontend_control.borrow_mut();
             let mut memory_subsytem = self.memory_subsystem.borrow_mut();
@@ -397,7 +394,7 @@ impl Backend {
 
                 let instr = rob_slot.instr.as_ref().unwrap();
 
-                perf_monitors.retired_cnt += 1;
+                perf_counters.retired_cnt += 1;
 
                 if instr.opcode == Opcode::EXIT {
                     self.exit = true;
@@ -440,7 +437,7 @@ impl Backend {
                         //println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
 
                         // the branch was not correctly predicted
-                        perf_monitors.branch_miss_prediction_cnt += 1;
+                        perf_counters.branch_miss_prediction_cnt += 1;
                         bad_speculation = true;
 
                         // re-steer the frontend
@@ -449,7 +446,7 @@ impl Backend {
                         //println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
 
                         // the branch was correctly predicted
-                        perf_monitors.branch_good_predictions_cnt += 1;
+                        perf_counters.branch_good_predictions_cnt += 1;
                     }
                 }
 
@@ -468,14 +465,14 @@ impl Backend {
     }
 
     fn flush(&mut self) {
-        let mut perf_monitors = self.perf_counters.borrow_mut();
+        let mut perf_counters = self.perf_counters.borrow_mut();
 
         if self.trace.pipeline_flush {
             println!("Pipeline flush");
         }
 
-        perf_monitors.pipeline_flushes += 1;
-        perf_monitors.bad_speculation_cnt += self.rob.size() as u64;
+        perf_counters.pipeline_flushes += 1;
+        perf_counters.bad_speculation_cnt += self.rob.size() as u64;
 
         self.instr_queue.borrow_mut().flush();
 
