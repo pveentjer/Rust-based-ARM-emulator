@@ -318,17 +318,9 @@ impl Backend {
                             let phys_reg = sink.phys_reg.unwrap();
                             let mut phys_reg_file = self.phys_reg_file.borrow_mut();
                             let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
-                            phys_reg_entry.has_value = true;
-                            let result = rob_slot.result[sink_index as usize];
-                            phys_reg_entry.value = result;
-                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: result });
+                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: phys_reg_entry.value});
                         }
-                        Operand::Memory(addr) => {
-                            let result = rob_slot.result[sink_index as usize];
-                            // a store to memory
-                            let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-                            memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), addr, result);
-                        }
+                        Operand::Memory(addr) => {}
                         Operand::Immediate(_) |
                         Operand::Code(_) |
                         Operand::Unused => panic!("Illegal sink {:?}", sink.operand.unwrap()),
@@ -430,18 +422,19 @@ impl Backend {
                             debug_assert!(rat_entry.valid);
 
                             let rat_phys_reg = rat_entry.phys_reg;
-                            let rs_phys_reg = rob_slot.sink_phys_regs[sink_index].unwrap();
+                            let rob_phys_reg = rob_slot.sink_phys_regs[sink_index].unwrap();
 
                             // only when the physical register on the rat is the same as the physical register used for that
                             // instruction, the rat entry should be invalidated
-                            if rat_phys_reg == rs_phys_reg {
+                            if rat_phys_reg == rob_phys_reg {
                                 rat_entry.valid = false;
                             }
 
-                            phys_reg_file.get_mut(rs_phys_reg).has_value = false;
-                            phys_reg_file.deallocate(rs_phys_reg);
+                            // update the architectural register
+                            let value = phys_reg_file.get_value(rob_phys_reg);
+                            arch_reg_file.set_value(sink.get_register(), value);
 
-                            arch_reg_file.set_value(arch_reg, rob_slot.result[sink_index]);
+                            phys_reg_file.deallocate(rob_phys_reg);
                         }
                         Operand::Memory(_) => {
                             memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())

@@ -54,6 +54,19 @@ impl PhysRegFile {
         return entry;
     }
 
+    pub(crate) fn set_value(&mut self, reg: RegisterType, value: DWordType) {
+        let entry = self.get_mut(reg);
+        debug_assert!(!entry.has_value);
+        entry.has_value = true;
+        entry.value = value;
+    }
+
+    pub(crate) fn get_value(&self, reg: RegisterType) -> DWordType {
+        let entry = self.get(reg);
+        debug_assert!(entry.has_value);
+        entry.value
+    }
+
     pub(crate) fn allocate(&mut self) -> RegisterType {
         if let Some(reg) = self.free_stack.pop() {
             let entry = self.entries.get_mut(reg as usize).unwrap();
@@ -86,7 +99,6 @@ impl PhysRegFile {
         let entry = self.get_mut(reg);
 
         debug_assert!(entry.state == PhysRegEntryState::BUSY);
-        debug_assert!(!entry.has_value, " The deallocated physical register {} should not have a value", reg);
 
         entry.reset();
 

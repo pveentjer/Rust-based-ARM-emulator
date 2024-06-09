@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use crate::cpu::{CPU, CPUConfig};
 use crate::instructions::instructions::{Program, DWordType, RegisterType};
-use crate::loader::loader::{load_from_string, LoadError};
 
 #[cfg(test)]
 mod tests {

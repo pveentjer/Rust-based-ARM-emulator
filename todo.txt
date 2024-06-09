@@ -1,6 +1,8 @@
 BUGS
 
-- perf counters need to be shared with EU
+- store should only be done with memindirectregister
+
+- load should only be done with memindirectregister/memory(direct.. goodname)
 
 - STR broken: allocation of the store doesn't work.
 
@@ -16,6 +18,8 @@ BUGS
 - store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
 
 TODO
+
+- the EU should write directly to the physical register
 
 - integration test: stack push
 
@@ -46,35 +50,6 @@ TODO
 
 DONE
 
-- option to display the metrics after the program has completed
+- perf counters need to be shared with EU
 
-- integration test: subroutine
-
-- integration test: easy way to test that a variable has some value
-
-- integration test for STR
-
-- add test harness
-
-- integration test for LDR
-
-- improved overflow/underflow handling of ADD/SUB/MUL.
-
-- the DWordType should be an unsigned u64
-
-- EU doesn't need Instr to be passed to cycle method
-
-- EU should have access to memory subsystem on construction
-
-- pull out the execute method for EU
-
-- the WordType should be called DWordType
-
-- integration tests!
-
-- option to trace pipeline flushes
-
-- case insensitive registers
-
-- recording number of instruction that will not retire due to bad speculation
-
+- decouple the RS operands from the Instruction operands.

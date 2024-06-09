@@ -266,11 +266,12 @@ impl ArgRegFile {
     }
 
     pub fn get_value(&self, reg: RegisterType) -> DWordType {
-        return self.entries.get(reg as usize).unwrap().value;
+        let entry = self.entries.get(reg as usize).unwrap();
+        return entry.value;
     }
 
     pub fn set_value(&mut self, reg: RegisterType, value: DWordType) {
-        let arch_reg = self.entries.get_mut(reg as usize).unwrap();
-        arch_reg.value = value;
+        let entry = self.entries.get_mut(reg as usize).unwrap();
+        entry.value = value;
     }
 }

@@ -164,7 +164,9 @@ impl EU {
         let pc_update = branch_target;
 
         // update LR
-        rob_slot.result.push((rob_slot.pc + 1) as DWordType);
+        let value = (rob_slot.pc + 1) as DWordType;
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -221,10 +223,11 @@ impl EU {
             new_cprs_value &= !(1 << OVERFLOW_FLAG);
         }
 
-        rob_slot.result.push(new_cprs_value as u64);
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, new_cprs_value);
     }
 
-    fn execute_PRINTR(&mut self, rs: &mut RS,rob_slot: &mut ROBSlot) {
+    fn execute_PRINTR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let instr = rob_slot.instr.as_ref().unwrap();
 
         println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].value.unwrap());
@@ -233,22 +236,30 @@ impl EU {
     fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         println!("execute STR");
         let value = rs.source[0].value.unwrap();
-        rob_slot.result.push(value)
+        let address = rs.source[1].value.unwrap();
+
+        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
     }
 
     fn execute_LDR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let memory_subsystem = self.memory_subsystem.borrow_mut();
         let address = rs.source[0].value.unwrap() as usize;
         let value = memory_subsystem.memory[address];
-        rob_slot.result.push(value)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
     }
 
     fn execute_MVN(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(!rs.source[0].value.unwrap())
+        let value = !rs.source[0].value.unwrap();
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
     }
 
     fn execute_MOV(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].value.unwrap())
+        let value = rs.source[0].value.unwrap();
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
     }
 
     fn execute_ADR(&mut self, _rs: &mut RS, _rob_slot: &mut ROBSlot) {
@@ -259,55 +270,63 @@ impl EU {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn ^ operand2;
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_ORR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn | operand2;
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_AND(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn & operand2;
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_NEG(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let rd = rn.wrapping_neg();
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_SDIV(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn / operand2;
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_MUL(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn.wrapping_mul(operand2);
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_SUB(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn.wrapping_sub(operand2);
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_ADD(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let rn = rs.source[0].value.unwrap();
         let operand2 = rs.source[1].value.unwrap();
         let rd = rn.wrapping_add(operand2);
-        rob_slot.result.push(rd)
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 }
 

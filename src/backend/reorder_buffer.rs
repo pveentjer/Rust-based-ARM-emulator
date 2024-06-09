@@ -1,7 +1,6 @@
 use std::rc::Rc;
-use Operand::Unused;
 
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, DWordType, RegisterType};
+use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, RegisterType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum ROBSlotState {
@@ -9,8 +8,6 @@ pub(crate) enum ROBSlotState {
     IDLE,
     // the instruction is issued into the rob
     ISSUED,
-    //
-    //RS_ALLOCATED,
     // the instruction is dispatched to an EU where it will be processed
     DISPATCHED,
     // the instruction has executed
@@ -23,7 +20,6 @@ pub(crate) struct ROBSlot {
     pub(crate) instr: Option<Rc<Instr>>,
     pub(crate) state: ROBSlotState,
     pub(crate) index: u16,
-    pub(crate) result: Vec<DWordType>,
     pub(crate) rs_index: Option<u16>,
     pub(crate) sink_phys_regs: [Option<RegisterType>; MAX_SINK_COUNT as usize],
     pub(crate) branch_target_predicted: usize,
@@ -34,7 +30,6 @@ pub(crate) struct ROBSlot {
 
 impl ROBSlot {
     fn reset(&mut self) {
-        self.result.clear();
         self.branch_target_predicted = 0;
         self.branch_target_actual = 0;
         self.state = ROBSlotState::IDLE;
@@ -69,7 +64,6 @@ impl ROB {
                 index: k,
                 instr: None,
                 state: ROBSlotState::IDLE,
-                result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: None,
                 sink_phys_regs: [None, None],
                 branch_target_predicted: 0,

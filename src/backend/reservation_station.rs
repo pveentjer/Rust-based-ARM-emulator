@@ -1,7 +1,6 @@
 use std::collections::{HashSet, VecDeque};
-use std::fmt::Display;
 
-use crate::instructions::instructions::{DWordType, MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand, RegisterType};
+use crate::instructions::instructions::{DWordType, MAX_SINK_COUNT, MAX_SOURCE_COUNT, Opcode, Operand, RegisterType};
 use crate::instructions::instructions::Opcode::NOP;
 
 pub(crate) struct RSOperand {

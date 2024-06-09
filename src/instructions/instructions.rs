@@ -166,6 +166,7 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.sink_cnt = 1;
             instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
+            // todo: should be a IndirectMemoryOperand
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?
         }
@@ -174,10 +175,9 @@ pub(crate) fn create_instr(opcode: Opcode,
 
             instr.mem_stores = 1;
 
-            instr.source_cnt = 1;
+            instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.sink_cnt = 1;
+            // todo: should be a DirectMemoryOperand
             instr.sink[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
         }
         Opcode::NOP => {
