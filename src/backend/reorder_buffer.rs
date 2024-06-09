@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use Operand::Unused;
 
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, DWordType};
+use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, Operand, DWordType, RegisterType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum ROBSlotState {
@@ -25,7 +25,7 @@ pub(crate) struct ROBSlot {
     pub(crate) index: u16,
     pub(crate) result: Vec<DWordType>,
     pub(crate) rs_index: Option<u16>,
-    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
+    pub(crate) sink_phys_regs: [Option<RegisterType>; MAX_SINK_COUNT as usize],
     pub(crate) branch_target_predicted: usize,
     pub(crate) branch_target_actual: usize,
     pub(crate) sb_pos: Option<u16>,
@@ -43,6 +43,10 @@ impl ROBSlot {
         self.sb_pos = None;
         self.eu_index = None;
         self.pc = 0;
+
+        for k in 0..MAX_SINK_COUNT {
+            self.sink_phys_regs[k as usize] = None;
+        }
     }
 }
 
@@ -67,7 +71,7 @@ impl ROB {
                 state: ROBSlotState::IDLE,
                 result: Vec::with_capacity(MAX_SINK_COUNT as usize),
                 rs_index: None,
-                sink: [Unused, Unused],
+                sink_phys_regs: [None, None],
                 branch_target_predicted: 0,
                 branch_target_actual: 0,
                 sb_pos: None,
@@ -127,7 +131,7 @@ impl ROB {
         return self.capacity > self.size();
     }
 
-    pub(crate) fn flush(&mut self){
+    pub(crate) fn flush(&mut self) {
         // todo: we don't need to go over the whole rob; just over the busy slots
         for i in 0..self.capacity {
             let slot = &mut self.slots[i as usize];

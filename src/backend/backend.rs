@@ -155,55 +155,66 @@ impl Backend {
             rs.source_cnt = instr.source_cnt;
 
             // Register renaming of the source operands
-            for source_index in 0..instr.source_cnt as usize {
-                let instr_source = &instr.source[source_index];
-                let rs_source = &rs.source[source_index];
-                match instr_source {
+            for operand_index in 0..instr.source_cnt as usize {
+                let operand_instr = &instr.source[operand_index];
+                let mut operand_rs = &mut rs.source[operand_index];
+                operand_rs.operand = Some(*operand_instr);
+                match operand_instr {
                     Operand::Register(arch_reg) => {
                         let rat_entry = self.rat.get(*arch_reg);
                         if rat_entry.valid {
                             let phys_reg_entry = self.phys_reg_file.get(rat_entry.phys_reg);
                             if phys_reg_entry.has_value {
-
                                 //we got lucky, there is a value in the physical register.
-                                rs.source[source_index] = Operand::Immediate(phys_reg_entry.value);
+                                operand_rs.value = Some(phys_reg_entry.value);
                                 rs.source_ready_cnt += 1;
                             } else {
                                 // cdb broadcast will update
-                                rs.source[source_index] = Operand::Register(rat_entry.phys_reg);
+                                operand_rs.phys_reg = Some(rat_entry.phys_reg);
                             }
                         } else {
                             let value = arch_reg_file.get_value(*arch_reg);
-                            rs.source[source_index] = Operand::Immediate(value);
+                            operand_rs.value = Some(value);
                             rs.source_ready_cnt += 1;
                         }
                     }
-                    Operand::Memory(_) | Operand::Immediate(_) | Operand::Code(_) => {
-                        rs.source[source_index] = *instr_source;
+                    Operand::Memory(addr)  => {
+                        operand_rs.value=Some(*addr);
+                        rs.source_ready_cnt += 1;
+                    }
+                    Operand::Code(addr) => {
+                        operand_rs.value=Some(*addr);
+                        rs.source_ready_cnt += 1;
+                    }
+                    Operand::Immediate(value) => {
+                        operand_rs.value=Some(*value);
                         rs.source_ready_cnt += 1;
                     }
                     Operand::Unused =>
-                        panic!("Illegal source {:?}", rs_source)
+                        panic!("Illegal source {:?}", operand_instr)
                 }
             }
 
             // Register renaming of the sink operands.
             rs.sink_cnt = instr.sink_cnt;
-            for sink_index in 0..instr.sink_cnt as usize {
-                let instr_sink = instr.sink[sink_index];
-                match instr_sink {
+            for operand_index in 0..instr.sink_cnt as usize {
+                let operand_instr = &instr.sink[operand_index];
+                let mut operand_rs = &mut rs.sink[operand_index];
+                operand_rs.operand = Some(*operand_instr);
+                match operand_instr {
                     Operand::Register(arch_reg) => {
                         let phys_reg = self.phys_reg_file.allocate();
+                        println!("Allocated phys register {}",phys_reg);
                         // update the RAT entry to point to the newest phys_reg
-                        let rat_entry = self.rat.get_mut(arch_reg);
+                        let rat_entry = self.rat.get_mut(*arch_reg);
                         rat_entry.phys_reg = phys_reg;
                         rat_entry.valid = true;
 
-                        // Update the sink on the RS.
-                        rs.sink[sink_index] = Operand::Register(phys_reg);
+                        rob_slot.sink_phys_regs[operand_index]=Some(phys_reg);
+
+                        operand_rs.phys_reg = Some(phys_reg);
                     }
                     Operand::Memory(_) => {
-                        rs.sink[sink_index] = instr_sink;
                         println!("Backend allocating SB entry");
                         // since the instructions are issued in program order, a slot is allocated in the
                         // sb in program order. And since sb will commit to the coherent cache
@@ -212,11 +223,10 @@ impl Backend {
                         rob_slot.sb_pos = Some(memory_subsystem.sb.allocate());
                     }
                     Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
-                        panic!("Illegal sink {:?}", instr_sink)
+                        panic!("Illegal sink {:?}", operand_instr)
                     }
                 }
             }
-            rob_slot.sink = rs.sink;
 
             if rs.source_ready_cnt == rs.source_cnt {
                 self.rs_table.enqueue_ready(rs_index);
@@ -298,9 +308,10 @@ impl Backend {
                 debug_assert!(eu.state == EUState::COMPLETED);
 
                 for sink_index in 0..rs.sink_cnt {
-                    let sink = rs.sink[sink_index as usize];
-                    match sink {
-                        Operand::Register(phys_reg) => {
+                    let sink = &mut rs.sink[sink_index as usize];
+                    match sink.operand.unwrap() {
+                        Operand::Register(_) => {
+                            let phys_reg = sink.phys_reg.unwrap();
                             let phys_reg_entry = self.phys_reg_file.get_mut(phys_reg);
                             phys_reg_entry.has_value = true;
                             let result = rob_slot.result[sink_index as usize];
@@ -313,7 +324,9 @@ impl Backend {
                             let mut memory_subsystem = self.memory_subsystem.borrow_mut();
                             memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), addr, result);
                         }
-                        Operand::Immediate(_) | Operand::Code(_) | Operand::Unused => panic!("Illegal sink {:?}", sink),
+                        Operand::Immediate(_) |
+                        Operand::Code(_) |
+                        Operand::Unused => panic!("Illegal sink {:?}", sink.operand.unwrap()),
                     }
                 }
 
@@ -352,10 +365,10 @@ impl Backend {
                 let rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
                 let mut added_src_ready = false;
                 for source_index in 0..rs.source_cnt as usize {
-                    let source_rs = &mut rs.source[source_index];
-                    if let Operand::Register(phys_reg) = source_rs {
-                        if *phys_reg == req.phys_reg {
-                            rs.source[source_index] = Operand::Immediate(req.value);
+                    let operand_rs = &mut rs.source[source_index];
+                    if let Some(phys_reg) = operand_rs.phys_reg {
+                        if phys_reg == req.phys_reg {
+                            operand_rs.value = Some(req.value);
                             rs.source_ready_cnt += 1;
                             added_src_ready = true;
                         }
@@ -412,7 +425,7 @@ impl Backend {
                             debug_assert!(rat_entry.valid);
 
                             let rat_phys_reg = rat_entry.phys_reg;
-                            let rs_phys_reg = rob_slot.sink[sink_index].get_register();
+                            let rs_phys_reg = rob_slot.sink_phys_regs[sink_index].unwrap();
 
                             // only when the physical register on the rat is the same as the physical register used for that
                             // instruction, the rat entry should be invalidated

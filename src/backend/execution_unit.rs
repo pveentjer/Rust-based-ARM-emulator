@@ -85,8 +85,8 @@ impl EU {
     }
 
     fn execute_BEQ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].get_immediate();
-        let cpsr = rs.source[1].get_code_address();
+        let target = rs.source[0].value.unwrap();
+        let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if cpsr == 0 { target } else { pc + 1 };
@@ -94,8 +94,8 @@ impl EU {
     }
 
     fn execute_BNE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].get_immediate();
-        let cpsr = rs.source[1].get_code_address();
+        let target = rs.source[0].value.unwrap();
+        let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if cpsr != 0 { target } else { pc + 1 };
@@ -103,8 +103,8 @@ impl EU {
     }
 
     fn execute_BLT(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].get_immediate();
-        let cpsr = rs.source[1].get_code_address();
+        let target = rs.source[0].value.unwrap();
+        let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if cpsr < 0 { target } else { pc + 1 };
@@ -112,8 +112,8 @@ impl EU {
     }
 
     fn execute_BLE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].get_immediate();
-        let cpsr = rs.source[1].get_code_address();
+        let target = rs.source[0].value.unwrap();
+        let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if cpsr <= 0 { target } else { pc + 1 };
@@ -121,8 +121,8 @@ impl EU {
     }
 
     fn execute_BGT(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].get_immediate();
-        let cpsr = rs.source[1].get_code_address();
+        let target = rs.source[0].value.unwrap();
+        let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if cpsr > 0 { target } else { pc + 1 };
@@ -130,8 +130,8 @@ impl EU {
     }
 
     fn execute_BGE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].get_immediate();
-        let cpsr = rs.source[1].get_code_address();
+        let target = rs.source[0].value.unwrap();
+        let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if cpsr >= 0 { target } else { pc + 1 };
@@ -139,8 +139,8 @@ impl EU {
     }
 
     fn execute_CBZ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let reg_value = rs.source[0].get_immediate();
-        let branch = rs.source[1].get_code_address();
+        let reg_value = rs.source[0].value.unwrap();
+        let branch = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if reg_value == 0 { branch } else { pc + 1 };
@@ -148,8 +148,8 @@ impl EU {
     }
 
     fn execute_CBNZ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let reg_value = rs.source[0].get_immediate();
-        let branch = rs.source[1].get_code_address();
+        let reg_value = rs.source[0].value.unwrap();
+        let branch = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if reg_value != 0 { branch } else { pc + 1 };
@@ -157,7 +157,7 @@ impl EU {
     }
 
     fn execute_BL(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let branch_target = rs.source[0].get_code_address();
+        let branch_target = rs.source[0].value.unwrap();
 
         let pc_update = branch_target;
 
@@ -168,22 +168,22 @@ impl EU {
 
     fn execute_BX(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         // update the PC
-        let branch_target = rs.source[0].get_immediate() as i64;
+        let branch_target = rs.source[0].value.unwrap() as i64;
         let pc_update = branch_target;
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_B(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         // update the PC
-        let branch_target = rs.source[0].get_code_address();
+        let branch_target = rs.source[0].value.unwrap();
         let pc_update = branch_target;
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_CMP(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
-        let cprs_value = rs.source[2].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
+        let cprs_value = rs.source[2].value.unwrap();
 
         // Perform the comparison: rn - operand2
         let result = rn.wrapping_sub(operand2);
@@ -225,28 +225,28 @@ impl EU {
     fn execute_PRINTR(&mut self, rs: &mut RS,rob_slot: &mut ROBSlot) {
         let instr = rob_slot.instr.as_ref().unwrap();
 
-        println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].get_immediate());
+        println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].value.unwrap());
     }
 
     fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         println!("execute STR");
-        let value = rs.source[0].get_immediate();
+        let value = rs.source[0].value.unwrap();
         rob_slot.result.push(value)
     }
 
     fn execute_LDR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         let memory_subsystem = self.memory_subsystem.borrow_mut();
-        let address = rs.source[0].get_immediate() as usize;
+        let address = rs.source[0].value.unwrap() as usize;
         let value = memory_subsystem.memory[address];
         rob_slot.result.push(value)
     }
 
     fn execute_MVN(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(!rs.source[0].get_immediate())
+        rob_slot.result.push(!rs.source[0].value.unwrap())
     }
 
     fn execute_MOV(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        rob_slot.result.push(rs.source[0].get_immediate())
+        rob_slot.result.push(rs.source[0].value.unwrap())
     }
 
     fn execute_ADR(&mut self, _rs: &mut RS, _rob_slot: &mut ROBSlot) {
@@ -254,56 +254,56 @@ impl EU {
     }
 
     fn execute_EOR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn ^ operand2;
         rob_slot.result.push(rd)
     }
 
     fn execute_ORR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn | operand2;
         rob_slot.result.push(rd)
     }
 
     fn execute_AND(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn & operand2;
         rob_slot.result.push(rd)
     }
 
     fn execute_NEG(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
+        let rn = rs.source[0].value.unwrap();
         let rd = rn.wrapping_neg();
         rob_slot.result.push(rd)
     }
 
     fn execute_SDIV(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn / operand2;
         rob_slot.result.push(rd)
     }
 
     fn execute_MUL(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn.wrapping_mul(operand2);
         rob_slot.result.push(rd)
     }
 
     fn execute_SUB(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn.wrapping_sub(operand2);
         rob_slot.result.push(rd)
     }
 
     fn execute_ADD(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].get_immediate();
-        let operand2 = rs.source[1].get_immediate();
+        let rn = rs.source[0].value.unwrap();
+        let operand2 = rs.source[1].value.unwrap();
         let rd = rn.wrapping_add(operand2);
         rob_slot.result.push(rd)
     }

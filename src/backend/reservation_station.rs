@@ -1,10 +1,26 @@
 use std::collections::{HashSet, VecDeque};
-use std::fmt;
 use std::fmt::Display;
-use Operand::Unused;
 
-use crate::instructions::instructions::{MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand};
+use crate::instructions::instructions::{DWordType, MAX_SINK_COUNT, MAX_SOURCE_COUNT, mnemonic, Opcode, Operand, RegisterType};
 use crate::instructions::instructions::Opcode::NOP;
+
+pub(crate) struct RSOperand {
+    pub(crate) operand: Option<Operand>,
+    pub(crate) value: Option<DWordType>,
+    pub(crate) phys_reg: Option<RegisterType>,
+}
+
+impl RSOperand {
+    fn new() -> RSOperand {
+        RSOperand { operand: None, value: None, phys_reg:None }
+    }
+
+    fn reset(&mut self) {
+        self.operand = None;
+        self.value = None;
+        self.phys_reg = None;
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum RSState {
@@ -12,16 +28,17 @@ pub(crate) enum RSState {
     BUSY,
 }
 
+
 // A single reservation station
 pub(crate) struct RS {
     pub(crate) rob_slot_index: Option<u16>,
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
     pub(crate) source_cnt: u8,
-    pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
+    pub(crate) source: [RSOperand; MAX_SOURCE_COUNT as usize],
     pub(crate) source_ready_cnt: u8,
     pub(crate) sink_cnt: u8,
-    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
+    pub(crate) sink: [RSOperand; MAX_SINK_COUNT as usize],
     pub(crate) index: u16,
 
 }
@@ -32,10 +49,10 @@ impl RS {
             opcode: Opcode::NOP,
             state: RSState::IDLE,
             source_cnt: 0,
-            source: [Unused, Unused, Unused],
+            source: [RSOperand::new(), RSOperand::new(), RSOperand::new()],
             source_ready_cnt: 0,
             sink_cnt: 0,
-            sink: [Unused, Unused],
+            sink: [RSOperand::new(), RSOperand::new()],
             rob_slot_index: None,
             index,
         }
@@ -51,30 +68,13 @@ impl RS {
 
         // not needed
         for k in 0..MAX_SINK_COUNT {
-            self.sink[k as usize] = Unused;
+            self.sink[k as usize].reset();
         }
 
         // not needed
         for k in 0..MAX_SOURCE_COUNT {
-            self.source[k as usize] = Unused;
+            self.source[k as usize].reset();
         }
-    }
-}
-
-impl Display for RS {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RS ")?;
-        write!(f, "{}", mnemonic(self.opcode))?;
-
-        for k in 0..self.source_cnt {
-            write!(f, " {:?}", self.source[k as usize])?;
-        }
-
-        for k in 0..self.sink_cnt {
-            write!(f, " {:?}", self.sink[k as usize])?;
-        }
-
-        Ok(())
     }
 }
 
@@ -98,10 +98,7 @@ impl RSTable {
             array.push(RS::new(i));
             free_stack.push(i);
         }
-        // let mut ready_queue = Vec::with_capacity(capacity as usize);
-        // for _ in 0..capacity {
-        //     ready_queue.push(0);
-        // }
+
 
         RSTable {
             capacity,
@@ -114,26 +111,7 @@ impl RSTable {
         }
     }
 
-    // fn to_index(&self, seq: u64) -> u16 {
-    //     (seq % self.capacity as u64) as u16
-    // }
-    //
-    // fn on_ready_queue(&self, rs_index:u16)->bool{
-    //     for k in self.ready_queue_head .. self.ready_queue_tail{
-    //         let index =self.to_index(k);
-    //         if *self.ready_queue.get(index as usize).unwrap() == rs_index{
-    //             return true;
-    //         }
-    //     }
-    //
-    //     false
-    // }
-
     pub(crate) fn get_mut(&mut self, rs_index: u16) -> &mut RS {
-        // if rs_index == 6493{
-        //     println!("get_mut {} ",rs_index)
-        // }
-
         return &mut self.array[rs_index as usize];
     }
 
@@ -141,22 +119,7 @@ impl RSTable {
         debug_assert!(!self.ready_queue.contains(&rs_index), "Can't enqueue ready rs_index={}, it is already on the ready queue", rs_index);
         debug_assert!(self.allocated.contains(&rs_index), "Can't enqueue ready rs_index={}, it isn't in the allocated set", rs_index);
 
-       // println!("RS enqueue_ready {}", rs_index);
-
         self.ready_queue.push_front(rs_index);
-        //
-        // let index = self.to_index(self.ready_queue_tail);
-        //
-        // #[cfg(debug_assertions)]
-        // {
-        //     let rs = &self.array[rs_index as usize];
-        //     debug_assert!(rs.state == RSState::BUSY);
-        //     debug_assert!(rs.rob_slot_index.is_some());
-        //     debug_assert!(rs.source_cnt==rs.source_cnt);
-        // }
-        //
-        // self.ready_queue[index as usize] = rs_index;
-        // self.ready_queue_tail += 1;
     }
 
     // todo: has_ready/dequeue_ready can be simplified by using an Option
@@ -170,20 +133,11 @@ impl RSTable {
         self.ready_queue.clear();
         self.idle_stack.clear();
         self.allocated.clear();
-        //
-        // while self.has_ready() {
-        //     let rs_index = self.deque_ready();
-        //     println!("RS Flush: {}", rs_index);
-        //     self.deallocate(rs_index);
-        //     cnt += 1;
-        // }
 
         for k in 0..self.capacity {
             self.array.get_mut(k as usize).unwrap().reset();
             self.idle_stack.push(k);
         }
-
-        //println!("RS Station flush item cnt {}", cnt);
     }
 
     pub(crate) fn deque_ready(&mut self) -> u16 {
@@ -194,8 +148,6 @@ impl RSTable {
         debug_assert!(self.allocated.contains(&rs_ready_index),
                       " deque_ready for rs_ready_index {} failed, it is not in the allocated set", rs_ready_index);
 
-        //println!("RS deque_ready {} ", rs_ready_index);
-
         #[cfg(debug_assertions)]
         {
             let rs = &self.array[rs_ready_index as usize];
@@ -205,7 +157,6 @@ impl RSTable {
             debug_assert!(rs.rob_slot_index.is_some());
         }
 
-        //self.ready_queue_head += 1;
         return rs_ready_index;
     }
 
@@ -219,15 +170,12 @@ impl RSTable {
                 panic!("Duplicate allocation {}", rs_index);
             }
 
-            //debug_assert!(!self.on_ready_queue(rs_index));
-
             self.allocated.insert(rs_index);
 
             let rs = &mut self.array[rs_index as usize];
 
             debug_assert!(rs.state == RSState::IDLE);
             rs.state = RSState::BUSY;
-            //println!("---------------------RSTable allocate {}", rs_index);
             return rs_index;
         } else {
             panic!("No free RS")
@@ -236,8 +184,6 @@ impl RSTable {
 
     pub(crate) fn deallocate(&mut self, rs_index: u16) {
         let rs = &mut self.array[rs_index as usize];
-
-        // debug_assert!(!self.on_ready_queue(rs_index));
 
         debug_assert!(!self.ready_queue.contains(&rs_index),
                       "rs_index {} can't be deallocated if it is still on the ready queue", rs_index);
@@ -255,10 +201,7 @@ impl RSTable {
         debug_assert!(!self.idle_stack.contains(&rs_index));
         rs.reset();
 
-        //println!("RSTable deallocate {}", rs_index);
-
-        // todo: enable
-        // self.free_stack.push(rs_index);
+        self.idle_stack.push(rs_index);
     }
 }
 
