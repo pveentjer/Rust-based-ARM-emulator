@@ -117,7 +117,7 @@ loop:
     var_a: .dword 5
 .text
     MOV r0, =var_a;
-    LDR r0, r0;
+    LDR r0, [r0];
 "#;
         let mut harness = TestHarness::default();
         harness.run(src);

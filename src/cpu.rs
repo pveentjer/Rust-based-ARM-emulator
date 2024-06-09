@@ -203,6 +203,14 @@ impl CPU {
             thread::sleep(self.cycle_period);
         }
 
+        loop {
+            if self.memory_subsystem.borrow_mut().sb.is_empty() {
+                break;
+            }
+
+            self.memory_subsystem.borrow_mut().do_cycle();
+        }
+
         println!("Program complete!");
     }
 

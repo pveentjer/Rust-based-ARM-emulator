@@ -83,7 +83,7 @@ impl SB {
     }
 
     pub(crate) fn store(&mut self, index: u16, addr: DWordType, value: DWordType) {
-        println!("SB:Store value={}",value);
+        println!("SB:Store value={} index={}",value,index);
 
         let sb_entry = &mut self.entries[index as usize];
 
@@ -101,7 +101,7 @@ impl SB {
     pub(crate) fn commit(&mut self, index: u16) {
         let sb_entry = &mut self.entries[index as usize];
 
-        println!("SB:Commit");
+        println!("SB:Commit {}", index);
 
         match sb_entry.state {
             READY => sb_entry.state = COMMITTED,

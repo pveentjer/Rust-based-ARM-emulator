@@ -42,13 +42,12 @@ impl Backend {
                       arch_reg_file: Rc<RefCell<ArgRegFile>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>) -> Backend {
-
         let mut phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
 
         Backend {
             trace: cpu_config.trace.clone(),
             instr_queue,
-            memory_subsystem:Rc::clone(&memory_subsystem),
+            memory_subsystem: Rc::clone(&memory_subsystem),
             arch_reg_file,
             rs_table: RSTable::new(cpu_config.rs_count),
             phys_reg_file: Rc::clone(&phys_reg_file),
@@ -142,9 +141,13 @@ impl Backend {
 
             let instr = rob_slot.instr.as_ref().unwrap();
 
-            if instr.mem_stores > 0 && !memory_subsystem.sb.has_space() {
-                // we can't allocate a slot in the store buffer, we are done
-                break;
+            if instr.mem_stores>0 {
+                if !memory_subsystem.sb.has_space(){
+                    // we can't allocate a slot in the store buffer, we are done
+                    break;
+                }
+
+                rob_slot.sb_pos = Some(memory_subsystem.sb.allocate());
             }
 
             let rs_index = self.rs_table.allocate();
@@ -163,6 +166,7 @@ impl Backend {
                 let mut operand_rs = &mut rs.source[operand_index];
                 operand_rs.operand = Some(*operand_instr);
                 match operand_instr {
+                    Operand::MemRegisterIndirect(arch_reg) |
                     Operand::Register(arch_reg) => {
                         let rat_entry = self.rat.get(*arch_reg);
                         if rat_entry.valid {
@@ -182,20 +186,19 @@ impl Backend {
                             rs.source_ready_cnt += 1;
                         }
                     }
-                    Operand::Memory(addr)  => {
-                        operand_rs.value=Some(*addr);
+                    Operand::Memory(addr) => {
+                        operand_rs.value = Some(*addr);
                         rs.source_ready_cnt += 1;
                     }
                     Operand::Code(addr) => {
-                        operand_rs.value=Some(*addr);
+                        operand_rs.value = Some(*addr);
                         rs.source_ready_cnt += 1;
                     }
                     Operand::Immediate(value) => {
-                        operand_rs.value=Some(*value);
+                        operand_rs.value = Some(*value);
                         rs.source_ready_cnt += 1;
                     }
-                    Operand::Unused =>
-                        panic!("Illegal source {:?}", operand_instr)
+                    Operand::Unused => panic!("Illegal source {:?} {}", operand_instr, instr)
                 }
             }
 
@@ -208,29 +211,26 @@ impl Backend {
                 match operand_instr {
                     Operand::Register(arch_reg) => {
                         let phys_reg = self.phys_reg_file.borrow_mut().allocate();
-                        println!("Allocated phys register {}",phys_reg);
+                        println!("Allocated phys register {}", phys_reg);
                         // update the RAT entry to point to the newest phys_reg
                         let rat_entry = self.rat.get_mut(*arch_reg);
                         rat_entry.phys_reg = phys_reg;
                         rat_entry.valid = true;
 
-                        rob_slot.sink_phys_regs[operand_index]=Some(phys_reg);
+                        rob_slot.sink_phys_regs[operand_index] = Some(phys_reg);
 
                         operand_rs.phys_reg = Some(phys_reg);
                     }
-                    Operand::Memory(_) => {
-                        println!("Backend allocating SB entry");
-                        // since the instructions are issued in program order, a slot is allocated in the
-                        // sb in program order. And since sb will commit to the coherent cache
-                        // (in this case directly to memory), the stores will become visible
-                        // in program order.
-                        rob_slot.sb_pos = Some(memory_subsystem.sb.allocate());
-                    }
-                    Operand::Unused | Operand::Immediate(_) | Operand::Code(_) => {
+                    Operand::Memory(_) => {}
+                    Operand::Unused |
+                    Operand::Immediate(_) |
+                    Operand::Code(_) |
+                    Operand::MemRegisterIndirect(_) => {
                         panic!("Illegal sink {:?}", operand_instr)
                     }
                 }
             }
+
 
             if rs.source_ready_cnt == rs.source_cnt {
                 self.rs_table.enqueue_ready(rs_index);
@@ -318,11 +318,12 @@ impl Backend {
                             let phys_reg = sink.phys_reg.unwrap();
                             let mut phys_reg_file = self.phys_reg_file.borrow_mut();
                             let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
-                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: phys_reg_entry.value});
+                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: phys_reg_entry.value });
                         }
                         Operand::Memory(addr) => {}
                         Operand::Immediate(_) |
                         Operand::Code(_) |
+                        Operand::MemRegisterIndirect(_) |
                         Operand::Unused => panic!("Illegal sink {:?}", sink.operand.unwrap()),
                     }
                 }
@@ -436,11 +437,12 @@ impl Backend {
 
                             phys_reg_file.deallocate(rob_phys_reg);
                         }
-                        Operand::Memory(_) => {
-                            memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())
-                        }
                         _ => unreachable!(),
                     }
+                }
+
+                if rob_slot.sb_pos.is_some(){
+                    memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())
                 }
 
                 if instr.is_branch() {

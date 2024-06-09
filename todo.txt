@@ -1,10 +1,5 @@
 BUGS
 
-- store should only be done with memindirectregister
-
-- load should only be done with memindirectregister/memory(direct.. goodname)
-
-- STR broken: allocation of the store doesn't work.
 
 - implement store buffer flush
 
@@ -49,6 +44,12 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- store should only be done with memindirectregister
+
+- load should only be done with memindirectregister/memory(direct.. goodname)
+
+- STR broken: allocation of the store doesn't work.
 
 - perf counters need to be shared with EU
 

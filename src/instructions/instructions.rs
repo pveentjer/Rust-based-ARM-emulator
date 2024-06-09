@@ -6,7 +6,7 @@ use crate::cpu::{CPSR, SP};
 use crate::cpu::LR;
 use crate::cpu::PC;
 use crate::cpu::FP;
-use crate::instructions::instructions::Operand::{Code, Immediate, Register, Unused};
+use crate::instructions::instructions::Operand::{Code, Immediate, MemRegisterIndirect, Register, Unused};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SourceLocation {
@@ -166,9 +166,8 @@ pub(crate) fn create_instr(opcode: Opcode,
             instr.sink_cnt = 1;
             instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
 
-            // todo: should be a IndirectMemoryOperand
             instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?
+            instr.source[0] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?
         }
         Opcode::STR => {
             validate_operand_count(2, operands, opcode, loc)?;
@@ -177,8 +176,7 @@ pub(crate) fn create_instr(opcode: Opcode,
 
             instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            // todo: should be a DirectMemoryOperand
-            instr.sink[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
+            instr.source[1] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?;
         }
         Opcode::NOP => {
             validate_operand_count(0, operands, opcode, loc)?;
@@ -543,6 +541,8 @@ pub(crate) enum Operand {
 
     Code(DWordType),
 
+    MemRegisterIndirect(RegisterType),
+
     Unused,
 }
 
@@ -554,6 +554,7 @@ impl Operand {
             Memory(_) => "Memory",
             Code(_) => "Code",
             Unused => "Unused",
+            MemRegisterIndirect(_) => "MemRegisterIndirect",
         }
     }
 }
@@ -574,7 +575,9 @@ impl fmt::Display for Operand {
             Immediate(val) => write!(f, "#{}", val),
             Memory(addr) => write!(f, "[{}]", addr),
             Code(addr) => write!(f, "[{}]", addr),
+            Memory(addr) => write!(f, "[{}]", addr),
             Unused => write!(f, "Unused"),
+            MemRegisterIndirect(reg) => write!(f, "[{}]", Register(*reg)),
         }
     }
 }
