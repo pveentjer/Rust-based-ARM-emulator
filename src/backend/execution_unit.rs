@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::RS;
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
@@ -14,6 +15,7 @@ pub(crate) struct EU {
     pub(crate) state: EUState,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     perf_counters: Rc<RefCell<PerfCounters>>,
+    phys_reg_file: Rc<RefCell<PhysRegFile>>,
     trace: bool,
 }
 
@@ -319,6 +321,7 @@ pub(crate) struct EUTable {
 impl EUTable {
     pub(crate) fn new(cpu_config: &CPUConfig,
                       memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
+                      phys_reg_file: &Rc<RefCell<PhysRegFile>>,
                       perf_counters: &Rc<RefCell<PerfCounters>>,
     ) -> EUTable {
         let capacity = cpu_config.eu_count;
@@ -333,6 +336,7 @@ impl EUTable {
                 trace: cpu_config.trace.execute,
                 memory_subsystem: Rc::clone(memory_subsystem),
                 perf_counters: Rc::clone(perf_counters),
+                phys_reg_file: Rc::clone(phys_reg_file),
             });
             free_stack.push(i);
         }

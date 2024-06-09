@@ -22,7 +22,7 @@ pub(crate) struct Backend {
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     frontend_control: Rc<RefCell<FrontendControl>>,
     rs_table: RSTable,
-    phys_reg_file: PhysRegFile,
+    phys_reg_file: Rc<RefCell<PhysRegFile>>,
     rat: RAT,
     rob: ROB,
     eu_table: EUTable,
@@ -42,16 +42,19 @@ impl Backend {
                       arch_reg_file: Rc<RefCell<ArgRegFile>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>) -> Backend {
+
+        let mut phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
+
         Backend {
             trace: cpu_config.trace.clone(),
             instr_queue,
             memory_subsystem:Rc::clone(&memory_subsystem),
             arch_reg_file,
             rs_table: RSTable::new(cpu_config.rs_count),
-            phys_reg_file: PhysRegFile::new(cpu_config.phys_reg_count),
+            phys_reg_file: Rc::clone(&phys_reg_file),
             rat: RAT::new(cpu_config.phys_reg_count),
             rob: ROB::new(cpu_config.rob_capacity),
-            eu_table: EUTable::new(cpu_config, &memory_subsystem, &perf_counters),
+            eu_table: EUTable::new(cpu_config, &memory_subsystem, &phys_reg_file, &perf_counters),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
@@ -163,7 +166,8 @@ impl Backend {
                     Operand::Register(arch_reg) => {
                         let rat_entry = self.rat.get(*arch_reg);
                         if rat_entry.valid {
-                            let phys_reg_entry = self.phys_reg_file.get(rat_entry.phys_reg);
+                            let phys_reg_file = self.phys_reg_file.borrow_mut();
+                            let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
                             if phys_reg_entry.has_value {
                                 //we got lucky, there is a value in the physical register.
                                 operand_rs.value = Some(phys_reg_entry.value);
@@ -203,7 +207,7 @@ impl Backend {
                 operand_rs.operand = Some(*operand_instr);
                 match operand_instr {
                     Operand::Register(arch_reg) => {
-                        let phys_reg = self.phys_reg_file.allocate();
+                        let phys_reg = self.phys_reg_file.borrow_mut().allocate();
                         println!("Allocated phys register {}",phys_reg);
                         // update the RAT entry to point to the newest phys_reg
                         let rat_entry = self.rat.get_mut(*arch_reg);
@@ -312,7 +316,8 @@ impl Backend {
                     match sink.operand.unwrap() {
                         Operand::Register(_) => {
                             let phys_reg = sink.phys_reg.unwrap();
-                            let phys_reg_entry = self.phys_reg_file.get_mut(phys_reg);
+                            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+                            let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
                             phys_reg_entry.has_value = true;
                             let result = rob_slot.result[sink_index as usize];
                             phys_reg_entry.value = result;
@@ -393,7 +398,7 @@ impl Backend {
         {
             let mut arch_reg_file = self.arch_reg_file.borrow_mut();
             let mut perf_counters = self.perf_counters.borrow_mut();
-            let phys_reg_file = &mut self.phys_reg_file;
+            let mut phys_reg_file = &mut self.phys_reg_file.borrow_mut();
             //let frontend_control = self.frontend_control.borrow_mut();
             let mut memory_subsytem = self.memory_subsystem.borrow_mut();
 
@@ -488,13 +493,11 @@ impl Backend {
         perf_counters.bad_speculation_cnt += self.rob.size() as u64;
 
         self.instr_queue.borrow_mut().flush();
-
-        self.phys_reg_file.flush();
+        self.phys_reg_file.borrow_mut().flush();
         self.eu_table.flush();
         self.rob.flush();
         self.rat.flush();
         self.rs_table.flush();
         self.memory_subsystem.borrow_mut().sb.flush();
-        self.phys_reg_file.flush();
     }
 }
