@@ -9,6 +9,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_same_src_dst_reg() {
+        let src = r#"
+.text
+    MOV r0, #5;
+    ADD r0, r0, #10;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(0, 15);
+    }
+
+    #[test]
     fn test_add() {
         let src = r#"
 .text
