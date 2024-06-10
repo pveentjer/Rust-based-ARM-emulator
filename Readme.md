@@ -48,6 +48,7 @@ for concurrency control so that I get a better understanding of ownership.
 * MUL
 * SDIV
 * NEG
+* RSB
 
 ### Bitwise logical instructions:
 * AND

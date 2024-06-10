@@ -26,6 +26,7 @@ impl fmt::Display for SourceLocation {
 pub enum Opcode {
     ADD,
     SUB,
+    RSB,
     MUL,
     SDIV,
     ADR,
@@ -60,6 +61,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
     match opcode {
         Opcode::ADD => "ADD",
         Opcode::SUB => "SUB",
+        Opcode::RSB => "RSB",
         Opcode::MUL => "MUL",
         Opcode::SDIV => "SDIV",
         Opcode::NEG => "NEG",
@@ -97,6 +99,7 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
     match mnemonic_uppercased {
         "ADD" => Some(Opcode::ADD),
         "SUB" => Some(Opcode::SUB),
+        "RSB" => Some(Opcode::RSB),
         "MUL" => Some(Opcode::MUL),
         "SDIV" => Some(Opcode::SDIV),
         "NEG" => Some(Opcode::NEG),
@@ -151,6 +154,7 @@ pub(crate) fn create_instr(opcode: Opcode,
         Opcode::AND |
         Opcode::ORR |
         Opcode::EOR |
+        Opcode::RSB |
         Opcode::ADD => {
             validate_operand_count(3, operands, opcode, loc)?;
 
@@ -448,7 +452,6 @@ pub(crate) const INSTR_FLAG_IS_BRANCH: u8 = 0;
 pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
 pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
 
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Instr {
     pub(crate) cycles: u8,
@@ -495,6 +498,7 @@ impl fmt::Display for Instr {
         match self.opcode {
             Opcode::ADD |
             Opcode::SUB |
+            Opcode::RSB |
             Opcode::MUL |
             Opcode::SDIV |
             Opcode::AND |
@@ -502,7 +506,7 @@ impl fmt::Display for Instr {
             Opcode::EOR => write!(f, "{}, {}, {}", self.sink[0], self.source[0], self.source[1])?,
             Opcode::LDR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::STR => write!(f, "{}, {}", self.source[0], self.sink[0])?,
-            Opcode::MOV => write!(f, "{}, {}", self.sink[0], self.source[0])?,
+            Opcode::MOV => write!(f, "{}, {}", self.sink[0], self.source[1])?,
             Opcode::NOP => {}
             Opcode::ADR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,

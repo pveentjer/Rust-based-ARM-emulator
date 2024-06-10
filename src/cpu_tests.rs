@@ -53,6 +53,20 @@ mod tests {
     }
 
     #[test]
+    fn test_rsb() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #100;
+    RSB r2, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.load_program(src);
+        harness.run(src);
+        harness.assert_reg_value(2, 90);
+    }
+
+    #[test]
     fn test_mul() {
         let src = r#"
 .text
