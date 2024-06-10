@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+
 use Operand::Memory;
+
 use crate::cpu::{CPSR, SP};
+use crate::cpu::FP;
 use crate::cpu::LR;
 use crate::cpu::PC;
-use crate::cpu::FP;
 use crate::instructions::instructions::Operand::{Code, Immediate, MemRegisterIndirect, Register, Unused};
 
 #[derive(Debug, Clone, Copy)]

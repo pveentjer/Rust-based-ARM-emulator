@@ -11,7 +11,7 @@ pub(crate) struct RSOperand {
 
 impl RSOperand {
     fn new() -> RSOperand {
-        RSOperand { operand: None, value: None, phys_reg:None }
+        RSOperand { operand: None, value: None, phys_reg: None }
     }
 
     fn reset(&mut self) {

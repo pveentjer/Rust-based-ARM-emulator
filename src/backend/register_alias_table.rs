@@ -24,10 +24,10 @@ impl RAT {
         Self { table }
     }
 
-    pub(crate) fn flush(&mut self){
+    pub(crate) fn flush(&mut self) {
         for k in 0..self.table.len() {
             let option = self.table.get_mut(k).unwrap();
-            option.valid=false;
+            option.valid = false;
         }
     }
 

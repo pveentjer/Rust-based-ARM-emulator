@@ -2,18 +2,16 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
-use lalrpop_util::ParseError;
 
+use lalrpop_util::ParseError;
 use regex::Regex;
 
-use crate::{assembly};
-
+use crate::assembly;
 use crate::cpu::{CPUConfig, GENERAL_ARG_REG_CNT};
-use crate::instructions::instructions::{create_instr, Data, get_opcode, Instr, Opcode, Operand, Program, RegisterType, SourceLocation, DWordType};
+use crate::instructions::instructions::{create_instr, Data, DWordType, get_opcode, Instr, Opcode, Operand, Program, RegisterType, SourceLocation};
 use crate::instructions::instructions::Operand::Register;
 use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
-
 
 struct Loader {
     cpu_config: CPUConfig,
@@ -36,7 +34,6 @@ pub enum LoadError {
 
 impl Loader {
     fn load(&mut self) -> Result<Program, LoadError> {
-
         if !self.src.ends_with('\n') {
             self.src.push('\n');
         }
@@ -304,7 +301,6 @@ pub fn load_from_file(cpu_config: CPUConfig, path_str: &str) -> Result<Program, 
 }
 
 pub fn load_from_string(cpu_config: CPUConfig, src: String) -> Result<Program, LoadError> {
-
     let mut loader = Loader {
         heap_limit: 0,
         cpu_config,

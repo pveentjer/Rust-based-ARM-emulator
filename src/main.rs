@@ -1,7 +1,8 @@
+use std::path::PathBuf;
 use std::process::exit;
 use std::rc::Rc;
+
 use lalrpop_util::lalrpop_mod;
-use std::path::PathBuf;
 use structopt::StructOpt;
 
 use crate::cpu::{CPU, load_cpu_config};

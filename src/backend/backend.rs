@@ -42,7 +42,7 @@ impl Backend {
                       arch_reg_file: Rc<RefCell<ArgRegFile>>,
                       frontend_control: Rc<RefCell<FrontendControl>>,
                       perf_counters: Rc<RefCell<PerfCounters>>) -> Backend {
-        let mut phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
+        let phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
 
         Backend {
             trace: cpu_config.trace.clone(),
@@ -141,8 +141,8 @@ impl Backend {
 
             let instr = rob_slot.instr.as_ref().unwrap();
 
-            if instr.mem_stores>0 {
-                if !memory_subsystem.sb.has_space(){
+            if instr.mem_stores > 0 {
+                if !memory_subsystem.sb.has_space() {
                     // we can't allocate a slot in the store buffer, we are done
                     break;
                 }
@@ -229,7 +229,6 @@ impl Backend {
                     }
                 }
             }
-
 
             if rs.source_ready_cnt == rs.source_cnt {
                 self.rs_table.enqueue_ready(rs_index);
@@ -341,11 +340,10 @@ impl Backend {
         self.cdb_broadcast();
     }
 
-
     fn cdb_broadcast(&mut self) {
         let rs_table_capacity = self.rs_table.capacity;
 
-        for req in &mut *self.cdb_broadcast_buffer {
+        for broadcast in &mut *self.cdb_broadcast_buffer {
             // Iterate over all RS and replace every matching physical register, by the value
             for rs_index in 0..rs_table_capacity {
                 let rs = self.rs_table.get_mut(rs_index);
@@ -364,8 +362,8 @@ impl Backend {
                 for source_index in 0..rs.source_cnt as usize {
                     let operand_rs = &mut rs.source[source_index];
                     if let Some(phys_reg) = operand_rs.phys_reg {
-                        if phys_reg == req.phys_reg {
-                            operand_rs.value = Some(req.value);
+                        if phys_reg == broadcast.phys_reg {
+                            operand_rs.value = Some(broadcast.value);
                             rs.source_ready_cnt += 1;
                             added_src_ready = true;
                         }
@@ -440,7 +438,7 @@ impl Backend {
                     }
                 }
 
-                if rob_slot.sb_pos.is_some(){
+                if rob_slot.sb_pos.is_some() {
                     memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())
                 }
 

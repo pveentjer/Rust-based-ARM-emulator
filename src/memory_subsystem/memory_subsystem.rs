@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::cpu::CPUConfig;
-use crate::instructions::instructions::{Program, DWordType};
+use crate::instructions::instructions::{DWordType, Program};
 use crate::memory_subsystem::store_buffer::SB;
 
 pub(crate) struct MemorySubsystem {

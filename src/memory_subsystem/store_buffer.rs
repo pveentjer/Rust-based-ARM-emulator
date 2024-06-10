@@ -1,6 +1,7 @@
 use SBEntryState::{ALLOCATED, COMMITTED, IDLE, READY};
+
 use crate::cpu::CPUConfig;
-use crate::instructions::instructions::{DWordType};
+use crate::instructions::instructions::DWordType;
 
 enum SBEntryState {
     // not used.
@@ -78,7 +79,7 @@ impl SB {
         return index as u16;
     }
 
-    fn to_index(&self, seq: u64)->usize{
+    fn to_index(&self, seq: u64) -> usize {
         (seq % self.capacity as u64) as usize
     }
 
@@ -116,7 +117,7 @@ impl SB {
                 ALLOCATED |
                 READY => {
                     sb_entry.reset();
-                    self.tail -=1;
+                    self.tail -= 1;
                 }
                 COMMITTED => {
                     break;

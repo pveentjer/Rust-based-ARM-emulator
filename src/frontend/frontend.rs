@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{EXIT, Instr, InstrQueue, Opcode, Program, DWordType};
+use crate::instructions::instructions::{DWordType, EXIT, Instr, InstrQueue, Opcode, Program};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,

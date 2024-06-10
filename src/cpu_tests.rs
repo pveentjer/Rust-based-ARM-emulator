@@ -1,10 +1,12 @@
 use std::rc::Rc;
+
 use crate::cpu::{CPU, CPUConfig};
-use crate::instructions::instructions::{Program, DWordType, RegisterType};
+use crate::instructions::instructions::{DWordType, Program, RegisterType};
 
 #[cfg(test)]
 mod tests {
     use crate::loader::loader::{load_from_string, LoadError};
+
     use super::*;
 
     #[test]

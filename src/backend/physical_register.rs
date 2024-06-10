@@ -1,4 +1,4 @@
-use crate::instructions::instructions::{RegisterType, DWordType};
+use crate::instructions::instructions::{DWordType, RegisterType};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum PhysRegEntryState {

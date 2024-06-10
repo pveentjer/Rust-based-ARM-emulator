@@ -4,11 +4,12 @@ use std::fs::File;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
+
 use serde::Deserialize;
 
 use crate::backend::backend::Backend;
 use crate::frontend::frontend::{Frontend, FrontendControl};
-use crate::instructions::instructions::{InstrQueue, Program, RegisterType, DWordType};
+use crate::instructions::instructions::{DWordType, InstrQueue, Program, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 pub struct PerfCounters {
@@ -37,7 +38,7 @@ impl PerfCounters {
             bad_speculation_cnt: 0,
             branch_miss_prediction_cnt: 0,
             branch_good_predictions_cnt: 0,
-            pipeline_flushes:0,
+            pipeline_flushes: 0,
         }
     }
 }
