@@ -1,4 +1,4 @@
-use SBEntryState::{ALLOCATED, COMMITTED, IDLE, INVALIDATED, READY};
+use SBEntryState::{ALLOCATED, COMMITTED, IDLE, READY};
 use crate::cpu::CPUConfig;
 use crate::instructions::instructions::{DWordType};
 
@@ -13,8 +13,6 @@ enum SBEntryState {
     // the value is stored, and is not any longer in speculative state
     // and is guaranteed to be written to main memory
     COMMITTED,
-    // the store is invalidated due to bad speculation.
-    INVALIDATED,
 }
 
 struct SBEntry {
@@ -74,10 +72,14 @@ impl SB {
     pub(crate) fn allocate(&mut self) -> u16 {
         assert!(self.has_space(), "StoreBuffer: can't allocate because there is no space");
 
-        let index = (self.tail % self.capacity as u64) as usize;
+        let index = self.to_index(self.tail);
         self.entries[index].state = ALLOCATED;
         self.tail += 1;
         return index as u16;
+    }
+
+    fn to_index(&self, seq: u64)->usize{
+        (seq % self.capacity as u64) as usize
     }
 
     pub(crate) fn store(&mut self, index: u16, addr: DWordType, value: DWordType) {
@@ -89,7 +91,6 @@ impl SB {
                 sb_entry.value = value;
                 sb_entry.state = READY;
             }
-            INVALIDATED => {}
             _ => unreachable!(),
         }
     }
@@ -103,19 +104,26 @@ impl SB {
         }
     }
 
-    pub(crate) fn invalidate(&mut self, index: u16) {
-        let sb_entry = &mut self.entries[index as usize];
+    pub(crate) fn flush(&mut self) {
+        // to flush, we go backwards from the tail and 'deallocate' every store
+        // until a committed store is found. Behind that committed store can only
+        // be other committed stores because commits are done in order (retire).
 
-        match sb_entry.state {
-            ALLOCATED |
-            READY => sb_entry.state = INVALIDATED,
-            _ => unreachable!(),
+        for k in (self.head..self.tail).rev() {
+            let index = self.to_index(k);
+            let sb_entry = &mut self.entries[index];
+            match sb_entry.state {
+                ALLOCATED |
+                READY => {
+                    sb_entry.reset();
+                    self.tail -=1;
+                }
+                COMMITTED => {
+                    break;
+                }
+                _ => unreachable!(),
+            }
         }
-    }
-
-    pub(crate) fn flush(&self) {
-        //todo
-        println!("Store buffer flush not implemented")
     }
 
     pub(crate) fn do_cycle(&mut self, memory: &mut Vec<DWordType>) {
@@ -124,7 +132,7 @@ impl SB {
                 break;
             }
 
-            let index = (self.head % self.capacity as u64) as usize;
+            let index = self.to_index(self.head);
             let sb_entry = &mut self.entries[index];
             match sb_entry.state {
                 ALLOCATED |
@@ -132,11 +140,6 @@ impl SB {
                 COMMITTED => {
                     // write the store to memory
                     memory[sb_entry.addr as usize] = sb_entry.value;
-                    sb_entry.reset();
-                    self.head += 1;
-                }
-                INVALIDATED => {
-                    // an invalidated store will not be written to memory
                     sb_entry.reset();
                     self.head += 1;
                 }

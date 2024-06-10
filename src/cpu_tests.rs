@@ -142,6 +142,27 @@ loop:
     }
 
     #[test]
+    fn test_store_loop() {
+        let src = r#"
+.data
+    var_a: .dword 0
+.text
+    MOV r0, #100;
+    MOV r1, =var_a;
+    MOV r2, #0;
+loop:
+    ADD r2, r2, #1;
+    SUB r0, r0, #1;
+    STR r2, [r1];
+    CBNZ r0, loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_variable_value("var_a", 100);
+    }
+
+    #[test]
     fn test_waw() {
         let src = r#"
 .text

@@ -234,8 +234,6 @@ impl EU {
     }
 
     fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        println!("execute STR");
-
         let value = rs.source[0].value.unwrap();
         let address = rs.source[1].value.unwrap();
 
