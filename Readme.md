@@ -1,14 +1,13 @@
 # Rust based ARM CPU emulator
 
 ## About The Project
-The primary aim of this project is to provide a possible implementation of modern
-processors in software (Rust) for the ARM instruction set.
+The primary aim of this project is to implement modern processors in software using Rust 
+for the ARM instruction set. 
 
-The goal of the project is to provide some insights in how modern processors potentially
-could work.
+The goal is to offer insights into how modern processors might work. 
 
-The goal of the project is not to provide a super fast implementation; for that
-code generation using binary translation would be orders of magnitude faster.  
+This project does not aim to provide a super fast implementation; for that, code generation 
+using binary translation would be significantly faster.
 
 ## Warning
 
