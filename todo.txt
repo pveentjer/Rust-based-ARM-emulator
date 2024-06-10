@@ -11,8 +11,6 @@ BUGS
 
 TODO
 
-- the EU should write directly to the physical register
-
 - integration test: stack push
 
 - integration test: stack pop
@@ -41,6 +39,8 @@ TODO
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
 
 DONE
+
+- the EU should write directly to the physical register
 
 - implement store buffer flush
 

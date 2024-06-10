@@ -86,31 +86,26 @@ loop:
     }
 
 
-//     #[test]
-//     fn test_load_store() {
-//         let src = r#"
-// .data
-//     var_a: .dword 5
-//     var_b: .dword 10
-//     var_c: .dword 0
-// .text
-//     MOV r0, =var_a;
-//     LDR r0, r0;
-//     MOV r1, =var_b;
-//     LDR r1, r1;
-//     ADD r2, r0, r1;
-//     MOV r0, =var_c;
-//     STR r2, r0;
-// "#;
-//         let cpu_config = new_test_cpu_config();
-//         let program = load_program(&cpu_config, src);
-//         let mut cpu = CPU::new(&cpu_config);
-//         cpu.run(&program);
-//         let reg_file = cpu.arch_reg_file.borrow();
-//         assert_eq!(reg_file.get_value(0), 5 as WordType);
-//         assert_eq!(reg_file.get_value(1), 10 as WordType);
-//         assert_eq!(reg_file.get_value(2), 15 as WordType);
-//     }
+    #[test]
+    fn test_load_store() {
+        let src = r#"
+.data
+    var_a: .dword 5
+    var_b: .dword 10
+    var_c: .dword 0
+.text
+    MOV r0, =var_a;
+    LDR r0, [r0];
+    MOV r1, =var_b;
+    LDR r1, [r1];
+    ADD r2, r0, r1;
+    MOV r0, =var_c;
+    STR r2, [r0];
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_variable_value("var_c", 15);
+    }
 
     #[test]
     fn test_load() {
@@ -141,6 +136,37 @@ loop:
         harness.run(src);
 
         harness.assert_variable_value("var_a", 10);
+    }
+
+    // Ensures that stores update to memory out of order even they can be performed in order.
+    #[test]
+    fn test_store_WAW() {
+        let src = r#"
+.data
+    var_a: .dword 0
+.text
+    mov r0, =var_a;
+    mov r1, #1;
+    str r1, [r0];
+    mov r2, #2;
+    str r2, [r0];
+    mov r3, #3;
+    str r3, [r0];
+    mov r4, #4;
+    str r4, [r0];
+    mov r5, #5;
+    str r5, [r0];
+    mov r6, #6;
+    str r6, [r0];
+    mov r7, #7;
+    str r7, [r0];
+    mov r8, #8;
+    str r8, [r0];
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_variable_value("var_a", 8);
     }
 
     #[test]
