@@ -211,7 +211,6 @@ impl Backend {
                 match operand_instr {
                     Operand::Register(arch_reg) => {
                         let phys_reg = self.phys_reg_file.borrow_mut().allocate();
-                        println!("Allocated phys register {}", phys_reg);
                         // update the RAT entry to point to the newest phys_reg
                         let rat_entry = self.rat.get_mut(*arch_reg);
                         rat_entry.phys_reg = phys_reg;
@@ -447,8 +446,6 @@ impl Backend {
 
                 if instr.is_branch() {
                     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
-                        //println!("Branch prediction bad: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
-
                         // the branch was not correctly predicted
                         perf_counters.branch_miss_prediction_cnt += 1;
                         bad_speculation = true;
@@ -456,8 +453,6 @@ impl Backend {
                         // re-steer the frontend
                         arch_reg_file.set_value(PC, rob_slot.branch_target_actual as DWordType);
                     } else {
-                        //println!("Branch prediction good: actual={} predicted={}", rob_slot.branch_target_actual, rob_slot.branch_target_predicted);
-
                         // the branch was correctly predicted
                         perf_counters.branch_good_predictions_cnt += 1;
                     }

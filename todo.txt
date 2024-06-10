@@ -1,6 +1,5 @@
 BUGS
 
-
 - implement store buffer flush
 
 - there is no back pressure if there are no physical registers, just panic
