@@ -93,7 +93,8 @@ impl EU {
         let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
-        let pc_update = if cpsr == 0 { target } else { pc + 1 };
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let pc_update = if zero_flag == 1 { target } else { pc + 1 };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -102,7 +103,8 @@ impl EU {
         let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
-        let pc_update = if cpsr != 0 { target } else { pc + 1 };
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let pc_update = if zero_flag == 0 { target } else { pc + 1 };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -111,34 +113,49 @@ impl EU {
         let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
-        let pc_update = if cpsr < 0 { target } else { pc + 1 };
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if negative_flag != overflow_flag { target } else { pc + 1 };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_BLE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+    fn execute_BLE(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
         let target = rs.source[0].value.unwrap();
         let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
-        let pc_update = if cpsr <= 0 { target } else { pc + 1 };
+        // Extract the zero flag (bit 30), negative flag (bit 31), and overflow flag (bit 28) from CPSR
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) { target } else { pc + 1 };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_BGT(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+    fn execute_BGT(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
         let target = rs.source[0].value.unwrap();
         let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
-        let pc_update = if cpsr > 0 { target } else { pc + 1 };
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) { target } else { pc + 1 };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_BGE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+    fn execute_BGE(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
         let target = rs.source[0].value.unwrap();
         let cpsr = rs.source[1].value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
-        let pc_update = if cpsr >= 0 { target } else { pc + 1 };
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if negative_flag == overflow_flag { target } else { pc + 1 };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -196,9 +213,9 @@ impl EU {
 
         // Update the CPSR flags based on the result
         let zero_flag = result == 0;
-        let negative_flag = result < 0;
-        let carry_flag = (rn as u64).wrapping_sub(operand2 as u64) > (rn as u64); // Checking for borrow
-        let overflow_flag = ((rn ^ operand2) & (rn ^ result)) >> (std::mem::size_of::<i64>() * 8 - 1) != 0;
+        let negative_flag = (result & (1 << 63)) != 0;
+        let carry_flag = (rn as u128).wrapping_sub(operand2 as u128) > (rn as u128); // Checking for borrow
+        let overflow_flag = (((rn ^ operand2) & (rn ^ result)) >> 63) != 0;
 
         let mut new_cprs_value = cprs_value;
         if zero_flag {
@@ -225,7 +242,7 @@ impl EU {
             new_cprs_value &= !(1 << OVERFLOW_FLAG);
         }
 
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        let dst_phys_reg = rs.sink[0].phys_reg.expect("Expected physical register");
         self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, new_cprs_value);
     }
 

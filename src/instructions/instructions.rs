@@ -287,7 +287,7 @@ pub(crate) fn create_instr(opcode: Opcode,
         Opcode::BLE |
         Opcode::BGT |
         Opcode::BGE => {
-            validate_operand_count(2, operands, opcode, loc)?;
+            validate_operand_count(1, operands, opcode, loc)?;
 
             instr.source_cnt = 2;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;

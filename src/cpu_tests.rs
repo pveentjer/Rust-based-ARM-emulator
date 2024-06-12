@@ -99,6 +99,63 @@ loop:
         harness.assert_reg_value(1, 30);
     }
 
+    #[test]
+    fn test_loop_CMP_BNE() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #0;
+loop:
+    SUB r0, r0, #1;
+    PRINTR r0;
+    ADD r1, r1, #1;
+    CMP r0, #0;
+    BNE loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 0);
+        harness.assert_reg_value(1, 10);
+    }
+
+    #[test]
+    fn test_loop_CMP_BGT() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #0;
+loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CMP r0, #1;
+    BGT loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 1);
+        harness.assert_reg_value(1, 9);
+    }
+
+    #[test]
+    fn test_loop_CMP_BGE() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #0;
+loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CMP r0, #1;
+    BGE loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 0);
+        harness.assert_reg_value(1, 10);
+    }
 
     #[test]
     fn test_load_store() {

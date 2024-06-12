@@ -1,5 +1,11 @@
 BUGS
 
+- fix BNE
+
+- fix BLE
+
+- fix BLT
+
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs to allocate
     and don't allow for an instruction to get a rs if there are not sufficient
@@ -10,6 +16,14 @@ BUGS
 - store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
 
 TODO
+
+- clean up the pc_update in the B.. methods
+
+- add test CMP/BEQ
+
+- add test CMP/BLT
+
+- add test CMP/BLE
 
 - integration test: stack push
 
@@ -36,6 +50,22 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix BGE
+
+- fix BGT
+
+- fix BEQ
+
+- fix problem with running BNE
+
+- add test_CMP_BNE
+
+- add test_CMP_BGT
+
+- add test_CMP_BGE
+
+- bug validation bug with BNE (argument count should be 1)
 
 - CPU metrics frequency:
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
