@@ -1,7 +1,7 @@
 BUGS
 
 - there is no back pressure if there are no physical registers, just panic
-    - each instruction should track how many physical registers it needs
+    - each instruction should track how many physical registers it needs to allocate
     and don't allow for an instruction to get a rs if there are not sufficient
     physical registers.
 
