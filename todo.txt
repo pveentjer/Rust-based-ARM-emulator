@@ -2,10 +2,6 @@ BUGS
 
 - fix BNE
 
-- fix BLE
-
-- fix BLT
-
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs to allocate
     and don't allow for an instruction to get a rs if there are not sufficient
@@ -50,6 +46,9 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+- add test BLE
+
+- add test fix BLT
 
 - fix BGE
 

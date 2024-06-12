@@ -158,6 +158,37 @@ loop:
     }
 
     #[test]
+    fn test_loop_CMP_BLE() {
+        let src = r#"
+.text
+loop:
+    ADD r0, r0, #1;
+    CMP r0, #10;
+    BLE loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 11);
+    }
+
+    #[test]
+    fn test_loop_CMP_BLT() {
+        let src = r#"
+.text
+loop:
+    ADD r0, r0, #1;
+    CMP r0, #10;
+    BLT loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 10);
+    }
+
+
+    #[test]
     fn test_load_store() {
         let src = r#"
 .data
