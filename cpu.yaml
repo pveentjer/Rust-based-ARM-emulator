@@ -1,26 +1,26 @@
-# the number of physical registers
+# The number of physical registers
 phys_reg_count: 64
-# the number of instructions the frontend can fetch/decode per clock cycle.
+# The number of instructions the frontend can fetch/decode per clock cycle.
 frontend_n_wide: 4
-# the size of the instruction queue between frontend and backend
+# The size of the instruction queue between frontend and backend
 instr_queue_capacity: 64
-# the frequency of the CPU in Hz.
+# The frequency of the CPU in Hz.
 frequency_hz: 4
-# the number of reservation stations
+# The number of reservation stations
 rs_count: 6500
-# the size of the memory in machine words
+# The size of the memory in machine words
 memory_size: 128
-# the capacity of the store buffer
+# The capacity of the store buffer
 sb_capacity: 16
-# the number of line fill buffers; currently there are no line fill buffers
+# The number of line fill buffers; currently there are no line fill buffers
 # it is just a limit of the number of stores that can commit to memory
 # per clock cycle (there is also no cache)
 lfb_count: 4
-# the capacity of the reorder buffer
+# The capacity of the reorder buffer
 rob_capacity: 32
-# the number of execution units
+# The number of execution units
 eu_count: 10
-# if processing of a single instruction should be traced (printed)
+# Various trace flags that helps to see what happens to individual instructions
 trace:
   decode: false
   issue: false
@@ -28,11 +28,12 @@ trace:
   dispatch: false
   execute: false
   retire: false
-  cycle: false
   pipeline_flush: false
-# the number of instructions that can retire per clock cycle
+# The number of instructions that can retire per clock cycle
 retire_n_wide: 2
-# the number of instructions that can be dispatched (sent to execution units) every clock cycle
+# The number of instructions that can be dispatched (sent to execution units) every clock cycle
 dispatch_n_wide: 2
-# the number of instructions that can be issued to the ROB or finding reservation stations, every clock cycle
+# The number of instructions that can be issued to the ROB or finding reservation stations, every clock cycle
 issue_n_wide: 2
+# The delay between writing the CPU stats. A value of 0 means that stats are disabled.
+stats_seconds: 1

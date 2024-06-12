@@ -35,10 +35,10 @@ TODO
 
 - syntax: unwanted semicolon after instructions
 
+DONE
+
 - CPU metrics frequency:
     - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
-
-DONE
 
 - the EU should write directly to the physical register
 

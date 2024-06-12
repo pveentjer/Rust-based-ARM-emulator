@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::fs::File;
+use std::ops::Add;
 use std::rc::Rc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 
@@ -20,9 +21,9 @@ pub struct PerfCounters {
     pub dispatch_cnt: u64,
     pub execute_cnt: u64,
     pub retired_cnt: u64,
-    pub cycle_cnt: u64,
     pub bad_speculation_cnt: u64,
     pub pipeline_flushes: u64,
+    pub cycle_cnt: u64,
 }
 
 
@@ -51,7 +52,6 @@ pub struct Trace {
     pub dispatch: bool,
     pub execute: bool,
     pub retire: bool,
-    pub cycle: bool,
     pub pipeline_flush: bool,
 }
 
@@ -64,7 +64,6 @@ impl Default for Trace {
             dispatch: false,
             execute: false,
             retire: false,
-            cycle: false,
             pipeline_flush: false,
         }
     }
@@ -102,6 +101,8 @@ pub struct CPUConfig {
     pub dispatch_n_wide: u8,
     // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
     pub issue_n_wide: u8,
+    // The delay between writing the CPU stats. A value of 0 means that stats are disabled.
+    pub stats_seconds: u32,
 }
 
 impl Default for CPUConfig {
@@ -121,6 +122,7 @@ impl Default for CPUConfig {
             retire_n_wide: 4,
             dispatch_n_wide: 4,
             issue_n_wide: 4,
+            stats_seconds: 0,
         }
     }
 }
@@ -139,6 +141,7 @@ pub struct CPU {
     pub(crate) cycle_period: Duration,
     pub(crate) trace: Trace,
     pub(crate) perf_counters: Rc<RefCell<PerfCounters>>,
+    pub(crate) stats_seconds: u32,
 }
 
 impl CPU {
@@ -181,6 +184,7 @@ impl CPU {
             frontend,
             memory_subsystem,
             arch_reg_file,
+            stats_seconds: cpu_config.stats_seconds,
             cycle_period: Duration::from_micros(1_000_000 / cpu_config.frequency_hz),
             trace: cpu_config.trace.clone(),
             perf_counters: Rc::clone(&perf_counters),
@@ -192,16 +196,21 @@ impl CPU {
 
         self.memory_subsystem.borrow_mut().init(program);
 
+        let log_stats_interval = Duration::new(self.stats_seconds as u64, 0); // n seconds
+        println!("log_stats_interval: {:?}", log_stats_interval);
+        let mut last_log_stats_time = Instant::now().add(log_stats_interval);
+
         while !self.backend.exit {
             self.perf_counters.borrow_mut().cycle_cnt += 1;
-
-            if self.trace.cycle {
-                self.trace_cycle();
-            }
             self.memory_subsystem.borrow_mut().do_cycle();
             self.backend.do_cycle();
             self.frontend.do_cycle();
             thread::sleep(self.cycle_period);
+
+            if self.stats_seconds> 0 && last_log_stats_time.elapsed() >= log_stats_interval {
+                self.log_stats();
+                last_log_stats_time = Instant::now();
+            }
         }
 
         loop {
@@ -215,7 +224,7 @@ impl CPU {
         println!("Program complete!");
     }
 
-    fn trace_cycle(&mut self) {
+    fn log_stats(&mut self) {
         let perf_counters = self.perf_counters.borrow_mut();
         let branch_total = perf_counters.branch_miss_prediction_cnt + perf_counters.branch_good_predictions_cnt;
 
