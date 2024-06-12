@@ -21,19 +21,19 @@ pub(crate) struct Frontend {
 
 impl Frontend {
     pub(crate) fn new(cpu_config: &CPUConfig,
-                      instr_queue: Rc<RefCell<InstrQueue>>,
-                      frontend_control: Rc<RefCell<FrontendControl>>,
-                      perf_counters: Rc<RefCell<PerfCounters>>,
-                      arch_reg_file: Rc<RefCell<ArgRegFile>>) -> Frontend {
+                      instr_queue: &Rc<RefCell<InstrQueue>>,
+                      frontend_control: &Rc<RefCell<FrontendControl>>,
+                      perf_counters: &Rc<RefCell<PerfCounters>>,
+                      arch_reg_file: &Rc<RefCell<ArgRegFile>>) -> Frontend {
         Frontend {
-            instr_queue,
+            instr_queue: Rc::clone(instr_queue),
             n_wide: cpu_config.frontend_n_wide,
             program_option: None,
             trace: cpu_config.trace.clone(),
-            frontend_control,
+            frontend_control: Rc::clone(frontend_control),
             exit: false,
-            perf_counters,
-            arch_reg_file,
+            perf_counters: Rc::clone(perf_counters),
+            arch_reg_file: Rc::clone(arch_reg_file),
         }
     }
 

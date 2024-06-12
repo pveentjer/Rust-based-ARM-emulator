@@ -37,18 +37,18 @@ pub(crate) struct Backend {
 
 impl Backend {
     pub(crate) fn new(cpu_config: &CPUConfig,
-                      instr_queue: Rc<RefCell<InstrQueue>>,
-                      memory_subsystem: Rc<RefCell<MemorySubsystem>>,
-                      arch_reg_file: Rc<RefCell<ArgRegFile>>,
-                      frontend_control: Rc<RefCell<FrontendControl>>,
-                      perf_counters: Rc<RefCell<PerfCounters>>) -> Backend {
+                      instr_queue: &Rc<RefCell<InstrQueue>>,
+                      memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
+                      arch_reg_file: &Rc<RefCell<ArgRegFile>>,
+                      frontend_control: &Rc<RefCell<FrontendControl>>,
+                      perf_counters: &Rc<RefCell<PerfCounters>>) -> Backend {
         let phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
 
         Backend {
             trace: cpu_config.trace.clone(),
-            instr_queue,
+            instr_queue: Rc::clone(instr_queue),
             memory_subsystem: Rc::clone(&memory_subsystem),
-            arch_reg_file,
+            arch_reg_file: Rc::clone(arch_reg_file),
             rs_table: RSTable::new(cpu_config.rs_count),
             phys_reg_file: Rc::clone(&phys_reg_file),
             rat: RAT::new(cpu_config.phys_reg_count),
@@ -58,9 +58,9 @@ impl Backend {
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
             cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
-            frontend_control,
+            frontend_control: Rc::clone(frontend_control),
             exit: false,
-            perf_counters,
+            perf_counters: Rc::clone(perf_counters),
         }
     }
 

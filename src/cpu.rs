@@ -26,7 +26,6 @@ pub struct PerfCounters {
     pub cycle_cnt: u64,
 }
 
-
 impl PerfCounters {
     pub fn new() -> Self {
         Self {
@@ -101,7 +100,7 @@ pub struct CPUConfig {
     pub dispatch_n_wide: u8,
     // the number of instructions that can be issued to  the rob or finding reservation stations, every clock cycle.
     pub issue_n_wide: u8,
-    // The delay between writing the CPU stats. A value of 0 means that stats are disabled.
+    // The delay between writing the CPU stats. A value of 0 means that stat writing is disabled.
     pub stats_seconds: u32,
 }
 
@@ -164,19 +163,19 @@ impl CPU {
 
         let backend = Backend::new(
             cpu_config,
-            Rc::clone(&instr_queue),
-            Rc::clone(&memory_subsystem),
-            Rc::clone(&arch_reg_file),
-            Rc::clone(&frontend_control),
-            Rc::clone(&perf_counters),
+            &instr_queue,
+            &memory_subsystem,
+            &arch_reg_file,
+            &frontend_control,
+            &perf_counters,
         );
 
         let frontend = Frontend::new(
             cpu_config,
-            Rc::clone(&instr_queue),
-            Rc::clone(&frontend_control),
-            Rc::clone(&perf_counters),
-            Rc::clone(&arch_reg_file),
+            &instr_queue,
+            &frontend_control,
+            &perf_counters,
+            &arch_reg_file,
         );
 
         CPU {
@@ -187,7 +186,7 @@ impl CPU {
             stats_seconds: cpu_config.stats_seconds,
             cycle_period: Duration::from_micros(1_000_000 / cpu_config.frequency_hz),
             trace: cpu_config.trace.clone(),
-            perf_counters: Rc::clone(&perf_counters),
+            perf_counters: perf_counters,
         }
     }
 

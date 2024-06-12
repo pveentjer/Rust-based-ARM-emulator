@@ -104,7 +104,6 @@ impl ROB {
         (seq % self.capacity as u64) as u16
     }
 
-    // Deallocates
     pub(crate) fn deallocate(&mut self) {
         debug_assert!(!self.is_empty(), "ROB: Can't deallocate if ROB is empty");
 
