@@ -130,7 +130,11 @@ impl EU {
         let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
         let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
 
-        let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) { target } else { pc + 1 };
+        let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) {
+            target
+        } else {
+            pc + 1
+        };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -143,7 +147,11 @@ impl EU {
         let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
         let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
 
-        let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) { target } else { pc + 1 };
+        let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) {
+            target
+        } else {
+            pc + 1
+        };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -155,7 +163,11 @@ impl EU {
         let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
         let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
 
-        let pc_update = if negative_flag == overflow_flag { target } else { pc + 1 };
+        let pc_update = if negative_flag == overflow_flag {
+            target
+        } else {
+            pc + 1
+        };
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
@@ -242,7 +254,7 @@ impl EU {
             new_cprs_value &= !(1 << OVERFLOW_FLAG);
         }
 
-        let dst_phys_reg = rs.sink[0].phys_reg.expect("Expected physical register");
+        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
         self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, new_cprs_value);
     }
 

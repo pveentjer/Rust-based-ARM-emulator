@@ -81,23 +81,6 @@ mod tests {
         harness.assert_reg_value(2, 1000);
     }
 
-    #[test]
-    fn test_loop() {
-        let src = r#"
-.text
-    MOV r0, #10;
-    MOV r1, #20;
-loop:
-    SUB r0, r0, #1;
-    ADD r1, r1, #1;
-    CBNZ r0, loop;
-"#;
-        let mut harness = TestHarness::default();
-        harness.run(src);
-
-        harness.assert_reg_value(0, 0);
-        harness.assert_reg_value(1, 30);
-    }
 
     #[test]
     fn test_loop_CMP_BNE() {
@@ -333,9 +316,44 @@ loop:
         harness.assert_reg_value(8, 1);
     }
 
+    #[test]
+    fn test_loop_CBZ() {
+        let src = r#"
+.text
+    MOV r0, #10;
+_loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CBZ r0, _end;
+    B _loop;
+_end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(1, 10);
+    }
 
     #[test]
-    fn test_nested_CBNZ() {
+    fn test_loop_CBNZ() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #20;
+loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CBNZ r0, loop;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 0);
+        harness.assert_reg_value(1, 30);
+    }
+
+    #[test]
+    fn test_nested_loop_CBNZ() {
         let src = r#"
 .text
     MOV r0, #10;
