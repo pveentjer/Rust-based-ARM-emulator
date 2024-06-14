@@ -20,11 +20,13 @@ pub(crate) struct Frontend {
 }
 
 impl Frontend {
-    pub(crate) fn new(cpu_config: &CPUConfig,
-                      instr_queue: &Rc<RefCell<InstrQueue>>,
-                      frontend_control: &Rc<RefCell<FrontendControl>>,
-                      perf_counters: &Rc<RefCell<PerfCounters>>,
-                      arch_reg_file: &Rc<RefCell<ArgRegFile>>) -> Frontend {
+    pub(crate) fn new(
+        cpu_config: &CPUConfig,
+        instr_queue: &Rc<RefCell<InstrQueue>>,
+        frontend_control: &Rc<RefCell<FrontendControl>>,
+        perf_counters: &Rc<RefCell<PerfCounters>>,
+        arch_reg_file: &Rc<RefCell<ArgRegFile>>,
+    ) -> Frontend {
         Frontend {
             instr_queue: Rc::clone(instr_queue),
             n_wide: cpu_config.frontend_n_wide,

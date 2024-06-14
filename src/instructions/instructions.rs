@@ -132,9 +132,11 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
 }
 
 
-pub(crate) fn create_instr(opcode: Opcode,
-                           operands: &Vec<Operand>,
-                           loc: SourceLocation) -> Result<Instr, String> {
+pub(crate) fn create_instr(
+    opcode: Opcode,
+    operands: &Vec<Operand>,
+    loc: SourceLocation,
+) -> Result<Instr, String> {
     let mut instr = Instr {
         cycles: 1,
         opcode,
@@ -319,10 +321,12 @@ fn validate_operand_count(expected: usize,
     Ok(())
 }
 
-fn validate_operand(op_index: usize,
-                    operands: &Vec<Operand>,
-                    opcode: Opcode,
-                    acceptable_types: &[Operand]) -> Result<Operand, String> {
+fn validate_operand(
+    op_index: usize,
+    operands: &Vec<Operand>,
+    opcode: Opcode,
+    acceptable_types: &[Operand]
+) -> Result<Operand, String> {
     let operand = operands[op_index];
 
     for &typ in acceptable_types {
@@ -455,7 +459,7 @@ pub(crate) const INSTR_FLAG_IS_BRANCH: u8 = 0;
 pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
 pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
 
-#[derive(Debug, PartialEq,Clone,Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConditionCode {
     EQ, // Equal
     NE, // Not Equal

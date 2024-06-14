@@ -36,12 +36,14 @@ pub(crate) struct Backend {
 }
 
 impl Backend {
-    pub(crate) fn new(cpu_config: &CPUConfig,
-                      instr_queue: &Rc<RefCell<InstrQueue>>,
-                      memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
-                      arch_reg_file: &Rc<RefCell<ArgRegFile>>,
-                      frontend_control: &Rc<RefCell<FrontendControl>>,
-                      perf_counters: &Rc<RefCell<PerfCounters>>) -> Backend {
+    pub(crate) fn new(
+        cpu_config: &CPUConfig,
+        instr_queue: &Rc<RefCell<InstrQueue>>,
+        memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
+        arch_reg_file: &Rc<RefCell<ArgRegFile>>,
+        frontend_control: &Rc<RefCell<FrontendControl>>,
+        perf_counters: &Rc<RefCell<PerfCounters>>,
+    ) -> Backend {
         let phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
 
         Backend {

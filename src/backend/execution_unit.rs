@@ -376,10 +376,11 @@ pub(crate) struct EUTable {
 }
 
 impl EUTable {
-    pub(crate) fn new(cpu_config: &CPUConfig,
-                      memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
-                      phys_reg_file: &Rc<RefCell<PhysRegFile>>,
-                      perf_counters: &Rc<RefCell<PerfCounters>>,
+    pub(crate) fn new(
+        cpu_config: &CPUConfig,
+        memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
+        phys_reg_file: &Rc<RefCell<PhysRegFile>>,
+        perf_counters: &Rc<RefCell<PerfCounters>>,
     ) -> EUTable {
         let capacity = cpu_config.eu_count;
         let mut free_stack = Vec::with_capacity(capacity as usize);
