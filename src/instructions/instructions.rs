@@ -145,6 +145,7 @@ pub(crate) fn create_instr(opcode: Opcode,
         loc: Some(loc),
         mem_stores: 0,
         flags: 0,
+        condition_code: ConditionCode::AL,
     };
 
     match opcode {
@@ -355,6 +356,7 @@ pub(crate) const NOP: Instr = Instr {
     loc: None,
     mem_stores: 0,
     flags: 0,
+    condition_code: ConditionCode::AL,
 };
 
 pub(crate) const EXIT: Instr = Instr {
@@ -367,6 +369,7 @@ pub(crate) const EXIT: Instr = Instr {
     loc: None,
     mem_stores: 0,
     flags: 0,
+    condition_code: ConditionCode::AL,
 };
 
 pub(crate) type RegisterType = u16;
@@ -452,17 +455,37 @@ pub(crate) const INSTR_FLAG_IS_BRANCH: u8 = 0;
 pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
 pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
 
+#[derive(Debug, PartialEq,Clone,Copy)]
+pub enum ConditionCode {
+    EQ, // Equal
+    NE, // Not Equal
+    CS, // Carry Set
+    CC, // Carry Clear
+    MI, // Minus/Negative
+    PL, // Plus/Positive or Zero
+    VS, // Overflow
+    VC, // No Overflow
+    HI, // Unsigned Higher
+    LS, // Unsigned Lower or Same
+    GE, // Signed Greater Than or Equal
+    LT, // Signed Less Than
+    GT, // Signed Greater Than
+    LE, // Signed Less Than or Equal
+    AL, // Always (unconditional)
+}
+
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct Instr {
-    pub(crate) cycles: u8,
-    pub(crate) opcode: Opcode,
-    pub(crate) source_cnt: u8,
-    pub(crate) source: [Operand; MAX_SOURCE_COUNT as usize],
-    pub(crate) sink_cnt: u8,
-    pub(crate) sink: [Operand; MAX_SINK_COUNT as usize],
-    pub(crate) loc: Option<SourceLocation>,
-    pub(crate) mem_stores: u8,
-    pub(crate) flags: u8,
+pub struct Instr {
+    pub cycles: u8,
+    pub opcode: Opcode,
+    pub source_cnt: u8,
+    pub source: [Operand; MAX_SOURCE_COUNT as usize],
+    pub sink_cnt: u8,
+    pub sink: [Operand; MAX_SINK_COUNT as usize],
+    pub loc: Option<SourceLocation>,
+    pub mem_stores: u8,
+    pub flags: u8,
+    pub condition_code: ConditionCode,
 }
 
 impl Instr {
