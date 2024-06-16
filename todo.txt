@@ -13,6 +13,8 @@ BUGS
 
 TODO
 
+- add RET
+
 - clean up the pc_update in the B.. methods
 
 - add test CMP/BEQ
