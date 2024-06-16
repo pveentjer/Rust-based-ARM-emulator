@@ -15,6 +15,10 @@ TODO
 
 - add RET
 
+- add CSEL
+
+- add CSET
+
 - clean up the pc_update in the B.. methods
 
 - add test CMP/BEQ
