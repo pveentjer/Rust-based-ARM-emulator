@@ -229,7 +229,7 @@ pub(crate) fn create_instr(
             instr.source[0] = if operands.len() == 0 {
                 Register(LR)
             } else {
-                validate_operand(0, operands, opcode, &[Code(0)])?
+                validate_operand(0, operands, opcode, &[Register(0)])?
             };
 
             instr.sink_cnt = 0;
