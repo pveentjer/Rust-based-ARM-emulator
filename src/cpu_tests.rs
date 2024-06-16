@@ -317,6 +317,26 @@ loop:
     }
 
     #[test]
+    fn test_BL_RET() {
+        let src = r#"
+.global _start
+.text
+_add_numbers:
+    ADD r2, r0, r1;
+    RET;
+_start:
+    MOV r0, #5;
+    MOV r1, #10;
+    BL _add_numbers;
+    ADD r2, r2, #1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(2, 16);
+    }
+
+    #[test]
     fn test_loop_CBZ() {
         let src = r#"
 .text

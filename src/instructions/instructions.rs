@@ -38,6 +38,7 @@ pub enum Opcode {
     B,
     BX,
     BL,
+    RET,
     CBZ,
     CBNZ,
     // Acts like a poison pill. It isn't a public instruction.
@@ -72,6 +73,7 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::PRINTR => "PRINTR",
         Opcode::MOV => "MOV",
         Opcode::B => "B",
+        Opcode::RET => "RET",
         Opcode::BX => "BX",
         Opcode::BL => "BL",
         Opcode::CBZ => "CBZ",
@@ -110,6 +112,7 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "PRINTR" => Some(Opcode::PRINTR),
         "MOV" => Some(Opcode::MOV),
         "B" => Some(Opcode::B),
+        "RET" => Some(Opcode::RET),
         "BX" => Some(Opcode::BX),
         "CBZ" => Some(Opcode::CBZ),
         "CBNZ" => Some(Opcode::CBNZ),
@@ -212,6 +215,22 @@ pub(crate) fn create_instr(
 
             instr.source_cnt = 1;
             instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
+
+            instr.sink_cnt = 0;
+            instr.set_branch();
+        }
+        Opcode::RET => {
+            if operands.len() > 1 {
+                return Err(format!("Operand count mismatch. {:?} expects 0 or 1 argument, but {} are provided at {}:{}",
+                                   opcode, operands.len(), loc.line, loc.column));
+            }
+
+            instr.source_cnt = 1;
+            instr.source[0] = if operands.len() == 0 {
+                Register(LR)
+            } else {
+                validate_operand(0, operands, opcode, &[Code(0)])?
+            };
 
             instr.sink_cnt = 0;
             instr.set_branch();
@@ -325,7 +344,7 @@ fn validate_operand(
     op_index: usize,
     operands: &Vec<Operand>,
     opcode: Opcode,
-    acceptable_types: &[Operand]
+    acceptable_types: &[Operand],
 ) -> Result<Operand, String> {
     let operand = operands[op_index];
 
@@ -537,6 +556,7 @@ impl fmt::Display for Instr {
             Opcode::NOP => {}
             Opcode::ADR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
+            Opcode::RET |
             Opcode::B |
             Opcode::BX |
             Opcode::BL => write!(f, "{}", self.source[0])?,

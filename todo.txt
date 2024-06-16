@@ -13,8 +13,6 @@ BUGS
 
 TODO
 
-- add RET
-
 - add CSEL
 
 - add CSET
@@ -52,6 +50,11 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- add testing for RET
+
+- add RET
+
 - add test BLE
 
 - add test fix BLT

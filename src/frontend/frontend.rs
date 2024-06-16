@@ -114,9 +114,9 @@ impl Frontend {
         let branch_target = match instr.opcode {
             Opcode::B |
             Opcode::BL => {
-                // unconditional branches. So we can predict with 100% certainty
                 return instr.source[0].get_code_address() as usize;
             }
+            Opcode::RET => 0,
             Opcode::BX => 0,
             Opcode::CBNZ |
             Opcode::CBZ => instr.source[1].get_code_address() as usize,

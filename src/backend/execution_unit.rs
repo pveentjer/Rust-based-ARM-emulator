@@ -80,6 +80,7 @@ impl EU {
             Opcode::BGE => self.execute_BGE(rs, rob_slot),
             Opcode::CBZ => self.execute_CBZ(rs, rob_slot),
             Opcode::CBNZ => self.execute_CBNZ(rs, rob_slot),
+            Opcode::RET => self.execute_RET(rs, rob_slot),
             Opcode::B => self.execute_B(rs, rob_slot),
             Opcode::BX => self.execute_BX(rs, rob_slot),
             Opcode::BL => self.execute_BL(rs, rob_slot),
@@ -209,6 +210,13 @@ impl EU {
     }
 
     fn execute_B(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+        // update the PC
+        let branch_target = rs.source[0].value.unwrap();
+        let pc_update = branch_target;
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_RET(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
         // update the PC
         let branch_target = rs.source[0].value.unwrap();
         let pc_update = branch_target;
