@@ -68,6 +68,7 @@ for concurrency control so that I get a better understanding of ownership.
 * B
 * BX
 * BL
+* RET
 * CBZ
 * CBNZ
 * CMP
