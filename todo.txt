@@ -13,6 +13,26 @@ BUGS
 
 TODO
 
+- NOP: how does it fit into the new instruction hierarchy
+
+- PRINTR: how does it fit into the new instruction hierarchy
+
+- fix frontend with the new instruction hierarchy
+
+- DataProcessingInstr: register renaming
+
+- LoadStore instruction: register renaming
+
+- program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
+
+- figure out how the reservation station needs to deal with the different instruction classes
+
+- LoadStoreInstr implement Display
+
+- DataProcessingInstr implement Display
+
+- BranchInstr implement Display
+
 - follow the ARM instruction layout
 
 - add ConditionCode operand
@@ -55,45 +75,14 @@ TODO
 
 DONE
 
-- add test CMP/BLT
+- instead of messing with traits for the instruction classes, use an enum
 
-- add testing for RET
+- instead of having a single generic Instr format, add specialized Instruction formats.
 
-- add RET
+- add InstructionClass
 
-- add test BLE
+- add LoadStoreInstr
 
-- add test fix BLT
+- add DataProcessingInstr
 
-- fix BGE
-
-- fix BGT
-
-- fix BEQ
-
-- fix problem with running BNE
-
-- add test_CMP_BNE
-
-- add test_CMP_BGT
-
-- add test_CMP_BGE
-
-- bug validation bug with BNE (argument count should be 1)
-
-- CPU metrics frequency:
-    - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
-
-- the EU should write directly to the physical register
-
-- implement store buffer flush
-
-- store should only be done with memindirectregister
-
-- load should only be done with memindirectregister/memory(direct.. goodname)
-
-- STR broken: allocation of the store doesn't work.
-
-- perf counters need to be shared with EU
-
-- decouple the RS operands from the Instruction operands.
+- add BranchInstr

@@ -39,7 +39,6 @@ pub(crate) struct RS {
     pub(crate) sink_cnt: u8,
     pub(crate) sink: [RSOperand; MAX_SINK_COUNT as usize],
     pub(crate) index: u16,
-
 }
 
 impl RS {

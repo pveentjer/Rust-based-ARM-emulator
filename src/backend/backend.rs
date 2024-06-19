@@ -159,7 +159,7 @@ impl Backend {
             rob_slot.rs_index = Some(rs_index);
 
             rs.rob_slot_index = Some(rob_slot_index);
-            rs.opcode = instr.opcode;
+            rs.opcode = instr.opcode();
             rs.source_cnt = instr.source_cnt;
 
             // Register renaming of the source operands
