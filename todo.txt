@@ -13,6 +13,12 @@ BUGS
 
 TODO
 
+- follow the ARM instruction layout
+
+- add ConditionCode operand
+
+- add CSINC
+
 - add CSEL
 
 - add CSET
@@ -20,8 +26,6 @@ TODO
 - clean up the pc_update in the B.. methods
 
 - add test CMP/BEQ
-
-- add test CMP/BLT
 
 - add test CMP/BLE
 
@@ -50,6 +54,8 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- add test CMP/BLT
 
 - add testing for RET
 
