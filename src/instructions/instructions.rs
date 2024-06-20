@@ -195,7 +195,7 @@ pub(crate) fn create_instr(
                 condition: ConditionCode::AL,
                 loc,
                 rn: 0,
-                rd: 0,
+                rt: 0,
                 offset: 0,
             };
             //
@@ -475,8 +475,7 @@ pub enum Instr {
         condition: ConditionCode,
         loc: SourceLocation,
         rn: RegisterType,
-        // Destination register.
-        rd: RegisterType,
+        rt: RegisterType,
         offset: u16,
     },
 
@@ -503,7 +502,7 @@ impl Display for Instr {
                 write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, offset={}",
                        opcode, condition, loc.line, loc.column, link_bit, offset)
             }
-            Instr::LoadStore { opcode, condition, loc, rn, rd, offset } => {
+            Instr::LoadStore { opcode, condition, loc, rn, rt: rd, offset } => {
                 write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, offset={}",
                        opcode, condition, loc.line, loc.column, rn, rd, offset)
             }

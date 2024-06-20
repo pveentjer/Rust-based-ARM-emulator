@@ -34,12 +34,8 @@ pub(crate) enum RS_Instr {
     LoadStore {
         opcode: Opcode,
         condition: ConditionCode,
-        loc: SourceLocation,
-        rn_a: RegisterType,
-        rn_p: RegisterType,
-        // Destination register.
-        rd_a: RegisterType,
-        rd_p: RegisterType,
+        rn: RenamedRegister,
+        rt: RenamedRegister,
         offset: u16,
     },
     Printr {
@@ -77,25 +73,11 @@ impl RS {
         self.state = RSState::IDLE;
         self.pending_cnt = 0;
         self.foobar = RS_Instr::Nop;
-        // self.sink_cnt = 0;
-        //
-        // // not needed
-        // for k in 0..MAX_SINK_COUNT {
-        //     self.sink[k as usize].reset();
-        // }
-        //
-        // // not needed
-        // for k in 0..MAX_SOURCE_COUNT {
-        //     self.source[k as usize].reset();
-        // }
     }
 }
 
 pub(crate) struct RSTable {
     idle_stack: Vec<u16>,
-    // ready_queue_head: u64,
-    // ready_queue_tail: u64,
-    // ready_queue: Vec<u16>,
     ready_queue: VecDeque<u16>,
     pub(crate) capacity: u16,
     array: Vec<RS>,
@@ -118,8 +100,6 @@ impl RSTable {
             array,
             idle_stack: free_stack,
             ready_queue: VecDeque::new(),
-            //ready_queue_head: 0,
-            //ready_queue_tail: 0,
             allocated: HashSet::new(),
         }
     }

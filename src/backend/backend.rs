@@ -5,10 +5,10 @@ use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reservation_station::{RenamedRegister, RS_Instr, RSState, RSTable};
+use crate::backend::reservation_station::{RenamedRegister, RS, RS_Instr, RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{DWordType, Instr, InstrQueue, RegisterType};
+use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
@@ -167,41 +167,20 @@ impl Backend {
             //rs.source_cnt = instr.source_cnt;
 
             match instr.as_ref() {
-                Instr::DataProcessing { opcode, condition, loc, rn, rd, operand2: u16 } => {
-
-
-                    // let mut rn_p = None;
-                    // let mut rn_v = None;
-                    // let rat_entry = self.rat.get(*rn);
-                    // if rat_entry.valid {
-                    //     let phys_reg_file = self.phys_reg_file.borrow_mut();
-                    //     let phys_reg_entry = phys_reg_file.get(rat_entry.reg_p);
-                    //     if phys_reg_entry.has_value {
-                    //         //we got lucky, there is a value in the physical register.
-                    //         rn_v = Some(phys_reg_entry.value);
-                    //     } else {
-                    //         rs.pending_cnt += 1;
-                    //         // cdb broadcast will update
-                    //         rn_p = Some(rat_entry.reg_p);
-                    //     }
-                    // } else {
-                    //     println!("Reading physical register");
-                    //     let value = arch_reg_file.get_value(*rn);
-                    //     rn_v = Some(value);
-                    // }
-                    //
-                    // let rd_p = self.phys_reg_file.borrow_mut().allocate();
-                    // self.rat.update(*rd, rd_p);
-
-                    // rob_slot.sink_phys_regs[operand_index] = Some(phys_reg);
-                    //
-                    // operand_rs.phys_reg = Some(phys_reg);
-
+                Instr::DataProcessing {
+                    opcode,
+                    condition,
+                    loc,
+                    rn,
+                    rd,
+                    operand2: u16
+                } => {
                     rs.foobar = RS_Instr::DataProcessing {
                         opcode: *opcode,
                         condition: *condition,
                         rn: register_rename_src(
                             *rn,
+                            rs,
                             &mut self.rat,
                             &arch_reg_file,
                             &mut phys_reg_file),
@@ -215,7 +194,54 @@ impl Backend {
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
                 Instr::Branch { .. } => {}
-                Instr::LoadStore { .. } => {}
+                Instr::LoadStore {
+                    opcode,
+                    condition,
+                    loc,
+                    rn,
+                    rt,
+                    offset
+                } => {
+                    match opcode {
+                        Opcode::LDR => {
+                            rs.foobar = RS_Instr::LoadStore {
+                                opcode: *opcode,
+                                condition: *condition,
+                                rn: register_rename_src(
+                                    *rn,
+                                    rs,
+                                    &mut self.rat,
+                                    &arch_reg_file,
+                                    &mut phys_reg_file),
+                                rt: register_rename_sink(
+                                    *rt,
+                                    &mut phys_reg_file,
+                                    &mut self.rat),
+                                offset: *offset,
+                            };
+                        }
+                        Opcode::STR => {
+                            rs.foobar = RS_Instr::LoadStore {
+                                opcode: *opcode,
+                                condition: *condition,
+                                rn: register_rename_src(
+                                    *rn,
+                                    rs,
+                                    &mut self.rat,
+                                    &arch_reg_file,
+                                    &mut phys_reg_file),
+                                rt: register_rename_src(
+                                    *rt,
+                                    rs,
+                                    &mut self.rat,
+                                    &arch_reg_file,
+                                    &mut phys_reg_file),
+                                offset: *offset,
+                            };
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 Instr::Nop { .. } => {}
                 Instr::Exit => {}
                 Instr::Printr { rn, loc } => {
@@ -226,6 +252,7 @@ impl Backend {
                     rs.foobar = RS_Instr::Printr {
                         rn: register_rename_src(
                             *rn,
+                            rs,
                             &mut self.rat,
                             &arch_reg_file,
                             &mut phys_reg_file),
@@ -234,76 +261,6 @@ impl Backend {
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
             }
-
-            // // Register renaming of the source operands
-            // for operand_index in 0..instr.source_cnt as usize {
-            //     let operand_instr = &instr.source[operand_index];
-            //     let mut operand_rs = &mut rs.source[operand_index];
-            //     operand_rs.operand = Some(*operand_instr);
-            //     match operand_instr {
-            //         Operand::MemRegisterIndirect(arch_reg) |
-            //         Operand::Register(arch_reg) => {
-            //             let rat_entry = self.rat.get(*arch_reg);
-            //             if rat_entry.valid {
-            //                 let phys_reg_file = self.phys_reg_file.borrow_mut();
-            //                 let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
-            //                 if phys_reg_entry.has_value {
-            //                     //we got lucky, there is a value in the physical register.
-            //                     operand_rs.value = Some(phys_reg_entry.value);
-            //                     rs.source_ready_cnt += 1;
-            //                 } else {
-            //                     // cdb broadcast will update
-            //                     operand_rs.phys_reg = Some(rat_entry.phys_reg);
-            //                 }
-            //             } else {
-            //                 let value = arch_reg_file.get_value(*arch_reg);
-            //                 operand_rs.value = Some(value);
-            //                 rs.source_ready_cnt += 1;
-            //             }
-            //         }
-            //         Operand::Memory(addr) => {
-            //             operand_rs.value = Some(*addr);
-            //             rs.source_ready_cnt += 1;
-            //         }
-            //         Operand::Code(addr) => {
-            //             operand_rs.value = Some(*addr);
-            //             rs.source_ready_cnt += 1;
-            //         }
-            //         Operand::Immediate(value) => {
-            //             operand_rs.value = Some(*value);
-            //             rs.source_ready_cnt += 1;
-            //         }
-            //         Operand::Unused => panic!("Illegal source {:?} {}", operand_instr, instr)
-            //     }
-            // }
-            //
-            // // Register renaming of the sink operands.
-            // rs.sink_cnt = instr.sink_cnt;
-            // for operand_index in 0..instr.sink_cnt as usize {
-            //     let operand_instr = &instr.sink[operand_index];
-            //     let mut operand_rs = &mut rs.sink[operand_index];
-            //     operand_rs.operand = Some(*operand_instr);
-            //     match operand_instr {
-            //         Operand::Register(arch_reg) => {
-            //             let phys_reg = self.phys_reg_file.borrow_mut().allocate();
-            //             // update the RAT entry to point to the newest phys_reg
-            //             let rat_entry = self.rat.get_mut(*arch_reg);
-            //             rat_entry.phys_reg = phys_reg;
-            //             rat_entry.valid = true;
-            //
-            //             rob_slot.sink_phys_regs[operand_index] = Some(phys_reg);
-            //
-            //             operand_rs.phys_reg = Some(phys_reg);
-            //         }
-            //         Operand::Memory(_) => {}
-            //         Operand::Unused |
-            //         Operand::Immediate(_) |
-            //         Operand::Code(_) |
-            //         Operand::MemRegisterIndirect(_) => {
-            //             panic!("Illegal sink {:?}", operand_instr)
-            //         }
-            //     }
-            // }
 
             if rs.pending_cnt == 0 {
                 println!("foobar");
@@ -317,8 +274,6 @@ impl Backend {
             rob.seq_rs_allocated += 1;
         }
     }
-
-
 
     fn cycle_dispatch(&mut self) {
         let mut perf_counters = self.perf_counters.borrow_mut();
@@ -616,6 +571,7 @@ impl Backend {
 }
 
 fn register_rename_src(arch_reg: RegisterType,
+                       rs: &mut RS,
                        rat: &mut RAT,
                        arch_reg_file: &ArgRegFile,
                        phys_reg_file: &mut PhysRegFile,
@@ -629,7 +585,7 @@ fn register_rename_src(arch_reg: RegisterType,
             //we got lucky, there is a value in the physical register.
             value = Some(phys_reg_entry.value);
         } else {
-            //rs.pending_cnt += 1;
+            rs.pending_cnt += 1;
             // cdb broadcast will update
             phys_reg = Some(rat_entry.phys_reg);
         }
@@ -638,7 +594,7 @@ fn register_rename_src(arch_reg: RegisterType,
         value = Some(arch_reg_file.get_value(arch_reg));
     }
 
-    RenamedRegister { arch_reg, phys_reg, value}
+    RenamedRegister { arch_reg, phys_reg, value }
 }
 
 fn register_rename_sink(arch_reg: RegisterType,
