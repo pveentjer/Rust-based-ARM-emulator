@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::instructions::instructions::{DWordType, MAX_SINK_COUNT, MAX_SOURCE_COUNT, Opcode, Operand, RegisterType};
+use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, Operand, RegisterType, SourceLocation};
 use crate::instructions::instructions::Opcode::NOP;
 
 pub(crate) struct RSOperand {
@@ -21,23 +21,59 @@ impl RSOperand {
     }
 }
 
+pub(crate) struct RenamedRegister {
+    pub(crate) phys_reg: Option<RegisterType>,
+    pub(crate) arch_reg: RegisterType,
+    pub(crate) value: Option<DWordType>,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum RSState {
     IDLE,
     BUSY,
 }
 
+pub(crate) enum RS_Instr {
+    DataProcessing {
+        opcode: Opcode,
+        condition: ConditionCode,
+        rn: RenamedRegister,
+        rd: RenamedRegister,
+        operand2: u16,
+    },
+
+    Branch {
+        opcode: Opcode,
+        condition: ConditionCode,
+        link_bit: bool,
+        offset: u32,
+    },
+
+    LoadStore {
+        opcode: Opcode,
+        condition: ConditionCode,
+        loc: SourceLocation,
+        rn_a: RegisterType,
+        rn_p: RegisterType,
+        // Destination register.
+        rd_a: RegisterType,
+        rd_p: RegisterType,
+        offset: u16,
+    },
+    Printr {
+        rn: RenamedRegister,
+    },
+    Nop,
+    Exit,
+}
 
 // A single reservation station
 pub(crate) struct RS {
     pub(crate) rob_slot_index: Option<u16>,
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
-    pub(crate) source_cnt: u8,
-    pub(crate) source: [RSOperand; MAX_SOURCE_COUNT as usize],
-    pub(crate) source_ready_cnt: u8,
-    pub(crate) sink_cnt: u8,
-    pub(crate) sink: [RSOperand; MAX_SINK_COUNT as usize],
+    pub(crate) pending_cnt: u8,
+    pub(crate) foobar: RS_Instr,
     pub(crate) index: u16,
 }
 
@@ -46,13 +82,10 @@ impl RS {
         Self {
             opcode: Opcode::NOP,
             state: RSState::IDLE,
-            source_cnt: 0,
-            source: [RSOperand::new(), RSOperand::new(), RSOperand::new()],
-            source_ready_cnt: 0,
-            sink_cnt: 0,
-            sink: [RSOperand::new(), RSOperand::new()],
+            pending_cnt: 0,
             rob_slot_index: None,
             index,
+            foobar: RS_Instr::Nop,
         }
     }
 
@@ -60,19 +93,19 @@ impl RS {
         self.rob_slot_index = None;
         self.opcode = NOP;
         self.state = RSState::IDLE;
-        self.source_cnt = 0;
-        self.source_ready_cnt = 0;
-        self.sink_cnt = 0;
-
-        // not needed
-        for k in 0..MAX_SINK_COUNT {
-            self.sink[k as usize].reset();
-        }
-
-        // not needed
-        for k in 0..MAX_SOURCE_COUNT {
-            self.source[k as usize].reset();
-        }
+        self.pending_cnt = 0;
+        self.foobar = RS_Instr::Nop;
+        // self.sink_cnt = 0;
+        //
+        // // not needed
+        // for k in 0..MAX_SINK_COUNT {
+        //     self.sink[k as usize].reset();
+        // }
+        //
+        // // not needed
+        // for k in 0..MAX_SOURCE_COUNT {
+        //     self.source[k as usize].reset();
+        // }
     }
 }
 

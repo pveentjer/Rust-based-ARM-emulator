@@ -142,18 +142,18 @@ pub(crate) fn create_instr(
     loc: SourceLocation,
 ) -> Result<Instr, String> {
 
-    let mut instr = Instr {
-        cycles: 1,
-        opcode,
-        source_cnt: 0,
-        source: [Unused, Unused, Unused],
-        sink_cnt: 0,
-        sink: [Unused, Unused],
-        loc: Some(loc),
-        mem_stores: 0,
-        flags: 0,
-        condition_code: ConditionCode::AL,
-    };
+    // let mut instr = Instr {
+    //     cycles: 1,
+    //     opcode,
+    //     source_cnt: 0,
+    //     source: [Unused, Unused, Unused],
+    //     sink_cnt: 0,
+    //     sink: [Unused, Unused],
+    //     loc: Some(loc),
+    //     mem_stores: 0,
+    //     flags: 0,
+    //     condition_code: ConditionCode::AL,
+    // };
 
     let mut instr = match opcode {
         Opcode::SUB |
@@ -166,28 +166,31 @@ pub(crate) fn create_instr(
         Opcode::ADD => {
             validate_operand_count(3, operands, opcode, loc)?;
 
-            instr = Instr::DataProcessing {
+            let rd = operands[0].get_register();
+            let rn = operands[1].get_register();
+
+            let mut instr = Instr::DataProcessing {
                 opcode,
                 condition: ConditionCode::AL,
                 loc,
-                rn: 0,
-                rd: 0,
+                rn,
+                rd,
                 operand2: 0,
             };
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(2, operands, opcode, &[Register(0), Immediate(0)])?;
+            //
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.source_cnt = 2;
+            // instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
+            // instr.source[1] = validate_operand(2, operands, opcode, &[Register(0), Immediate(0)])?;
             instr
         }
         Opcode::ADR => { panic!() }
         Opcode::LDR => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr = Instr::LoadStore {
+            let mut instr = Instr::LoadStore {
                 opcode,
                 condition: ConditionCode::AL,
                 loc,
@@ -195,52 +198,68 @@ pub(crate) fn create_instr(
                 rd: 0,
                 offset: 0,
             };
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?
+            //
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?
 
             instr
         }
         Opcode::STR => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.mem_stores = 1;
-
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?;
+            // validate_operand_count(2, operands, opcode, loc)?;
+            //
+            // instr.mem_stores = 1;
+            //
+            // instr.source_cnt = 2;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            // instr.source[1] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?;
+            panic!();
         }
         Opcode::NOP => {
-            validate_operand_count(0, operands, opcode, loc)?;
+            // validate_operand_count(0, operands, opcode, loc)?;
+            panic!();
         }
         Opcode::PRINTR => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            instr.sink_cnt = 0;
+            let rn = operands[0].get_register();
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            let mut instr = Instr::Printr {
+                loc:Some(loc),
+                rn,
+            };
+
+            instr
+
+            //
+            // instr.sink_cnt = 0;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
         }
         Opcode::MOV => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            panic!();
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?
         }
         Opcode::B => {
             validate_operand_count(1, operands, opcode, loc)?;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
+            //
+            // instr.sink_cnt = 0;
+            // instr.set_branch();
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
+            panic!();
         }
         Opcode::RET => {
             if operands.len() > 1 {
@@ -248,83 +267,99 @@ pub(crate) fn create_instr(
                                    opcode, operands.len(), loc.line, loc.column));
             }
 
-            instr.source_cnt = 1;
-            instr.source[0] = if operands.len() == 0 {
-                Register(LR)
-            } else {
-                validate_operand(0, operands, opcode, &[Register(0)])?
-            };
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
+            // instr.source_cnt = 1;
+            // instr.source[0] = if operands.len() == 0 {
+            //     Register(LR)
+            // } else {
+            //     validate_operand(0, operands, opcode, &[Register(0)])?
+            // };
+            //
+            // instr.sink_cnt = 0;
+            // instr.set_branch();
+            panic!();
         }
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.sink_cnt = 0;
+            // instr.set_branch();
 
-            instr.sink_cnt = 0;
-            instr.set_branch();
+            panic!();
         }
         Opcode::BL => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
+            //
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = Register(LR);
+            // instr.set_branch();
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(LR);
-            instr.set_branch();
+            panic!();
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
+            // instr.source_cnt = 2;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            // instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
+            //
+            // instr.sink_cnt = 0;
+            // instr.set_branch();
 
-            instr.sink_cnt = 0;
-            instr.set_branch();
+            panic!();
         }
         Opcode::EXIT => {
             validate_operand_count(0, operands, opcode, loc)?;
-            instr.set_branch();
+            // instr.set_branch();
+            panic!();
         }
         Opcode::DSB => {
             validate_operand_count(0, operands, opcode, loc)?;
-            instr.set_rob_sync();
-            instr.set_sb_sync();
+            // instr.set_rob_sync();
+            // instr.set_sb_sync();
+
+            panic!();
         }
         Opcode::NEG => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
+            panic!();
         }
         Opcode::MVN => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
 
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
+            panic!();
         }
         Opcode::CMP => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            instr.source_cnt = 3;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
-            instr.source[2] = Register(CPSR);
+            // instr.source_cnt = 3;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            // instr.source[1] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
+            // instr.source[2] = Register(CPSR);
+            //
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = Register(CPSR);
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(CPSR);
+            panic!();
         }
         Opcode::BEQ |
         Opcode::BNE |
@@ -334,7 +369,7 @@ pub(crate) fn create_instr(
         Opcode::BGE => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            instr = Instr::Branch {
+            let mut instr = Instr::Branch {
                 opcode,
                 condition: ConditionCode::AL,
                 loc,
@@ -342,12 +377,14 @@ pub(crate) fn create_instr(
                 offset: 0,
             };
 
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            instr.source[1] = Register(CPSR);
+            // instr.source_cnt = 2;
+            // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
+            // instr.source[1] = Register(CPSR);
+            //
+            // instr.sink_cnt = 0;
+            // instr.set_branch();
 
-            instr.sink_cnt = 0;
-            instr.set_branch();
+            instr
         }
     };
 
@@ -390,41 +427,24 @@ fn validate_operand(
     Err(format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
                 opcode, acceptable_names_str, op_index + 1, operand.base_name()))
 }
+//
+// fn has_control_operands(instr: &Instr) -> bool {
+//     instr.source.iter().any(|op| is_control_operand(op)) ||
+//         instr.sink.iter().any(|op| is_control_operand(op))
+// }
+//
+// fn is_control_operand(op: &Operand) -> bool {
+//     matches!(op, Register(register) if *register == PC)
+// }
 
-fn has_control_operands(instr: &Instr) -> bool {
-    instr.source.iter().any(|op| is_control_operand(op)) ||
-        instr.sink.iter().any(|op| is_control_operand(op))
-}
-
-fn is_control_operand(op: &Operand) -> bool {
-    matches!(op, Register(register) if *register == PC)
-}
-
-pub(crate) const NOP: Instr = Instr {
-    cycles: 1,
-    opcode: Opcode::NOP,
-    source_cnt: 0,
-    source: [Operand::Unused, Operand::Unused, Operand::Unused],
-    sink_cnt: 0,
-    sink: [Operand::Unused, Operand::Unused],
+pub(crate) const NOP: Instr = Instr::Nop {
     loc: None,
-    mem_stores: 0,
-    flags: 0,
-    condition_code: ConditionCode::AL,
 };
 
-pub(crate) const EXIT: Instr = Instr {
-    cycles: 1,
-    opcode: Opcode::EXIT,
-    source_cnt: 0,
-    source: [Unused, Unused, Unused],
-    sink_cnt: 0,
-    sink: [Unused, Unused],
-    loc: None,
-    mem_stores: 0,
-    flags: 0,
-    condition_code: ConditionCode::AL,
+pub(crate) const EXIT: Instr = Instr::Exit {
 };
+
+
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Instr {
@@ -458,8 +478,50 @@ pub enum Instr {
         // Destination register.
         rd: RegisterType,
         offset: u16,
+    },
+
+    Nop {
+        loc: Option<SourceLocation>,
+    },
+
+    Exit,
+
+    Printr{
+        loc: Option<SourceLocation>,
+        rn: RegisterType,
+    },
+}
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Instr::DataProcessing { opcode, condition, loc, rn, rd, operand2 } => {
+                write!(f, "DataProcessing: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, operand2={}",
+                       opcode, condition, loc.line, loc.column, rn, rd, operand2)
+            }
+            Instr::Branch { opcode, condition, loc, link_bit, offset } => {
+                write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, offset={}",
+                       opcode, condition, loc.line, loc.column, link_bit, offset)
+            }
+            Instr::LoadStore { opcode, condition, loc, rn, rd, offset } => {
+                write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, offset={}",
+                       opcode, condition, loc.line, loc.column, rn, rd, offset)
+            }
+
+            Instr::Nop { loc } => {
+                write!(f, "NOP")
+            }
+
+            Instr::Exit { .. } => {
+                write!(f, "EXIT")
+            }
+            Instr::Printr { rn, loc} => {
+                write!(f, "PRINTR {}", rn)
+            }
+        }
     }
 }
+
 
 pub(crate) type RegisterType = u16;
 pub(crate) type DWordType = u64;
@@ -678,7 +740,7 @@ impl Operand {
     }
 }
 
-impl fmt::Display for Operand {
+impl Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Register(reg) => {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
-use crate::backend::reservation_station::RS;
+use crate::backend::reservation_station::{RS, RS_Instr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
 use crate::instructions::instructions::{DWordType, Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -54,250 +54,271 @@ impl EU {
             println!("Executing {}", instr);
         }
 
-        match rs.opcode {
-            Opcode::NOP => {}
-            Opcode::ADD => self.execute_ADD(rs),
-            Opcode::SUB => self.execute_SUB(rs),
-            Opcode::RSB => self.execute_RSB(rs),
-            Opcode::MUL => self.execute_MUL(rs),
-            Opcode::SDIV => self.execute_SDIV(rs),
-            Opcode::NEG => self.execute_NEG(rs),
-            Opcode::AND => self.execute_AND(rs),
-            Opcode::MOV => self.execute_MOV(rs),
-            Opcode::ADR => self.execute_ADR(rs, rob_slot),
-            Opcode::ORR => self.execute_ORR(rs),
-            Opcode::EOR => self.execute_EOR(rs),
-            Opcode::MVN => self.execute_MVN(rs),
-            Opcode::LDR => self.execute_LDR(rs),
-            Opcode::STR => self.execute_STR(rs, rob_slot),
-            Opcode::PRINTR => self.execute_PRINTR(rs, rob_slot),
-            Opcode::CMP => self.execute_CMP(rs, rob_slot),
-            Opcode::BEQ => self.execute_BEQ(rs, rob_slot),
-            Opcode::BNE => self.execute_BNE(rs, rob_slot),
-            Opcode::BLT => self.execute_BLT(rs, rob_slot),
-            Opcode::BLE => self.execute_BLE(rs, rob_slot),
-            Opcode::BGT => self.execute_BGT(rs, rob_slot),
-            Opcode::BGE => self.execute_BGE(rs, rob_slot),
-            Opcode::CBZ => self.execute_CBZ(rs, rob_slot),
-            Opcode::CBNZ => self.execute_CBNZ(rs, rob_slot),
-            Opcode::RET => self.execute_RET(rs, rob_slot),
-            Opcode::B => self.execute_B(rs, rob_slot),
-            Opcode::BX => self.execute_BX(rs, rob_slot),
-            Opcode::BL => self.execute_BL(rs, rob_slot),
-            Opcode::EXIT => {}
-            Opcode::DSB => {}
+        match &rs.foobar {
+            RS_Instr::DataProcessing { opcode, condition, rn, rd, operand2 } => {
+                let result = match opcode {
+                    Opcode::ADD => {rn.value.unwrap() + rn.value.unwrap() + 50}
+                    Opcode::SUB => {0}
+                    Opcode::RSB => {0}
+                    Opcode::MUL => {0}
+                    Opcode::SDIV => {0}
+                    _ => unreachable!()
+                };
+                self.phys_reg_file.borrow_mut().set_value(rd.phys_reg.unwrap(), result);
+            }
+            RS_Instr::Branch { opcode, condition, link_bit, offset } => {}
+            RS_Instr::LoadStore { .. } => {}
+            RS_Instr::Printr { rn} => {
+                println!("PRINTR {}={}", Operand::Register(rn.arch_reg), rn.value.unwrap());
+            }
+            RS_Instr::Nop => {}
+            RS_Instr::Exit => {}
         }
+
+        // match rs.opcode {
+        //     Opcode::NOP => {}
+        //     Opcode::ADD => self.execute_ADD(rs),
+        //     Opcode::SUB => self.execute_SUB(rs),
+        //     Opcode::RSB => self.execute_RSB(rs),
+        //     Opcode::MUL => self.execute_MUL(rs),
+        //     Opcode::SDIV => self.execute_SDIV(rs),
+        //     Opcode::NEG => self.execute_NEG(rs),
+        //     Opcode::AND => self.execute_AND(rs),
+        //     Opcode::MOV => self.execute_MOV(rs),
+        //     Opcode::ADR => self.execute_ADR(rs, rob_slot),
+        //     Opcode::ORR => self.execute_ORR(rs),
+        //     Opcode::EOR => self.execute_EOR(rs),
+        //     Opcode::MVN => self.execute_MVN(rs),
+        //     Opcode::LDR => self.execute_LDR(rs),
+        //     Opcode::STR => self.execute_STR(rs, rob_slot),
+        //     Opcode::PRINTR => self.execute_PRINTR(rs, rob_slot),
+        //     Opcode::CMP => self.execute_CMP(rs, rob_slot),
+        //     Opcode::BEQ => self.execute_BEQ(rs, rob_slot),
+        //     Opcode::BNE => self.execute_BNE(rs, rob_slot),
+        //     Opcode::BLT => self.execute_BLT(rs, rob_slot),
+        //     Opcode::BLE => self.execute_BLE(rs, rob_slot),
+        //     Opcode::BGT => self.execute_BGT(rs, rob_slot),
+        //     Opcode::BGE => self.execute_BGE(rs, rob_slot),
+        //     Opcode::CBZ => self.execute_CBZ(rs, rob_slot),
+        //     Opcode::CBNZ => self.execute_CBNZ(rs, rob_slot),
+        //     Opcode::RET => self.execute_RET(rs, rob_slot),
+        //     Opcode::B => self.execute_B(rs, rob_slot),
+        //     Opcode::BX => self.execute_BX(rs, rob_slot),
+        //     Opcode::BL => self.execute_BL(rs, rob_slot),
+        //     Opcode::EXIT => {}
+        //     Opcode::DSB => {}
+        // }
     }
 
     fn execute_BEQ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].value.unwrap();
-        let cpsr = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        let pc_update = if zero_flag == 1 { target } else { pc + 1 };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let target = rs.source[0].value.unwrap();
+        // let cpsr = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        // let pc_update = if zero_flag == 1 { target } else { pc + 1 };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BNE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].value.unwrap();
-        let cpsr = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        let pc_update = if zero_flag == 0 { target } else { pc + 1 };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let target = rs.source[0].value.unwrap();
+        // let cpsr = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        // let pc_update = if zero_flag == 0 { target } else { pc + 1 };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BLT(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].value.unwrap();
-        let cpsr = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-
-        let pc_update = if negative_flag != overflow_flag { target } else { pc + 1 };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let target = rs.source[0].value.unwrap();
+        // let cpsr = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+        //
+        // let pc_update = if negative_flag != overflow_flag { target } else { pc + 1 };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BLE(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].value.unwrap();
-        let cpsr = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        // Extract the zero flag (bit 30), negative flag (bit 31), and overflow flag (bit 28) from CPSR
-        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-
-        let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) {
-            target
-        } else {
-            pc + 1
-        };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let target = rs.source[0].value.unwrap();
+        // let cpsr = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // // Extract the zero flag (bit 30), negative flag (bit 31), and overflow flag (bit 28) from CPSR
+        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+        //
+        // let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) {
+        //     target
+        // } else {
+        //     pc + 1
+        // };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BGT(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].value.unwrap();
-        let cpsr = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-
-        let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) {
-            target
-        } else {
-            pc + 1
-        };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let target = rs.source[0].value.unwrap();
+        // let cpsr = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+        //
+        // let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) {
+        //     target
+        // } else {
+        //     pc + 1
+        // };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BGE(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
-        let target = rs.source[0].value.unwrap();
-        let cpsr = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-
-        let pc_update = if negative_flag == overflow_flag {
-            target
-        } else {
-            pc + 1
-        };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let target = rs.source[0].value.unwrap();
+        // let cpsr = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+        //
+        // let pc_update = if negative_flag == overflow_flag {
+        //     target
+        // } else {
+        //     pc + 1
+        // };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_CBZ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let reg_value = rs.source[0].value.unwrap();
-        let branch = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let pc_update = if reg_value == 0 { branch } else { pc + 1 };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let reg_value = rs.source[0].value.unwrap();
+        // let branch = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let pc_update = if reg_value == 0 { branch } else { pc + 1 };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_CBNZ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let reg_value = rs.source[0].value.unwrap();
-        let branch = rs.source[1].value.unwrap();
-        let pc = rob_slot.pc as DWordType;
-
-        let pc_update = if reg_value != 0 { branch } else { pc + 1 };
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let reg_value = rs.source[0].value.unwrap();
+        // let branch = rs.source[1].value.unwrap();
+        // let pc = rob_slot.pc as DWordType;
+        //
+        // let pc_update = if reg_value != 0 { branch } else { pc + 1 };
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BL(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let branch_target = rs.source[0].value.unwrap();
-
-        let pc_update = branch_target;
-
-        // update LR
-        let value = (rob_slot.pc + 1) as DWordType;
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
-        rob_slot.branch_target_actual = pc_update as usize;
+        // let branch_target = rs.source[0].value.unwrap();
+        //
+        // let pc_update = branch_target;
+        //
+        // // update LR
+        // let value = (rob_slot.pc + 1) as DWordType;
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_BX(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // update the PC
-        let branch_target = rs.source[0].value.unwrap() as i64;
-        let pc_update = branch_target;
-        rob_slot.branch_target_actual = pc_update as usize;
+        // // update the PC
+        // let branch_target = rs.source[0].value.unwrap() as i64;
+        // let pc_update = branch_target;
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_B(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // update the PC
-        let branch_target = rs.source[0].value.unwrap();
-        let pc_update = branch_target;
-        rob_slot.branch_target_actual = pc_update as usize;
+        // // update the PC
+        // let branch_target = rs.source[0].value.unwrap();
+        // let pc_update = branch_target;
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_RET(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // update the PC
-        let branch_target = rs.source[0].value.unwrap();
-        let pc_update = branch_target;
-        rob_slot.branch_target_actual = pc_update as usize;
+        // // update the PC
+        // let branch_target = rs.source[0].value.unwrap();
+        // let pc_update = branch_target;
+        // rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_CMP(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let cprs_value = rs.source[2].value.unwrap();
-
-        // Perform the comparison: rn - operand2
-        let result = rn.wrapping_sub(operand2);
-
-        // Update the CPSR flags based on the result
-        let zero_flag = result == 0;
-        let negative_flag = (result & (1 << 63)) != 0;
-        let carry_flag = (rn as u128).wrapping_sub(operand2 as u128) > (rn as u128); // Checking for borrow
-        let overflow_flag = (((rn ^ operand2) & (rn ^ result)) >> 63) != 0;
-
-        let mut new_cprs_value = cprs_value;
-        if zero_flag {
-            new_cprs_value |= 1 << ZERO_FLAG;
-        } else {
-            new_cprs_value &= !(1 << ZERO_FLAG);
-        }
-
-        if negative_flag {
-            new_cprs_value |= 1 << NEGATIVE_FLAG;
-        } else {
-            new_cprs_value &= !(1 << NEGATIVE_FLAG);
-        }
-
-        if carry_flag {
-            new_cprs_value |= 1 << CARRY_FLAG;
-        } else {
-            new_cprs_value &= !(1 << CARRY_FLAG);
-        }
-
-        if overflow_flag {
-            new_cprs_value |= 1 << OVERFLOW_FLAG;
-        } else {
-            new_cprs_value &= !(1 << OVERFLOW_FLAG);
-        }
-
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, new_cprs_value);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let cprs_value = rs.source[2].value.unwrap();
+        //
+        // // Perform the comparison: rn - operand2
+        // let result = rn.wrapping_sub(operand2);
+        //
+        // // Update the CPSR flags based on the result
+        // let zero_flag = result == 0;
+        // let negative_flag = (result & (1 << 63)) != 0;
+        // let carry_flag = (rn as u128).wrapping_sub(operand2 as u128) > (rn as u128); // Checking for borrow
+        // let overflow_flag = (((rn ^ operand2) & (rn ^ result)) >> 63) != 0;
+        //
+        // let mut new_cprs_value = cprs_value;
+        // if zero_flag {
+        //     new_cprs_value |= 1 << ZERO_FLAG;
+        // } else {
+        //     new_cprs_value &= !(1 << ZERO_FLAG);
+        // }
+        //
+        // if negative_flag {
+        //     new_cprs_value |= 1 << NEGATIVE_FLAG;
+        // } else {
+        //     new_cprs_value &= !(1 << NEGATIVE_FLAG);
+        // }
+        //
+        // if carry_flag {
+        //     new_cprs_value |= 1 << CARRY_FLAG;
+        // } else {
+        //     new_cprs_value &= !(1 << CARRY_FLAG);
+        // }
+        //
+        // if overflow_flag {
+        //     new_cprs_value |= 1 << OVERFLOW_FLAG;
+        // } else {
+        //     new_cprs_value &= !(1 << OVERFLOW_FLAG);
+        // }
+        //
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, new_cprs_value);
     }
 
     fn execute_PRINTR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let instr = rob_slot.instr.as_ref().unwrap();
-
-        println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].value.unwrap());
+        // let instr = rob_slot.instr.as_ref().unwrap();
+        //
+        // println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].value.unwrap());
     }
 
     fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        let value = rs.source[0].value.unwrap();
-        let address = rs.source[1].value.unwrap();
-
-        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-        memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
+        // let value = rs.source[0].value.unwrap();
+        // let address = rs.source[1].value.unwrap();
+        //
+        // let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        // memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
     }
 
     fn execute_LDR(&mut self, rs: &mut RS) {
-        let memory_subsystem = self.memory_subsystem.borrow_mut();
-        let address = rs.source[0].value.unwrap() as usize;
-        let value = memory_subsystem.memory[address];
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
+        // let memory_subsystem = self.memory_subsystem.borrow_mut();
+        // let address = rs.source[0].value.unwrap() as usize;
+        // let value = memory_subsystem.memory[address];
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
     }
 
     fn execute_MVN(&mut self, rs: &mut RS) {
-        let value = !rs.source[0].value.unwrap();
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
+        // let value = !rs.source[0].value.unwrap();
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
     }
 
     fn execute_MOV(&mut self, rs: &mut RS) {
-        let value = rs.source[0].value.unwrap();
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
+        // let value = rs.source[0].value.unwrap();
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
     }
 
     fn execute_ADR(&mut self, _rs: &mut RS, _rob_slot: &mut ROBSlot) {
@@ -305,74 +326,74 @@ impl EU {
     }
 
     fn execute_EOR(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn ^ operand2;
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn ^ operand2;
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_ORR(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn | operand2;
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn | operand2;
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_AND(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn & operand2;
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn & operand2;
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_NEG(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let rd = rn.wrapping_neg();
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let rd = rn.wrapping_neg();
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_SDIV(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn / operand2;
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn / operand2;
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_MUL(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn.wrapping_mul(operand2);
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn.wrapping_mul(operand2);
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_SUB(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn.wrapping_sub(operand2);
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn.wrapping_sub(operand2);
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_RSB(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = operand2.wrapping_sub(rn);
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = operand2.wrapping_sub(rn);
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_ADD(&mut self, rs: &mut RS) {
-        let rn = rs.source[0].value.unwrap();
-        let operand2 = rs.source[1].value.unwrap();
-        let rd = rn.wrapping_add(operand2);
-        let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
+        // let rn = rs.source[0].value.unwrap();
+        // let operand2 = rs.source[1].value.unwrap();
+        // let rd = rn.wrapping_add(operand2);
+        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
+        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 }
 

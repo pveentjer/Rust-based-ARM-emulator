@@ -24,10 +24,10 @@ eu_count: 10
 trace:
   decode: false
   issue: false
-  allocate_rs: false
-  dispatch: false
-  execute: false
-  retire: false
+  allocate_rs: true
+  dispatch: true
+  execute: true
+  retire: true
   pipeline_flush: false
 # The number of instructions that can retire per clock cycle
 retire_n_wide: 2

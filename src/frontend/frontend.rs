@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{BranchInstr, DWordType, EXIT, Instr, InstrClass, InstrQueue, Opcode, Program};
+use crate::instructions::instructions::{DWordType, EXIT, Instr, InstrQueue, Opcode, Program};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -83,16 +83,16 @@ impl Frontend {
                         println!("Frontend: pc: {}  '{}'", pc, instr);
                     }
 
-                    if instr.opcode() == Opcode::EXIT {
+                    if let Instr::Exit { .. } = instr.as_ref() {
                         self.exit = true;
                     }
 
                     let tail_index = instr_queue.tail_index();
                     let slot = instr_queue.get_mut(tail_index);
 
-                    let pc_value_next = match instr {
-                        Instr::Branch { .. } => {
-                            slot.branch_target_predicted = Self::predict(pc, &instr);
+                    let pc_value_next = match instr.as_ref() {
+                        Instr::Branch { opcode, condition, loc, link_bit, offset } => {
+                            slot.branch_target_predicted = Self::predict(pc, *opcode, *offset);
                             //println!("Frontend branch predicted={}", slot.branch_target_predicted);
                             slot.branch_target_predicted
                         }
@@ -111,10 +111,10 @@ impl Frontend {
 
     // A static branch predictor that will speculate that backwards branches are taken.
     // In the future better branch predictors can be added.
-    fn predict(ip: usize, branch: &Instr::Branch) -> usize {
-        let branch_target = match branch.opcode {
+    fn predict(ip: usize, opcode: Opcode, offset: u32) -> usize {
+        let branch_target = match opcode {
             Opcode::B |
-            Opcode::BL => return branch.offset as usize, // unconditional branch can always be predicted accurately
+            Opcode::BL => return offset as usize, // unconditional branch can always be predicted accurately
             Opcode::RET => 0,
             Opcode::BX => 0,
             Opcode::CBNZ |
@@ -124,7 +124,7 @@ impl Frontend {
             Opcode::BLT |
             Opcode::BGE |
             Opcode::BGT |
-            Opcode::BEQ => branch.offset,
+            Opcode::BEQ => offset,
             _ => unreachable!(),
         };
 
