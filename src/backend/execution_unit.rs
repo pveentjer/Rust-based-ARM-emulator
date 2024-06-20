@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use serde::de::Unexpected::Option;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
@@ -55,7 +56,7 @@ impl EU {
         }
 
         match &rs.foobar {
-            RS_Instr::DataProcessing { opcode, condition, rn, rd, operand2 } => {
+            RS_Instr::DataProcessing { opcode, condition, rn, ref mut rd, operand2 } => {
                 let result = match opcode {
                     Opcode::ADD => {rn.value.unwrap() + rn.value.unwrap() + 50}
                     Opcode::SUB => {0}
@@ -64,6 +65,7 @@ impl EU {
                     Opcode::SDIV => {0}
                     _ => unreachable!()
                 };
+                rd.value = Some(result);
                 self.phys_reg_file.borrow_mut().set_value(rd.phys_reg.unwrap(), result);
             }
             RS_Instr::Branch { opcode, condition, link_bit, offset } => {}
