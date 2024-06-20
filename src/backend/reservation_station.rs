@@ -3,24 +3,6 @@ use std::collections::{HashSet, VecDeque};
 use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, Operand, RegisterType, SourceLocation};
 use crate::instructions::instructions::Opcode::NOP;
 
-pub(crate) struct RSOperand {
-    pub(crate) operand: Option<Operand>,
-    pub(crate) value: Option<DWordType>,
-    pub(crate) phys_reg: Option<RegisterType>,
-}
-
-impl RSOperand {
-    fn new() -> RSOperand {
-        RSOperand { operand: None, value: None, phys_reg: None }
-    }
-
-    fn reset(&mut self) {
-        self.operand = None;
-        self.value = None;
-        self.phys_reg = None;
-    }
-}
-
 pub(crate) struct RenamedRegister {
     pub(crate) phys_reg: Option<RegisterType>,
     pub(crate) arch_reg: RegisterType,
