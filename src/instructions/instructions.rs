@@ -217,10 +217,7 @@ pub(crate) fn create_instr(
             // instr.source[1] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?;
             panic!();
         }
-        Opcode::NOP => {
-            // validate_operand_count(0, operands, opcode, loc)?;
-            panic!();
-        }
+
         Opcode::PRINTR => {
             validate_operand_count(1, operands, opcode, loc)?;
 
@@ -314,17 +311,15 @@ pub(crate) fn create_instr(
 
             panic!();
         }
-        Opcode::EXIT => {
-            validate_operand_count(0, operands, opcode, loc)?;
-            // instr.set_branch();
-            panic!();
-        }
+        Opcode::NOP |
+        Opcode::EXIT |
         Opcode::DSB => {
             validate_operand_count(0, operands, opcode, loc)?;
-            // instr.set_rob_sync();
-            // instr.set_sb_sync();
 
-            panic!();
+            Instr::Synchronization {
+                opcode,
+                loc:Some(loc),
+            }
         }
         Opcode::NEG => {
             validate_operand_count(2, operands, opcode, loc)?;
@@ -369,13 +364,13 @@ pub(crate) fn create_instr(
         Opcode::BGE => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let mut instr = Instr::Branch {
+            Instr::Branch {
                 opcode,
                 condition: ConditionCode::AL,
                 loc,
                 link_bit: false,
                 offset: 0,
-            };
+            }
 
             // instr.source_cnt = 2;
             // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
@@ -383,8 +378,6 @@ pub(crate) fn create_instr(
             //
             // instr.sink_cnt = 0;
             // instr.set_branch();
-
-            instr
         }
     };
 
@@ -437,11 +430,14 @@ fn validate_operand(
 //     matches!(op, Register(register) if *register == PC)
 // }
 
-pub(crate) const NOP: Instr = Instr::Nop {
+pub(crate) const NOP: Instr = Instr::Synchronization {
+    opcode: Opcode::NOP,
     loc: None,
 };
 
-pub(crate) const EXIT: Instr = Instr::Exit {
+pub(crate) const EXIT: Instr = Instr::Synchronization {
+    opcode:Opcode::EXIT,
+    loc: None,
 };
 
 
@@ -479,11 +475,10 @@ pub enum Instr {
         offset: u16,
     },
 
-    Nop {
+    Synchronization {
+        opcode: Opcode,
         loc: Option<SourceLocation>,
     },
-
-    Exit,
 
     Printr{
         loc: Option<SourceLocation>,
@@ -506,13 +501,8 @@ impl Display for Instr {
                 write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, offset={}",
                        opcode, condition, loc.line, loc.column, rn, rd, offset)
             }
-
-            Instr::Nop { loc } => {
-                write!(f, "NOP")
-            }
-
-            Instr::Exit { .. } => {
-                write!(f, "EXIT")
+            Instr::Synchronization { opcode, loc } => {
+                write!(f, "{:?}",opcode)
             }
             Instr::Printr { rn, loc} => {
                 write!(f, "PRINTR {}", rn)

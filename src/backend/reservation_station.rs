@@ -41,8 +41,9 @@ pub(crate) enum RS_Instr {
     Printr {
         rn: RenamedRegister,
     },
-    Nop,
-    Exit,
+    Synchronization{
+        opcode: Opcode,
+    },
 }
 
 // A single reservation station
@@ -58,12 +59,12 @@ pub(crate) struct RS {
 impl RS {
     fn new(index: u16) -> Self {
         Self {
-            opcode: Opcode::NOP,
+            opcode: NOP,
             state: RSState::IDLE,
             pending_cnt: 0,
             rob_slot_index: None,
             index,
-            foobar: RS_Instr::Nop,
+            foobar: RS_Instr::Synchronization {opcode:NOP},
         }
     }
 
@@ -72,7 +73,7 @@ impl RS {
         self.opcode = NOP;
         self.state = RSState::IDLE;
         self.pending_cnt = 0;
-        self.foobar = RS_Instr::Nop;
+        self.foobar = RS_Instr::Synchronization {opcode:NOP};
     }
 }
 

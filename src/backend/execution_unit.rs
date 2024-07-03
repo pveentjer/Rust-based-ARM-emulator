@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use serde::de::Unexpected::Option;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
@@ -55,7 +54,7 @@ impl EU {
             println!("Executing {}", instr);
         }
 
-        match &rs.foobar {
+        match &mut rs.foobar {
             RS_Instr::DataProcessing { opcode, condition, rn, ref mut rd, operand2 } => {
                 let result = match opcode {
                     Opcode::ADD => {rn.value.unwrap() + rn.value.unwrap() + 50}
@@ -73,8 +72,7 @@ impl EU {
             RS_Instr::Printr { rn} => {
                 println!("PRINTR {}={}", Operand::Register(rn.arch_reg), rn.value.unwrap());
             }
-            RS_Instr::Nop => {}
-            RS_Instr::Exit => {}
+            RS_Instr::Synchronization {..} => {}
         }
 
         // match rs.opcode {

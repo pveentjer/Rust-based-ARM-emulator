@@ -242,8 +242,6 @@ impl Backend {
                         _ => unreachable!(),
                     }
                 }
-                Instr::Nop { .. } => {}
-                Instr::Exit => {}
                 Instr::Printr { rn, loc } => {
                     // rob_slot.sink_phys_regs[operand_index] = Some(phys_reg);
                     //
@@ -260,6 +258,7 @@ impl Backend {
 
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
+                Instr::Synchronization { .. } => {}
             }
 
             if rs.pending_cnt == 0 {
@@ -483,8 +482,10 @@ impl Backend {
 
                 perf_counters.retired_cnt += 1;
 
-                if let Instr::Exit { .. } = instr.as_ref() {
-                    self.exit = true;
+                if let Instr::Synchronization { opcode, loc } = instr.as_ref() {
+                    if *opcode == Opcode::EXIT {
+                        self.exit = true;
+                    }
                 }
 
                 if self.trace.retire {

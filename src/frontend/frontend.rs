@@ -83,8 +83,10 @@ impl Frontend {
                         println!("Frontend: pc: {}  '{}'", pc, instr);
                     }
 
-                    if let Instr::Exit { .. } = instr.as_ref() {
-                        self.exit = true;
+                    if let Instr::Synchronization { opcode, loc } = instr.as_ref() {
+                        if *opcode == Opcode::EXIT{
+                            self.exit = true;
+                        }
                     }
 
                     let tail_index = instr_queue.tail_index();
