@@ -170,12 +170,14 @@ pub(crate) fn create_instr(
             let rn = operands[1].get_register();
 
             let mut instr = Instr::DataProcessing {
-                opcode,
-                condition: ConditionCode::AL,
-                loc,
-                rn,
-                rd,
-                operand2: 0,
+                data_processing: DataProcessing {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    rn,
+                    rd,
+                    operand2: 0,
+                }
             };
             //
             // instr.sink_cnt = 1;
@@ -191,12 +193,14 @@ pub(crate) fn create_instr(
             validate_operand_count(2, operands, opcode, loc)?;
 
             let mut instr = Instr::LoadStore {
-                opcode,
-                condition: ConditionCode::AL,
-                loc,
-                rn: 0,
-                rt: 0,
-                offset: 0,
+                load_store: LoadStore {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    rn: 0,
+                    rt: 0,
+                    offset: 0,
+                }
             };
             //
             // instr.sink_cnt = 1;
@@ -224,8 +228,10 @@ pub(crate) fn create_instr(
             let rn = operands[0].get_register();
 
             let mut instr = Instr::Printr {
-                loc:Some(loc),
-                rn,
+                printr: Printr {
+                    loc: Some(loc),
+                    rn,
+                }
             };
 
             instr
@@ -317,8 +323,10 @@ pub(crate) fn create_instr(
             validate_operand_count(0, operands, opcode, loc)?;
 
             Instr::Synchronization {
-                opcode,
-                loc:Some(loc),
+                synchronization: Synchronization {
+                    opcode,
+                    loc: Some(loc),
+                }
             }
         }
         Opcode::NEG => {
@@ -365,11 +373,13 @@ pub(crate) fn create_instr(
             validate_operand_count(1, operands, opcode, loc)?;
 
             Instr::Branch {
-                opcode,
-                condition: ConditionCode::AL,
-                loc,
-                link_bit: false,
-                offset: 0,
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: false,
+                    offset: 0,
+                }
             }
 
             // instr.source_cnt = 2;
@@ -431,81 +441,108 @@ fn validate_operand(
 // }
 
 pub(crate) const NOP: Instr = Instr::Synchronization {
-    opcode: Opcode::NOP,
-    loc: None,
+    synchronization: Synchronization {
+        opcode: Opcode::NOP,
+        loc: None,
+    }
 };
 
 pub(crate) const EXIT: Instr = Instr::Synchronization {
-    opcode:Opcode::EXIT,
-    loc: None,
+    synchronization: Synchronization {
+        opcode: Opcode::EXIT,
+        loc: None,
+    }
 };
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct DataProcessing{
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub loc: SourceLocation,
+    // First operand register.
+    pub rn: RegisterType,
+    // Destination register.
+    pub rd: RegisterType,
+    // Second operand, which can be an immediate value or a shifted register.
+    // todo: should be done with a proper type
+    pub operand2: u16,
+}
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Branch{
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub loc: SourceLocation,
+    pub link_bit: bool,
+    pub offset: u32,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct LoadStore{
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub loc: SourceLocation,
+    pub rn: RegisterType,
+    pub rt: RegisterType,
+    pub offset: u16,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Synchronization{
+    pub opcode: Opcode,
+    pub loc: Option<SourceLocation>,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Printr{
+    pub loc: Option<SourceLocation>,
+    pub rn: RegisterType,
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Instr {
 
     DataProcessing {
-        opcode: Opcode,
-        condition: ConditionCode,
-        loc: SourceLocation,
-        // First operand register.
-        rn: RegisterType,
-        // Destination register.
-        rd: RegisterType,
-        // Second operand, which can be an immediate value or a shifted register.
-        // todo: should be done with a proper type
-        operand2: u16,
+        data_processing: DataProcessing,
     },
 
     Branch {
-        opcode: Opcode,
-        condition: ConditionCode,
-        loc: SourceLocation,
-        link_bit: bool,
-        offset: u32,
+        branch: Branch,
     },
 
     LoadStore {
-        opcode: Opcode,
-        condition: ConditionCode,
-        loc: SourceLocation,
-        rn: RegisterType,
-        rt: RegisterType,
-        offset: u16,
+        load_store: LoadStore,
     },
 
     Synchronization {
-        opcode: Opcode,
-        loc: Option<SourceLocation>,
+        synchronization: Synchronization,
     },
 
     Printr{
-        loc: Option<SourceLocation>,
-        rn: RegisterType,
+        printr: Printr,
     },
 }
 
 impl Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Instr::DataProcessing { opcode, condition, loc, rn, rd, operand2 } => {
+            Instr::DataProcessing { data_processing: fields } => {
                 write!(f, "DataProcessing: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, operand2={}",
-                       opcode, condition, loc.line, loc.column, rn, rd, operand2)
+                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.rn, fields.rd, fields.operand2)
             }
-            Instr::Branch { opcode, condition, loc, link_bit, offset } => {
+            Instr::Branch { branch: fields } => {
                 write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, offset={}",
-                       opcode, condition, loc.line, loc.column, link_bit, offset)
+                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.link_bit, fields.offset)
             }
-            Instr::LoadStore { opcode, condition, loc, rn, rt: rd, offset } => {
-                write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, offset={}",
-                       opcode, condition, loc.line, loc.column, rn, rd, offset)
+            Instr::LoadStore { load_store: fields } => {
+                write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rt={:?}, offset={}",
+                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.rn, fields.rt, fields.offset)
             }
-            Instr::Synchronization { opcode, loc } => {
-                write!(f, "{:?}",opcode)
+            Instr::Synchronization { synchronization: fields } => {
+                write!(f, "{:?}",fields.opcode)
             }
-            Instr::Printr { rn, loc} => {
-                write!(f, "PRINTR {}", rn)
+            Instr::Printr { printr: fields } => {
+                write!(f, "PRINTR {}", fields.rn)
             }
         }
     }
