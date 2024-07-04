@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, Operand, RegisterType, SourceLocation};
+use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, RegisterType};
 use crate::instructions::instructions::Opcode::NOP;
 
 pub(crate) struct RenamedRegister {
@@ -15,34 +15,56 @@ pub(crate) enum RSState {
     BUSY,
 }
 
-pub(crate) enum RS_Instr {
+pub struct RSDataProcessing {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub rn: RenamedRegister,
+    pub rd: RenamedRegister,
+    pub operand2: u16,
+}
+
+pub struct RSBranch {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub link_bit: bool,
+    pub offset: u32,
+}
+
+pub struct RSLoadStore {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub rn: RenamedRegister,
+    pub rt: RenamedRegister,
+    pub offset: u16,
+}
+
+pub struct RSPrintr {
+    pub rn: RenamedRegister,
+}
+
+pub struct RSSynchronization {
+    pub opcode: Opcode,
+}
+
+pub(crate) enum RSInstr {
     DataProcessing {
-        opcode: Opcode,
-        condition: ConditionCode,
-        rn: RenamedRegister,
-        rd: RenamedRegister,
-        operand2: u16,
+        fields: RSDataProcessing,
     },
 
     Branch {
-        opcode: Opcode,
-        condition: ConditionCode,
-        link_bit: bool,
-        offset: u32,
+        fields: RSBranch,
     },
 
     LoadStore {
-        opcode: Opcode,
-        condition: ConditionCode,
-        rn: RenamedRegister,
-        rt: RenamedRegister,
-        offset: u16,
+        fields: RSLoadStore,
     },
+
     Printr {
-        rn: RenamedRegister,
+        fields: RSPrintr,
     },
-    Synchronization{
-        opcode: Opcode,
+
+    Synchronization {
+        fields: RSSynchronization,
     },
 }
 
@@ -52,7 +74,7 @@ pub(crate) struct RS {
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
     pub(crate) pending_cnt: u8,
-    pub(crate) foobar: RS_Instr,
+    pub(crate) instr: RSInstr,
     pub(crate) index: u16,
 }
 
@@ -64,7 +86,9 @@ impl RS {
             pending_cnt: 0,
             rob_slot_index: None,
             index,
-            foobar: RS_Instr::Synchronization {opcode:NOP},
+            instr: RSInstr::Synchronization {
+                fields: RSSynchronization { opcode: NOP },
+            },
         }
     }
 
@@ -73,7 +97,9 @@ impl RS {
         self.opcode = NOP;
         self.state = RSState::IDLE;
         self.pending_cnt = 0;
-        self.foobar = RS_Instr::Synchronization {opcode:NOP};
+        self.instr = RSInstr::Synchronization {
+            fields: RSSynchronization {opcode: NOP}
+        };
     }
 }
 

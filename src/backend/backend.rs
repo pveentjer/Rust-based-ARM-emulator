@@ -5,7 +5,7 @@ use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reservation_station::{RenamedRegister, RS, RS_Instr, RSState, RSTable};
+use crate::backend::reservation_station::{RenamedRegister, RS, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr, RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, RegisterType};
@@ -168,75 +168,71 @@ impl Backend {
 
             match instr.as_ref() {
                 Instr::DataProcessing {
-                    opcode,
-                    condition,
-                    loc,
-                    rn,
-                    rd,
-                    operand2: u16
+                    opcode, condition, loc, rn, rd, operand2: u16
                 } => {
-                    rs.foobar = RS_Instr::DataProcessing {
-                        opcode: *opcode,
-                        condition: *condition,
-                        rn: register_rename_src(
-                            *rn,
-                            rs,
-                            &mut self.rat,
-                            &arch_reg_file,
-                            &mut phys_reg_file),
-                        rd: register_rename_sink(
-                            *rd,
-                            &mut phys_reg_file,
-                            &mut self.rat),
-                        operand2: 0,
+                    rs.instr = RSInstr::DataProcessing {
+                        fields: RSDataProcessing {
+                            opcode: *opcode,
+                            condition: *condition,
+                            rn: register_rename_src(
+                                *rn,
+                                rs,
+                                &mut self.rat,
+                                &arch_reg_file,
+                                &mut phys_reg_file),
+                            rd: register_rename_sink(
+                                *rd,
+                                &mut phys_reg_file,
+                                &mut self.rat),
+                            operand2: 0,
+                        }
                     };
 
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
                 Instr::Branch { .. } => {}
                 Instr::LoadStore {
-                    opcode,
-                    condition,
-                    loc,
-                    rn,
-                    rt,
-                    offset
+                    opcode, condition, loc, rn, rt, offset
                 } => {
                     match opcode {
                         Opcode::LDR => {
-                            rs.foobar = RS_Instr::LoadStore {
-                                opcode: *opcode,
-                                condition: *condition,
-                                rn: register_rename_src(
-                                    *rn,
-                                    rs,
-                                    &mut self.rat,
-                                    &arch_reg_file,
-                                    &mut phys_reg_file),
-                                rt: register_rename_sink(
-                                    *rt,
-                                    &mut phys_reg_file,
-                                    &mut self.rat),
-                                offset: *offset,
+                            rs.instr = RSInstr::LoadStore {
+                                fields: RSLoadStore {
+                                    opcode: *opcode,
+                                    condition: *condition,
+                                    rn: register_rename_src(
+                                        *rn,
+                                        rs,
+                                        &mut self.rat,
+                                        &arch_reg_file,
+                                        &mut phys_reg_file),
+                                    rt: register_rename_sink(
+                                        *rt,
+                                        &mut phys_reg_file,
+                                        &mut self.rat),
+                                    offset: *offset,
+                                }
                             };
                         }
                         Opcode::STR => {
-                            rs.foobar = RS_Instr::LoadStore {
-                                opcode: *opcode,
-                                condition: *condition,
-                                rn: register_rename_src(
-                                    *rn,
-                                    rs,
-                                    &mut self.rat,
-                                    &arch_reg_file,
-                                    &mut phys_reg_file),
-                                rt: register_rename_src(
-                                    *rt,
-                                    rs,
-                                    &mut self.rat,
-                                    &arch_reg_file,
-                                    &mut phys_reg_file),
-                                offset: *offset,
+                            rs.instr = RSInstr::LoadStore {
+                                fields: RSLoadStore {
+                                    opcode: *opcode,
+                                    condition: *condition,
+                                    rn: register_rename_src(
+                                        *rn,
+                                        rs,
+                                        &mut self.rat,
+                                        &arch_reg_file,
+                                        &mut phys_reg_file),
+                                    rt: register_rename_src(
+                                        *rt,
+                                        rs,
+                                        &mut self.rat,
+                                        &arch_reg_file,
+                                        &mut phys_reg_file),
+                                    offset: *offset,
+                                }
                             };
                         }
                         _ => unreachable!(),
@@ -247,13 +243,15 @@ impl Backend {
                     //
                     // operand_rs.phys_reg = Some(phys_reg);
 
-                    rs.foobar = RS_Instr::Printr {
-                        rn: register_rename_src(
-                            *rn,
-                            rs,
-                            &mut self.rat,
-                            &arch_reg_file,
-                            &mut phys_reg_file),
+                    rs.instr = RSInstr::Printr {
+                        fields: RSPrintr {
+                            rn: register_rename_src(
+                                *rn,
+                                rs,
+                                &mut self.rat,
+                                &arch_reg_file,
+                                &mut phys_reg_file)
+                        },
                     };
 
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)

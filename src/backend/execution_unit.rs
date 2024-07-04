@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
-use crate::backend::reservation_station::{RS, RS_Instr};
+use crate::backend::reservation_station::{RSDataProcessing, RSPrintr, RenamedRegister, RS, RSInstr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
 use crate::instructions::instructions::{DWordType, Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -54,25 +54,16 @@ impl EU {
             println!("Executing {}", instr);
         }
 
-        match &mut rs.foobar {
-            RS_Instr::DataProcessing { opcode, condition, rn, ref mut rd, operand2 } => {
-                let result = match opcode {
-                    Opcode::ADD => {rn.value.unwrap() + rn.value.unwrap() + 50}
-                    Opcode::SUB => {0}
-                    Opcode::RSB => {0}
-                    Opcode::MUL => {0}
-                    Opcode::SDIV => {0}
-                    _ => unreachable!()
-                };
-                rd.value = Some(result);
-                self.phys_reg_file.borrow_mut().set_value(rd.phys_reg.unwrap(), result);
+        match &mut rs.instr {
+            RSInstr::DataProcessing { fields } => {
+                self.execute_data_processing(fields);
             }
-            RS_Instr::Branch { opcode, condition, link_bit, offset } => {}
-            RS_Instr::LoadStore { .. } => {}
-            RS_Instr::Printr { rn} => {
-                println!("PRINTR {}={}", Operand::Register(rn.arch_reg), rn.value.unwrap());
+            RSInstr::Branch { fields} => {}
+            RSInstr::LoadStore { fields} => {}
+            RSInstr::Printr {fields} => {
+                self.execute_printr(fields);
             }
-            RS_Instr::Synchronization {..} => {}
+            RSInstr::Synchronization {..} => {}
         }
 
         // match rs.opcode {
@@ -108,6 +99,23 @@ impl EU {
         //     Opcode::EXIT => {}
         //     Opcode::DSB => {}
         // }
+    }
+
+    fn execute_printr(&mut self, fields: &mut RSPrintr) {
+        println!("PRINTR {}={}", Operand::Register(fields.rn.arch_reg), fields.rn.value.unwrap())
+    }
+
+    fn execute_data_processing(&mut self, fields: &mut RSDataProcessing) {
+        let result = match fields.opcode {
+            Opcode::ADD => { fields.rn.value.unwrap() + fields.rn.value.unwrap() + 50 }
+            Opcode::SUB => { 0 }
+            Opcode::RSB => { 0 }
+            Opcode::MUL => { 0 }
+            Opcode::SDIV => { 0 }
+            _ => unreachable!()
+        };
+        fields.rd.value = Some(result);
+        self.phys_reg_file.borrow_mut().set_value(fields.rd.phys_reg.unwrap(), result);
     }
 
     fn execute_BEQ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
