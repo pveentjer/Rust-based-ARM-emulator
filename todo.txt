@@ -13,11 +13,13 @@ BUGS
 
 TODO
 
-- NOP: how does it fit into the new instruction hierarchy
+- operands can move to the AST section since not used inside the CPU
 
-- PRINTR: how does it fit into the new instruction hierarchy
+- CDBBroadcast: missing load/store
 
-- fix frontend with the new instruction hierarchy
+- CDBbroadcast: missing branch
+
+- DataProcessing: operand 2
 
 - DataProcessingInstr: register renaming
 
@@ -25,17 +27,19 @@ TODO
 
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
 
-- figure out how the reservation station needs to deal with the different instruction classes
-
 - LoadStoreInstr implement Display
 
 - DataProcessingInstr implement Display
 
 - BranchInstr implement Display
 
-- follow the ARM instruction layout
-
 - add ConditionCode operand
+
+- add TST
+
+- add TEQ
+
+- add MVN
 
 - add CSINC
 
@@ -75,14 +79,23 @@ TODO
 
 DONE
 
-- instead of messing with traits for the instruction classes, use an enum
+- DataProcessing: Operand2 doesn't need to be available at all.
 
-- instead of having a single generic Instr format, add specialized Instruction formats.
+- RSInstr:DataProcessing deal properly with the operand2
 
-- add InstructionClass
+- CDBbroadcast not implemented
 
-- add LoadStoreInstr
+- follow the ARM instruction layout
 
-- add DataProcessingInstr
+- figure out how the reservation station needs to deal with the different instruction classes
 
-- add BranchInstr
+- fix frontend with the new instruction hierarchy
+
+- pull out fields for RSInstr enum
+
+- pull out fields for Instr enum
+
+- NOP: how does it fit into the new instruction hierarchy
+
+- PRINTR: how does it fit into the new instruction hierarchy
+

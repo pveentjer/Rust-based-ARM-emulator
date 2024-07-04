@@ -15,12 +15,32 @@ pub(crate) enum RSState {
     BUSY,
 }
 
+pub enum RSOperand2 {
+    Immediate {
+        value: DWordType,
+    },
+    Register {
+        register: RenamedRegister,
+    },
+    Unused(),
+}
+
+impl RSOperand2 {
+    pub fn value(&self) -> DWordType {
+        match self {
+            RSOperand2::Immediate { value } => *value,
+            RSOperand2::Register { register } => register.value.unwrap(),
+            RSOperand2::Unused() => panic!(),
+        }
+    }
+}
+
 pub struct RSDataProcessing {
     pub opcode: Opcode,
     pub condition: ConditionCode,
     pub rn: RenamedRegister,
     pub rd: RenamedRegister,
-    pub operand2: u16,
+    pub operand2: RSOperand2,
 }
 
 pub struct RSBranch {
@@ -34,7 +54,7 @@ pub struct RSLoadStore {
     pub opcode: Opcode,
     pub condition: ConditionCode,
     pub rn: RenamedRegister,
-    pub rt: RenamedRegister,
+    pub rd: RenamedRegister,
     pub offset: u16,
 }
 
@@ -48,23 +68,23 @@ pub struct RSSynchronization {
 
 pub(crate) enum RSInstr {
     DataProcessing {
-        fields: RSDataProcessing,
+        data_processing: RSDataProcessing,
     },
 
     Branch {
-        fields: RSBranch,
+        branch: RSBranch,
     },
 
     LoadStore {
-        fields: RSLoadStore,
+        load_store: RSLoadStore,
     },
 
     Printr {
-        fields: RSPrintr,
+        printr: RSPrintr,
     },
 
     Synchronization {
-        fields: RSSynchronization,
+        synchronization: RSSynchronization,
     },
 }
 
@@ -87,7 +107,7 @@ impl RS {
             rob_slot_index: None,
             index,
             instr: RSInstr::Synchronization {
-                fields: RSSynchronization { opcode: NOP },
+                synchronization: RSSynchronization { opcode: NOP },
             },
         }
     }
@@ -98,7 +118,7 @@ impl RS {
         self.state = RSState::IDLE;
         self.pending_cnt = 0;
         self.instr = RSInstr::Synchronization {
-            fields: RSSynchronization {opcode: NOP}
+            synchronization: RSSynchronization { opcode: NOP }
         };
     }
 }

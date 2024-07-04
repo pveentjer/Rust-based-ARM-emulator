@@ -5,10 +5,10 @@ use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reservation_station::{RenamedRegister, RS, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr, RSState, RSTable};
+use crate::backend::reservation_station::{RenamedRegister, RS, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, RegisterType};
+use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
@@ -145,15 +145,17 @@ impl Backend {
             debug_assert!(rob_slot.rs_index.is_none());
 
             let instr = rob_slot.instr.as_ref().unwrap();
-            //
-            // if instr.mem_stores > 0 {
-            //     if !memory_subsystem.sb.has_space() {
-            //         // we can't allocate a slot in the store buffer, we are done
-            //         break;
-            //     }
-            //
-            //     rob_slot.sb_pos = Some(memory_subsystem.sb.allocate());
-            // }
+
+            if let Instr::LoadStore { load_store } = instr.as_ref() {
+                if load_store.opcode == Opcode::STR {
+                    if !memory_subsystem.sb.has_space() {
+                        // we can't allocate a slot in the store buffer, we are done
+                        break;
+                    }
+
+                    rob_slot.sb_pos = Some(memory_subsystem.sb.allocate());
+                }
+            }
 
             let rs_index = self.rs_table.allocate();
             let rs = self.rs_table.get_mut(rs_index);
@@ -162,71 +164,52 @@ impl Backend {
             rob_slot.rs_index = Some(rs_index);
 
             rs.rob_slot_index = Some(rob_slot_index);
-            //todo
-            //rs.opcode = instr.opcode();
+            //rs.opcode = instr.opcode;
             //rs.source_cnt = instr.source_cnt;
 
             match instr.as_ref() {
-                Instr::DataProcessing { data_processing: data_processing } => {
+                Instr::DataProcessing { data_processing } => {
                     rs.instr = RSInstr::DataProcessing {
-                        fields: RSDataProcessing {
+                        data_processing: RSDataProcessing {
                             opcode: data_processing.opcode,
                             condition: data_processing.condition,
-                            rn: register_rename_src(
-                                data_processing.rn,
-                                rs,
-                                &mut self.rat,
-                                &arch_reg_file,
-                                &mut phys_reg_file),
-                            rd: register_rename_sink(
-                                data_processing.rd,
-                                &mut phys_reg_file,
-                                &mut self.rat),
-                            operand2: 0,
+                            rn: register_rename_src(data_processing.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                            rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
+                            operand2: match data_processing.operand2 {
+                                Operand2::Unused() => RSOperand2::Unused(),
+                                Operand2::Register { register } => {
+                                    RSOperand2::Register {
+                                        register: register_rename_src(register, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
+                                    }
+                                }
+                                Operand2::Immediate { value } => RSOperand2::Immediate { value },
+                            },
                         }
                     };
 
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
-                Instr::Branch { branch} => {}
-                Instr::LoadStore {load_store} => {
+                Instr::Branch { branch } => {}
+                Instr::LoadStore { load_store } => {
                     match load_store.opcode {
                         Opcode::LDR => {
                             rs.instr = RSInstr::LoadStore {
-                                fields: RSLoadStore {
+                                load_store: RSLoadStore {
                                     opcode: load_store.opcode,
                                     condition: load_store.condition,
-                                    rn: register_rename_src(
-                                        load_store.rn,
-                                        rs,
-                                        &mut self.rat,
-                                        &arch_reg_file,
-                                        &mut phys_reg_file),
-                                    rt: register_rename_sink(
-                                        load_store.rt,
-                                        &mut phys_reg_file,
-                                        &mut self.rat),
+                                    rn: register_rename_src(load_store.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                                    rd: register_rename_sink(load_store.rd, &mut phys_reg_file, &mut self.rat),
                                     offset: load_store.offset,
                                 }
                             };
                         }
                         Opcode::STR => {
                             rs.instr = RSInstr::LoadStore {
-                                fields: RSLoadStore {
+                                load_store: RSLoadStore {
                                     opcode: load_store.opcode,
                                     condition: load_store.condition,
-                                    rn: register_rename_src(
-                                        load_store.rn,
-                                        rs,
-                                        &mut self.rat,
-                                        &arch_reg_file,
-                                        &mut phys_reg_file),
-                                    rt: register_rename_src(
-                                        load_store.rt,
-                                        rs,
-                                        &mut self.rat,
-                                        &arch_reg_file,
-                                        &mut phys_reg_file),
+                                    rn: register_rename_src(load_store.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                                    rd: register_rename_src(load_store.rd, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
                                     offset: load_store.offset,
                                 }
                             };
@@ -234,29 +217,17 @@ impl Backend {
                         _ => unreachable!(),
                     }
                 }
-                Instr::Printr { printr} => {
-                    // rob_slot.sink_phys_regs[operand_index] = Some(phys_reg);
-                    //
-                    // operand_rs.phys_reg = Some(phys_reg);
-
+                Instr::Printr { printr } => {
                     rs.instr = RSInstr::Printr {
-                        fields: RSPrintr {
-                            rn: register_rename_src(
-                                printr.rn,
-                                rs,
-                                &mut self.rat,
-                                &arch_reg_file,
-                                &mut phys_reg_file)
+                        printr: RSPrintr {
+                            rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
                         },
                     };
-
-                    println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
                 Instr::Synchronization { .. } => {}
             }
 
             if rs.pending_cnt == 0 {
-                println!("foobar");
                 self.rs_table.enqueue_ready(rs_index);
             }
 
@@ -339,36 +310,22 @@ impl Backend {
 
                 debug_assert!(eu.state == EUState::COMPLETED);
 
-                // match rs.foobar {
-                //     RS_Instr::DataProcessing { opcode, condition, rn, rd,operand2 } => {
-                //         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-                //         let phys_reg_entry = phys_reg_file.get_mut(rd_p);
-                //         self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd_p, value: phys_reg_entry.value });
-                //     }
-                //     RS_Instr::Branch { .. } => {}
-                //     RS_Instr::LoadStore { .. } => {}
-                //     RS_Instr::Printr { .. } => {}
-                //     RS_Instr::Nop => {}
-                //     RS_Instr::Exit => {}
-                // }
-
-                //
-                // for sink_index in 0..rs.sink_cnt {
-                //     let sink = &mut rs.sink[sink_index as usize];
-                //     match sink.operand.unwrap() {
-                //         Operand::Register(_) => {
-                //             let phys_reg = sink.phys_reg.unwrap();
-                //             let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-                //             let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
-                //             self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: phys_reg_entry.value });
-                //         }
-                //         Operand::Memory(addr) => {}
-                //         Operand::Immediate(_) |
-                //         Operand::Code(_) |
-                //         Operand::MemRegisterIndirect(_) |
-                //         Operand::Unused => panic!("Illegal sink {:?}", sink.operand.unwrap()),
-                //     }
-                // }
+                match &rs.instr {
+                    RSInstr::DataProcessing { data_processing } => {
+                        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+                        let rd = data_processing.rd.phys_reg.unwrap();
+                        let phys_reg_entry = phys_reg_file.get_mut(rd);
+                        self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
+                    }
+                    RSInstr::Branch { .. } => {}
+                    RSInstr::LoadStore { load_store } => {
+                        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+                        let rd = load_store.rd.phys_reg.unwrap();
+                        let phys_reg_entry = phys_reg_file.get_mut(rd);
+                        self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
+                    }
+                    _ => {}
+                }
 
                 let eu_index = eu.index;
                 self.eu_table.deallocate(eu_index);
@@ -396,55 +353,61 @@ impl Backend {
                     continue;
                 }
 
+                println!("CDBBroadcast: looking");
+
                 let rob_slot_index = rs.rob_slot_index.unwrap();
                 let rob_slot = rob.get_mut(rob_slot_index);
                 if rob_slot.state != ROBSlotState::ISSUED {
                     continue;
                 }
 
-                let rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
-                let mut resolved = false;
+                let mut rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
+                let mut at_least_one_resolved = false;
 
-                // match rs.foobar {
-                //     RS_Instr::DataProcessing { opcode, condition, rn_a, rn_p, ref mut rn_v, rd_a, rd_p, operand2 } => {
-                //         if let Some(r) = rn_p {
-                //             if r == broadcast.phys_reg {
-                //                 *rn_v = Some(broadcast.value);
-                //                 resolved = true;
-                //                 rs.pending_cnt -= 1;
-                //             }
-                //         }
-                //     }
-                //     RS_Instr::Branch { .. } => {}
-                //     RS_Instr::LoadStore { .. } => {}
-                //     RS_Instr::Printr { rn_a, rn_p, ref mut rn_v } => {
-                //         if let Some(r) = rn_p {
-                //             if r == broadcast.phys_reg {
-                //                 *rn_v = Some(broadcast.value);
-                //                 resolved = true;
-                //                 rs.pending_cnt -= 1;
-                //             }
-                //         }
-                //     }
-                //     RS_Instr::Nop => {}
-                //     RS_Instr::Exit => {}
-                // }
+                match &mut rs.instr {
+                    RSInstr::DataProcessing { data_processing } => {
+                        if let Some(r) = data_processing.rn.phys_reg {
+                            if r == broadcast.phys_reg {
+                                data_processing.rn.value = Some(broadcast.value);
+                                at_least_one_resolved = true;
+                                rs.pending_cnt -= 1;
+                            }
+                        };
 
-                // for source_index in 0..rs.source_cnt as usize {
-                //     let operand_rs = &mut rs.source[source_index];
-                //     if let Some(phys_reg) = operand_rs.phys_reg {
-                //         if phys_reg == broadcast.phys_reg {
-                //             operand_rs.value = Some(broadcast.value);
-                //             rs.source_ready_cnt += 1;
-                //             added_src_ready = true;
-                //         }
-                //     }
-                // }
+                        if let RSOperand2::Register { ref mut register } = &mut data_processing.operand2 {
+                            if let Some(r) = register.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    register.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
+                        }
+                    }
+                    RSInstr::Branch { branch } => {
+                        //todo:
+                    }
+                    RSInstr::LoadStore { load_store } => {
+                        //todo:
+                    }
+                    RSInstr::Printr { printr } => {
+                       if let Some(r) = printr.rn.phys_reg {
+                            if r == broadcast.phys_reg {
+                                printr.rn.value = Some(broadcast.value);
+                                at_least_one_resolved = true;
+                                rs.pending_cnt -= 1;
+                            }
+                        }
+                    }
+                    RSInstr::Synchronization { .. } => {}
+                }
 
                 // bug: it can happen that the same rs is offered multiple times
                 // one time it triggered when the allocation of rs is done
                 // and the other time here.
-                if resolved && rs.pending_cnt == 0 {
+                // todo: not sure if this can still happen due to the at_least_one_resolved.
+                // todo: perhaps this issue is that we don't check if the register was already resolved.
+                if at_least_one_resolved && rs.pending_cnt == 0 {
                     self.rs_table.enqueue_ready(rob_slot.rs_index.unwrap());
                 }
             }
@@ -476,7 +439,7 @@ impl Backend {
 
                 perf_counters.retired_cnt += 1;
 
-                if let Instr::Synchronization { synchronization} = instr.as_ref() {
+                if let Instr::Synchronization { synchronization } = instr.as_ref() {
                     if synchronization.opcode == Opcode::EXIT {
                         self.exit = true;
                     }

@@ -74,7 +74,9 @@ impl Frontend {
                     let pc = arch_reg_file.get_value(PC) as usize;
                     let instr = if program.code.len() == pc {
                         // at the end of the program
-                        Rc::new(EXIT)
+                        Rc::new(EXIT);
+                        // todo: fix
+                        return;
                     } else {
                         program.get_instr(pc)
                     };

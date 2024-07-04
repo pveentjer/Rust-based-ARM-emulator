@@ -1,5 +1,6 @@
 .data
     var_a: .dword 0
 .text
-    ADD r10, r2, #1;
-    PRINTR r10;
+    ADD r1, r0, #20;
+    ADD r2, r1, r1;
+    PRINTR r2;

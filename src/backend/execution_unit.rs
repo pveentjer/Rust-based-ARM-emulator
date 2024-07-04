@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
-use crate::backend::reservation_station::{RSDataProcessing, RSPrintr, RenamedRegister, RS, RSInstr};
-use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
-use crate::instructions::instructions::{DWordType, Opcode, Operand};
+use crate::backend::reservation_station::{RS, RSDataProcessing, RSInstr, RSPrintr};
+use crate::cpu::{CPUConfig, PerfCounters};
+use crate::instructions::instructions::{Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 /// A single execution unit.
@@ -55,15 +55,15 @@ impl EU {
         }
 
         match &mut rs.instr {
-            RSInstr::DataProcessing { fields } => {
+            RSInstr::DataProcessing { data_processing: fields } => {
                 self.execute_data_processing(fields);
             }
-            RSInstr::Branch { fields} => {}
-            RSInstr::LoadStore { fields} => {}
-            RSInstr::Printr {fields} => {
+            RSInstr::Branch { branch: fields } => {}
+            RSInstr::LoadStore { load_store: fields } => {}
+            RSInstr::Printr { printr: fields } => {
                 self.execute_printr(fields);
             }
-            RSInstr::Synchronization {..} => {}
+            RSInstr::Synchronization { .. } => {}
         }
 
         // match rs.opcode {
@@ -101,21 +101,22 @@ impl EU {
         // }
     }
 
-    fn execute_printr(&mut self, fields: &mut RSPrintr) {
-        println!("PRINTR {}={}", Operand::Register(fields.rn.arch_reg), fields.rn.value.unwrap())
+    fn execute_printr(&mut self, printr: &mut RSPrintr) {
+        println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
     }
 
-    fn execute_data_processing(&mut self, fields: &mut RSDataProcessing) {
-        let result = match fields.opcode {
-            Opcode::ADD => { fields.rn.value.unwrap() + fields.rn.value.unwrap() + 50 }
-            Opcode::SUB => { 0 }
+    fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing) {
+        let result = match &data_processing.opcode {
+            Opcode::ADD => { data_processing.rn.value.unwrap() + data_processing.operand2.value() }
+            Opcode::SUB => { data_processing.rn.value.unwrap() - data_processing.operand2.value() }
             Opcode::RSB => { 0 }
-            Opcode::MUL => { 0 }
+            Opcode::MUL => { data_processing.rn.value.unwrap() * data_processing.operand2.value() }
             Opcode::SDIV => { 0 }
             _ => unreachable!()
         };
-        fields.rd.value = Some(result);
-        self.phys_reg_file.borrow_mut().set_value(fields.rd.phys_reg.unwrap(), result);
+        println!("Result: {}",result);
+        data_processing.rd.value = Some(result);
+        self.phys_reg_file.borrow_mut().set_value(data_processing.rd.phys_reg.unwrap(), result);
     }
 
     fn execute_BEQ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
