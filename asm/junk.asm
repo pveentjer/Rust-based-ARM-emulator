@@ -1,6 +1,10 @@
 .data
-    var_a: .dword 0
+    var_b: .dword 20
+    var_a: .dword 20
 .text
-    ADD r1, r0, #20;
-    ADD r2, r1, r1;
-    PRINTR r2;
+    MOV r0, =var_a;
+    LDR r1, r0;
+    ADD r1, r1, #10;
+    PRINTR r1;
+    MOV r0, =var_a;
+    STR r1, r0;

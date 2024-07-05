@@ -15,15 +15,7 @@ TODO
 
 - operands can move to the AST section since not used inside the CPU
 
-- CDBBroadcast: missing load/store
-
 - CDBbroadcast: missing branch
-
-- DataProcessing: operand 2
-
-- DataProcessingInstr: register renaming
-
-- LoadStore instruction: register renaming
 
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
 
@@ -78,6 +70,19 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix MOV
+    - the problem is that MOV currently doesn't fit nicely in the DataProcessing when there is a direct value
+      MOV r1, #10
+      The problem is that rn register isn't used in this case.
+
+- CDBBroadcast: missing load/store
+
+- DataProcessing: operand 2
+
+- DataProcessingInstr: register renaming
+
+- LoadStore instruction: register renaming
 
 - DataProcessing: Operand2 doesn't need to be available at all.
 

@@ -173,7 +173,11 @@ impl Backend {
                         data_processing: RSDataProcessing {
                             opcode: data_processing.opcode,
                             condition: data_processing.condition,
-                            rn: register_rename_src(data_processing.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                            rn: if let Some(rn) = data_processing.rn {
+                                Some(register_rename_src(rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
+                            } else {
+                                None
+                            },
                             rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
                             operand2: match data_processing.operand2 {
                                 Operand2::Unused() => RSOperand2::Unused(),
@@ -192,38 +196,32 @@ impl Backend {
                 Instr::Branch { branch } => {}
                 Instr::LoadStore { load_store } => {
                     match load_store.opcode {
-                        Opcode::LDR => {
-                            rs.instr = RSInstr::LoadStore {
-                                load_store: RSLoadStore {
-                                    opcode: load_store.opcode,
-                                    condition: load_store.condition,
-                                    rn: register_rename_src(load_store.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
-                                    rd: register_rename_sink(load_store.rd, &mut phys_reg_file, &mut self.rat),
-                                    offset: load_store.offset,
-                                }
-                            };
-                        }
-                        Opcode::STR => {
-                            rs.instr = RSInstr::LoadStore {
-                                load_store: RSLoadStore {
-                                    opcode: load_store.opcode,
-                                    condition: load_store.condition,
-                                    rn: register_rename_src(load_store.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
-                                    rd: register_rename_src(load_store.rd, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
-                                    offset: load_store.offset,
-                                }
-                            };
-                        }
+                        Opcode::LDR => rs.instr = RSInstr::LoadStore {
+                            load_store: RSLoadStore {
+                                opcode: load_store.opcode,
+                                condition: load_store.condition,
+                                rn: register_rename_src(load_store.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                                rd: register_rename_sink(load_store.rd, &mut phys_reg_file, &mut self.rat),
+                                offset: load_store.offset,
+                            }
+                        },
+                        Opcode::STR => rs.instr = RSInstr::LoadStore {
+                            load_store: RSLoadStore {
+                                opcode: load_store.opcode,
+                                condition: load_store.condition,
+                                rn: register_rename_src(load_store.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                                rd: register_rename_src(load_store.rd, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file),
+                                offset: load_store.offset,
+                            }
+                        },
                         _ => unreachable!(),
                     }
                 }
-                Instr::Printr { printr } => {
-                    rs.instr = RSInstr::Printr {
-                        printr: RSPrintr {
-                            rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
-                        },
-                    };
-                }
+                Instr::Printr { printr } => rs.instr = RSInstr::Printr {
+                    printr: RSPrintr {
+                        rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
+                    },
+                },
                 Instr::Synchronization { .. } => {}
             }
 
@@ -364,14 +362,18 @@ impl Backend {
                 let mut rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
                 let mut at_least_one_resolved = false;
 
+                // todo: if the instruction could offer an iterate for sink and dest
+                // the design would be lot cleaner and less repatative.
                 match &mut rs.instr {
                     RSInstr::DataProcessing { data_processing } => {
-                        if let Some(r) = data_processing.rn.phys_reg {
-                            if r == broadcast.phys_reg {
-                                data_processing.rn.value = Some(broadcast.value);
-                                at_least_one_resolved = true;
-                                rs.pending_cnt -= 1;
-                            }
+                        if let Some(rn) = &mut data_processing.rn {
+                            if let Some(r) = rn.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    rn.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
                         };
 
                         if let RSOperand2::Register { ref mut register } = &mut data_processing.operand2 {
@@ -388,10 +390,26 @@ impl Backend {
                         //todo:
                     }
                     RSInstr::LoadStore { load_store } => {
-                        //todo:
+                        if let Some(r) = load_store.rn.phys_reg {
+                            if r == broadcast.phys_reg {
+                                load_store.rn.value = Some(broadcast.value);
+                                at_least_one_resolved = true;
+                                rs.pending_cnt -= 1;
+                            }
+                        };
+
+                        if load_store.opcode == Opcode::STR {
+                            if let Some(r) = load_store.rd.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    load_store.rd.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
+                        }
                     }
                     RSInstr::Printr { printr } => {
-                       if let Some(r) = printr.rn.phys_reg {
+                        if let Some(r) = printr.rn.phys_reg {
                             if r == broadcast.phys_reg {
                                 printr.rn.value = Some(broadcast.value);
                                 at_least_one_resolved = true;

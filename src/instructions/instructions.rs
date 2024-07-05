@@ -176,24 +176,16 @@ pub(crate) fn create_instr(
                 _ => { panic!() }
             };
 
-            let mut instr = Instr::DataProcessing {
+            Instr::DataProcessing {
                 data_processing: DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
-                    rn,
+                    rn:Some(rn),
                     rd,
                     operand2,
                 }
-            };
-            //
-            // instr.sink_cnt = 1;
-            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            //
-            // instr.source_cnt = 2;
-            // instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
-            // instr.source[1] = validate_operand(2, operands, opcode, &[Register(0), Immediate(0)])?;
-            instr
+            }
         }
         Opcode::ADR => { panic!() }
         Opcode::STR|
@@ -208,8 +200,8 @@ pub(crate) fn create_instr(
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
-                    rd: rd,
-                    rn: rn,
+                    rd,
+                    rn,
                     offset: 0,
                 }
             }
@@ -230,16 +222,22 @@ pub(crate) fn create_instr(
             validate_operand_count(2, operands, opcode, loc)?;
 
             let rd = operands[0].get_register();
-            let rn = operands[1].get_register();
+
+            // todo: ugly
+            let operand2 = match operands[1] {
+                Register(register) => Operand2::Register { register },
+                Immediate(value) => Operand2::Immediate { value },
+                _ => { panic!() }
+            };
 
             Instr::DataProcessing {
                 data_processing: DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
-                    rn,
+                    rn:None,
                     rd,
-                    operand2: Operand2::Unused(),
+                    operand2,
                 }
             }
         }
@@ -461,7 +459,7 @@ pub struct DataProcessing {
     pub condition: ConditionCode,
     pub loc: SourceLocation,
     // First operand register.
-    pub rn: RegisterType,
+    pub rn: Option<RegisterType>,
     // Destination register
     pub rd: RegisterType,
     // Second operand, which can be an immediate value or a shifted register.

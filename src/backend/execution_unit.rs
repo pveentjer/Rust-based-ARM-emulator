@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
-use crate::backend::reservation_station::{RS, RSDataProcessing, RSInstr, RSPrintr};
+use crate::backend::reservation_station::{RS, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CPUConfig, PerfCounters};
 use crate::instructions::instructions::{Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -55,14 +55,10 @@ impl EU {
         }
 
         match &mut rs.instr {
-            RSInstr::DataProcessing { data_processing: fields } => {
-                self.execute_data_processing(fields);
-            }
-            RSInstr::Branch { branch: fields } => {}
-            RSInstr::LoadStore { load_store: fields } => {}
-            RSInstr::Printr { printr: fields } => {
-                self.execute_printr(fields);
-            }
+            RSInstr::DataProcessing { data_processing } => self.execute_data_processing(data_processing),
+            RSInstr::Branch { branch } => panic!(),
+            RSInstr::LoadStore { load_store } => self.execute_load_store(load_store, rob_slot),
+            RSInstr::Printr { printr } => self.execute_printr(printr),
             RSInstr::Synchronization { .. } => {}
         }
 
@@ -107,16 +103,38 @@ impl EU {
 
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing) {
         let result = match &data_processing.opcode {
-            Opcode::ADD => { data_processing.rn.value.unwrap() + data_processing.operand2.value() }
-            Opcode::SUB => { data_processing.rn.value.unwrap() - data_processing.operand2.value() }
+            Opcode::ADD => { data_processing.rn.as_ref().unwrap().value.unwrap() + data_processing.operand2.value() }
+            Opcode::SUB => { data_processing.rn.as_ref().unwrap().value.unwrap() - data_processing.operand2.value() }
             Opcode::RSB => { 0 }
-            Opcode::MUL => { data_processing.rn.value.unwrap() * data_processing.operand2.value() }
+            Opcode::MUL => { data_processing.rn.as_ref().unwrap().value.unwrap() * data_processing.operand2.value() }
+            Opcode::MOV => { data_processing.operand2.value() }
             Opcode::SDIV => { 0 }
             _ => unreachable!()
         };
-        println!("Result: {}",result);
+        println!("Result: {}", result);
         data_processing.rd.value = Some(result);
         self.phys_reg_file.borrow_mut().set_value(data_processing.rd.phys_reg.unwrap(), result);
+    }
+
+    fn execute_load_store(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {
+        match &load_store.opcode {
+            Opcode::LDR => {
+                let memory_subsystem = self.memory_subsystem.borrow_mut();
+                let address = load_store.rn.value.unwrap() as usize;
+                let value = memory_subsystem.memory[address];
+
+                let rd = load_store.rd.phys_reg.unwrap();
+                self.phys_reg_file.borrow_mut().set_value(rd, value);
+            }
+            Opcode::STR => {
+                let value = load_store.rd.value.unwrap();
+                let address = load_store.rn.value.unwrap();
+
+                let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+                memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
+            }
+            _ => unreachable!()
+        };
     }
 
     fn execute_BEQ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {

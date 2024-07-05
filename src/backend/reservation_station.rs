@@ -38,7 +38,7 @@ impl RSOperand2 {
 pub struct RSDataProcessing {
     pub opcode: Opcode,
     pub condition: ConditionCode,
-    pub rn: RenamedRegister,
+    pub rn: Option<RenamedRegister>,
     pub rd: RenamedRegister,
     pub operand2: RSOperand2,
 }
