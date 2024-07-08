@@ -37,6 +37,22 @@ mod tests {
     }
 
     #[test]
+    fn test_neg() {
+        let src = r#"
+.text
+    MOV r0, #100;
+    NEG r1, r0;
+    MOV r0, #0;
+    NEG r2, r0;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        // todo: ugly constant (2^64-100)
+        harness.assert_reg_value(1, 18446744073709551516);
+        harness.assert_reg_value(2, 0);
+    }
+
+    #[test]
     fn test_and() {
         let src = r#"
 .text

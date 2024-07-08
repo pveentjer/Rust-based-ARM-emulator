@@ -79,6 +79,7 @@ impl EU {
             Opcode::AND => self.execute_and(data_processing),
             Opcode::ORR => self.execute_orr(data_processing),
             Opcode::EOR => self.execute_eor(data_processing),
+            Opcode::NEG => self.execute_neg(data_processing),
             _ => unreachable!()
         };
         data_processing.rd.value = Some(result);
@@ -181,6 +182,14 @@ impl EU {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
         rn_value ^ operand2_value
+    }
+
+    fn execute_neg(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+        let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+
+        println!("NEG {}",rn_value.wrapping_neg());
+
+        rn_value.wrapping_neg()
     }
 
     fn execute_load_store(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {
@@ -341,28 +350,6 @@ impl EU {
         // rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_PRINTR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let instr = rob_slot.instr.as_ref().unwrap();
-        //
-        // println!("PRINTR {}={}", Operand::Register(instr.source[0].get_register()), rs.source[0].value.unwrap());
-    }
-
-    fn execute_STR(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let value = rs.source[0].value.unwrap();
-        // let address = rs.source[1].value.unwrap();
-        //
-        // let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-        // memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
-    }
-
-    fn execute_LDR(&mut self, rs: &mut RS) {
-        // let memory_subsystem = self.memory_subsystem.borrow_mut();
-        // let address = rs.source[0].value.unwrap() as usize;
-        // let value = memory_subsystem.memory[address];
-        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
-    }
-
     fn execute_MVN(&mut self, rs: &mut RS) {
         // let value = !rs.source[0].value.unwrap();
         // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
@@ -371,13 +358,6 @@ impl EU {
 
     fn execute_ADR(&mut self, _rs: &mut RS, _rob_slot: &mut ROBSlot) {
         panic!("ADR is not implemented");
-    }
-
-    fn execute_NEG(&mut self, rs: &mut RS) {
-        // let rn = rs.source[0].value.unwrap();
-        // let rd = rn.wrapping_neg();
-        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
     }
 
     fn execute_SDIV(&mut self, rs: &mut RS) {

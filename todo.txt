@@ -13,6 +13,8 @@ BUGS
 
 TODO
 
+- fix error handling of instruction parsing
+
 - cdb_broadcast_buffer filling should be done in execute
 
 - SDIV proper division by zero handling
@@ -78,6 +80,10 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix NEG
+
+- add NEG test
 
 - fix CMP execution
     - how to properly deal with the original value of the CMP register.

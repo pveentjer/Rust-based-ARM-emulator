@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use crate::backend::reservation_station::RenamedRegister;
 
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, RegisterType};
+use crate::instructions::instructions::Instr;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum ROBSlotState {

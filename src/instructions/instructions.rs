@@ -141,7 +141,6 @@ pub(crate) fn create_instr(
     operands: &Vec<Operand>,
     loc: SourceLocation,
 ) -> Result<Instr, String> {
-
     let instr = match opcode {
         Opcode::SUB |
         Opcode::MUL |
@@ -156,7 +155,6 @@ pub(crate) fn create_instr(
             let rd = operands[0].get_register();
             let rn = operands[1].get_register();
 
-            // todo: ugly
             let operand2 = match operands[2] {
                 Register(register) => Operand2::Register { register },
                 Immediate(value) => Operand2::Immediate { value },
@@ -170,8 +168,26 @@ pub(crate) fn create_instr(
                     loc,
                     rn: Some(rn),
                     rd,
-                    rd_read:false,
+                    rd_read: false,
                     operand2,
+                }
+            }
+        }
+        Opcode::NEG => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            let rd = operands[0].get_register();
+            let rn = operands[1].get_register();
+
+            Instr::DataProcessing {
+                data_processing: DataProcessing {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    rn: Some(rn),
+                    rd,
+                    rd_read: false,
+                    operand2: Operand2::Unused(),
                 }
             }
         }
@@ -182,7 +198,6 @@ pub(crate) fn create_instr(
 
             let rd = operands[0].get_register();
 
-            // todo: ugly
             let rn = match operands[1] {
                 Operand::MemRegisterIndirect(register) => register,
                 _ => { panic!() }
@@ -320,17 +335,7 @@ pub(crate) fn create_instr(
                 }
             }
         }
-        Opcode::NEG => {
-            validate_operand_count(2, operands, opcode, loc)?;
 
-            // instr.sink_cnt = 1;
-            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            //
-            // instr.source_cnt = 1;
-            // instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
-
-            panic!();
-        }
         Opcode::MVN => {
             validate_operand_count(2, operands, opcode, loc)?;
 

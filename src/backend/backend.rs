@@ -9,7 +9,7 @@ use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranc
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions;
-use crate::instructions::instructions::{Branch, BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
+use crate::instructions::instructions::{BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
 use crate::instructions::instructions::Opcode::LDR;
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
