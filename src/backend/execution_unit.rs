@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
-use crate::backend::reorder_buffer::ROBSlot;
+use crate::backend::reorder_buffer::{ROB, ROBSlot, ROBSlotState};
 use crate::backend::reservation_station::{RS, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CPUConfig, PerfCounters};
 use crate::instructions::instructions::{Opcode, Operand};
@@ -55,7 +55,7 @@ impl EU {
         }
 
         match &mut rs.instr {
-            RSInstr::DataProcessing { data_processing } => self.execute_data_processing(data_processing),
+            RSInstr::DataProcessing { data_processing } => self.execute_data_processing(data_processing, rob_slot),
             RSInstr::Branch { branch } => panic!(),
             RSInstr::LoadStore { load_store } => self.execute_load_store(load_store, rob_slot),
             RSInstr::Printr { printr } => self.execute_printr(printr),
@@ -101,7 +101,7 @@ impl EU {
         println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
     }
 
-    fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing) {
+    fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
         let result = match &data_processing.opcode {
             Opcode::ADD => { data_processing.rn.as_ref().unwrap().value.unwrap() + data_processing.operand2.value() }
             Opcode::SUB => { data_processing.rn.as_ref().unwrap().value.unwrap() - data_processing.operand2.value() }
@@ -114,6 +114,8 @@ impl EU {
         println!("Result: {}", result);
         data_processing.rd.value = Some(result);
         self.phys_reg_file.borrow_mut().set_value(data_processing.rd.phys_reg.unwrap(), result);
+
+        rob_slot.renamed_registers.push(data_processing.rd.clone())
     }
 
     fn execute_load_store(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {

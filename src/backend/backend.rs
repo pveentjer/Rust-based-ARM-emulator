@@ -5,10 +5,11 @@ use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reservation_station::{RenamedRegister, RS, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
-use crate::cpu::{ArgRegFile, CPUConfig, PerfCounters, Trace};
+use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
+use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions::instructions::{DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
+use crate::instructions;
+use crate::instructions::instructions::{Branch, BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
@@ -193,7 +194,25 @@ impl Backend {
 
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
-                Instr::Branch { branch } => {}
+                Instr::Branch { branch } => {
+                    rs.instr = RSInstr::Branch {
+                        branch: RSBranch {
+                            opcode: Opcode::ADD,
+                            condition: ConditionCode::EQ,
+                            link_bit: false,
+                            target: match branch.target {
+                                BranchTarget::Immediate { offset} => {
+                                    RSBranchTarget::Immediate {offset}
+                                }
+                                BranchTarget::Register { register } => {
+                                    RSBranchTarget::Register {
+                                        register: register_rename_src(register, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
+                                    }
+                                }
+                            },
+                        },
+                    }
+                }
                 Instr::LoadStore { load_store } => {
                     match load_store.opcode {
                         Opcode::LDR => rs.instr = RSInstr::LoadStore {
@@ -315,8 +334,8 @@ impl Backend {
                         let phys_reg_entry = phys_reg_file.get_mut(rd);
                         self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
                     }
-                    RSInstr::Branch { .. } => {}
                     RSInstr::LoadStore { load_store } => {
+                        // todo: only a LDR should trigger a register update.
                         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
                         let rd = load_store.rd.phys_reg.unwrap();
                         let phys_reg_entry = phys_reg_file.get_mut(rd);
@@ -362,8 +381,7 @@ impl Backend {
                 let mut rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
                 let mut at_least_one_resolved = false;
 
-                // todo: if the instruction could offer an iterate for sink and dest
-                // the design would be lot cleaner and less repatative.
+                // todo: lot of copy paste code
                 match &mut rs.instr {
                     RSInstr::DataProcessing { data_processing } => {
                         if let Some(rn) = &mut data_processing.rn {
@@ -387,7 +405,15 @@ impl Backend {
                         }
                     }
                     RSInstr::Branch { branch } => {
-                        //todo:
+                        if let RSBranchTarget::Register {register} = &mut branch.target{
+                            if let Some(r) = register.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    register.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
+                        }
                     }
                     RSInstr::LoadStore { load_store } => {
                         if let Some(r) = load_store.rn.phys_reg {
@@ -467,49 +493,44 @@ impl Backend {
                     println!("Retiring {}", instr);
                 }
 
-                // for sink_index in 0..instr.sink_cnt as usize {
-                //     let sink = instr.sink[sink_index];
-                //     match sink {
-                //         Operand::Register(arch_reg) => {
-                //             let rat_entry = self.rat.get_mut(arch_reg);
-                //             debug_assert!(rat_entry.valid);
-                //
-                //             let rat_phys_reg = rat_entry.phys_reg;
-                //             let rob_phys_reg = rob_slot.sink_phys_regs[sink_index].unwrap();
-                //
-                //             // only when the physical register on the rat is the same as the physical register used for that
-                //             // instruction, the rat entry should be invalidated
-                //             if rat_phys_reg == rob_phys_reg {
-                //                 rat_entry.valid = false;
-                //             }
-                //
-                //             // update the architectural register
-                //             let value = phys_reg_file.get_value(rob_phys_reg);
-                //             arch_reg_file.set_value(sink.get_register(), value);
-                //
-                //             phys_reg_file.deallocate(rob_phys_reg);
-                //         }
-                //         _ => unreachable!(),
-                //     }
-                // }
+
+                for renamed_register in &rob_slot.renamed_registers {
+                    let rat_entry = self.rat.get_mut(renamed_register.arch_reg);
+                    debug_assert!(rat_entry.valid);
+
+                    let rat_phys_reg = rat_entry.phys_reg;
+                    let rob_phys_reg = renamed_register.phys_reg.unwrap();
+
+                    // only when the physical register on the rat is the same as the physical register used for that
+                    // instruction, the rat entry should be invalidated
+                    if rat_phys_reg == rob_phys_reg {
+                        rat_entry.valid = false;
+                    }
+
+                    // update the architectural register
+                    let value = phys_reg_file.get_value(rob_phys_reg);
+                    arch_reg_file.set_value(renamed_register.arch_reg, value);
+
+                    phys_reg_file.deallocate(rob_phys_reg);
+                }
 
                 if rob_slot.sb_pos.is_some() {
                     memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())
                 }
 
-                // if instr.is_branch() {
-                //     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
-                //         // the branch was not correctly predicted
-                //         perf_counters.branch_miss_prediction_cnt += 1;
-                //         bad_speculation = true;
-                //
-                //         // re-steer the frontend
-                //         arch_reg_file.set_value(PC, rob_slot.branch_target_actual as DWordType);
-                //     } else {
-                //         // the branch was correctly predicted
-                //         perf_counters.branch_good_predictions_cnt += 1;
-                //     }
-                // }
+                if let instructions::instructions::Instr::Branch{branch} = &instr.as_ref() {
+                    if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
+                        // the branch was not correctly predicted
+                        perf_counters.branch_miss_prediction_cnt += 1;
+                        bad_speculation = true;
+
+                        // re-steer the frontend
+                        arch_reg_file.set_value(PC, rob_slot.branch_target_actual as DWordType);
+                    } else {
+                        // the branch was correctly predicted
+                        perf_counters.branch_good_predictions_cnt += 1;
+                    }
+                }
 
                 rob.seq_retired += 1;
                 rob.deallocate();

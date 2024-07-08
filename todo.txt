@@ -13,6 +13,10 @@ BUGS
 
 TODO
 
+- fix EXIT
+
+- only an LDR should trigger a register update on CDB. Now it is also done for a store.
+
 - operands can move to the AST section since not used inside the CPU
 
 - CDBbroadcast: missing branch
@@ -70,6 +74,12 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- retirement missing
+
+- on execution, the physical registers written, need to be send to the ROB
+
+- the rob slot should keep track of the renamed registers that need to be written.
 
 - fix MOV
     - the problem is that MOV currently doesn't fit nicely in the DataProcessing when there is a direct value

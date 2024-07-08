@@ -3,6 +3,7 @@ use std::collections::{HashSet, VecDeque};
 use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, RegisterType};
 use crate::instructions::instructions::Opcode::NOP;
 
+#[derive(Clone)]
 pub(crate) struct RenamedRegister {
     pub(crate) phys_reg: Option<RegisterType>,
     pub(crate) arch_reg: RegisterType,
@@ -43,11 +44,19 @@ pub struct RSDataProcessing {
     pub operand2: RSOperand2,
 }
 
+pub enum RSBranchTarget {
+    Immediate {
+        offset: u32,
+    },
+    Register {
+        register: RenamedRegister,
+    },
+}
 pub struct RSBranch {
     pub opcode: Opcode,
     pub condition: ConditionCode,
     pub link_bit: bool,
-    pub offset: u32,
+    pub target: RSBranchTarget,
 }
 
 pub struct RSLoadStore {

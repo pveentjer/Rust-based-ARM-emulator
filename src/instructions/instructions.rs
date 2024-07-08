@@ -181,14 +181,14 @@ pub(crate) fn create_instr(
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
-                    rn:Some(rn),
+                    rn: Some(rn),
                     rd,
                     operand2,
                 }
             }
         }
         Opcode::ADR => { panic!() }
-        Opcode::STR|
+        Opcode::STR |
         Opcode::LDR => {
             validate_operand_count(2, operands, opcode, loc)?;
 
@@ -235,23 +235,13 @@ pub(crate) fn create_instr(
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
-                    rn:None,
+                    rn: None,
                     rd,
                     operand2,
                 }
             }
         }
-        Opcode::B => {
-            validate_operand_count(1, operands, opcode, loc)?;
-            //
-            // instr.source_cnt = 1;
-            // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            //
-            // instr.sink_cnt = 0;
-            // instr.set_branch();
 
-            panic!();
-        }
         Opcode::RET => {
             if operands.len() > 1 {
                 return Err(format!("Operand count mismatch. {:?} expects 0 or 1 argument, but {} are provided at {}:{}",
@@ -269,16 +259,35 @@ pub(crate) fn create_instr(
             // instr.set_branch();
             panic!();
         }
+        Opcode::B => {
+            validate_operand_count(1, operands, opcode, loc)?;
+
+            let offset = operands[0].get_immediate();
+
+            Instr::Branch {
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: false,
+                    target: BranchTarget::Immediate { offset: offset as u32 },
+                }
+            }
+        }
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            // instr.source_cnt = 1;
-            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            //
-            // instr.sink_cnt = 0;
-            // instr.set_branch();
+            let register = operands[0].get_register();
 
-            panic!();
+            Instr::Branch {
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: false,
+                    target: BranchTarget::Register { register },
+                }
+            }
         }
         Opcode::BL => {
             validate_operand_count(1, operands, opcode, loc)?;
@@ -358,24 +367,27 @@ pub(crate) fn create_instr(
         Opcode::BLE |
         Opcode::BGT |
         Opcode::BGE => {
-            validate_operand_count(1, operands, opcode, loc)?;
-
-            Instr::Branch {
-                branch: Branch {
-                    opcode,
-                    condition: ConditionCode::AL,
-                    loc,
-                    link_bit: false,
-                    offset: 0,
-                }
-            }
-
+            // validate_operand_count(1, operands, opcode, loc)?;
+            //
+            // let offset = operands[0].get_immediate();
+            //
+            //
+            // Instr::Branch {
+            //     branch: Branch {
+            //         opcode,
+            //         condition: ConditionCode::AL,
+            //         loc,
+            //         link_bit: false,
+            //         offset: 0,
+            //     }
+            // }
             // instr.source_cnt = 2;
             // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
             // instr.source[1] = Register(CPSR);
             //
             // instr.sink_cnt = 0;
             // instr.set_branch();
+            panic!();
         }
     };
 
@@ -467,12 +479,22 @@ pub struct DataProcessing {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub enum BranchTarget {
+    Immediate {
+        offset: u32,
+    },
+    Register {
+        register: RegisterType,
+    },
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Branch {
     pub opcode: Opcode,
     pub condition: ConditionCode,
     pub loc: SourceLocation,
     pub link_bit: bool,
-    pub offset: u32,
+    pub target: BranchTarget,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -520,6 +542,7 @@ pub enum Instr {
     },
 }
 
+
 impl Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -528,8 +551,8 @@ impl Display for Instr {
                        fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.rn, fields.rd, fields.operand2)
             }
             Instr::Branch { branch: fields } => {
-                write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, offset={}",
-                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.link_bit, fields.offset)
+                write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, target={:?}",
+                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.link_bit, fields.target)
             }
             Instr::LoadStore { load_store: fields } => {
                 write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rt={:?}, offset={}",

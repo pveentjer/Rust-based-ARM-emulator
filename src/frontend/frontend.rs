@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{Branch, DWordType, EXIT, Instr, InstrQueue, Opcode, Program};
+use crate::instructions::instructions::{Branch, BranchTarget, DWordType, EXIT, Instr, InstrQueue, Opcode, Program};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -86,7 +86,7 @@ impl Frontend {
                     }
 
                     if let Instr::Synchronization { synchronization: fields } = instr.as_ref() {
-                        if fields.opcode == Opcode::EXIT{
+                        if fields.opcode == Opcode::EXIT {
                             self.exit = true;
                         }
                     }
@@ -118,7 +118,12 @@ impl Frontend {
     fn predict(ip: usize, branch: &Branch) -> usize {
         let branch_target = match branch.opcode {
             Opcode::B |
-            Opcode::BL => return branch.offset as usize, // unconditional branch can always be predicted accurately
+            Opcode::BL => if let BranchTarget::Immediate { offset } = branch.target {
+                // unconditional branches can be predicted with 100% certainty
+                return offset as usize;
+            } else {
+                panic!();
+            }
             Opcode::RET => 0,
             Opcode::BX => 0,
             Opcode::CBNZ |
@@ -128,7 +133,11 @@ impl Frontend {
             Opcode::BLT |
             Opcode::BGE |
             Opcode::BGT |
-            Opcode::BEQ => branch.offset,
+            Opcode::BEQ => if let BranchTarget::Immediate { offset } = branch.target {
+                offset as usize
+            } else {
+                panic!();
+            },
             _ => unreachable!(),
         };
 
