@@ -37,6 +37,82 @@ mod tests {
     }
 
     #[test]
+    fn test_and() {
+        let src = r#"
+.text
+    MOV r0, #0;
+    MOV r1, #0;
+    AND r2, r0, r1;
+    MOV r0, #1;
+    MOV r1, #0;
+    AND r3, r0, r1;
+    MOV r0, #0;
+    MOV r1, #1;
+    AND r4, r0, r1;
+    MOV r0, #1;
+    MOV r1, #1;
+    AND r5, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0);
+        harness.assert_reg_value(3, 0);
+        harness.assert_reg_value(4, 0);
+        harness.assert_reg_value(5, 1);
+    }
+
+    #[test]
+    fn test_orr() {
+        let src = r#"
+.text
+    MOV r0, #0;
+    MOV r1, #0;
+    ORR r2, r0, r1;
+    MOV r0, #1;
+    MOV r1, #0;
+    ORR r3, r0, r1;
+    MOV r0, #0;
+    MOV r1, #1;
+    ORR r4, r0, r1;
+    MOV r0, #1;
+    MOV r1, #1;
+    ORR r5, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0);
+        harness.assert_reg_value(3, 1);
+        harness.assert_reg_value(4, 1);
+        harness.assert_reg_value(5, 1);
+    }
+
+    #[test]
+    fn test_eor() {
+        let src = r#"
+.text
+    MOV r0, #0;
+    MOV r1, #0;
+    EOR r2, r0, r1;
+    MOV r0, #1;
+    MOV r1, #0;
+    EOR r3, r0, r1;
+    MOV r0, #0;
+    MOV r1, #1;
+    EOR r4, r0, r1;
+    MOV r0, #1;
+    MOV r1, #1;
+    EOR r5, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0);
+        harness.assert_reg_value(3, 1);
+        harness.assert_reg_value(4, 1);
+        harness.assert_reg_value(5, 0);
+    }
+
+
+    #[test]
     fn test_sub() {
         let src = r#"
 .text

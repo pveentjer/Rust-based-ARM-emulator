@@ -142,20 +142,7 @@ pub(crate) fn create_instr(
     loc: SourceLocation,
 ) -> Result<Instr, String> {
 
-    // let mut instr = Instr {
-    //     cycles: 1,
-    //     opcode,
-    //     source_cnt: 0,
-    //     source: [Unused, Unused, Unused],
-    //     sink_cnt: 0,
-    //     sink: [Unused, Unused],
-    //     loc: Some(loc),
-    //     mem_stores: 0,
-    //     flags: 0,
-    //     condition_code: ConditionCode::AL,
-    // };
-
-    let mut instr = match opcode {
+    let instr = match opcode {
         Opcode::SUB |
         Opcode::MUL |
         Opcode::SDIV |
@@ -183,6 +170,7 @@ pub(crate) fn create_instr(
                     loc,
                     rn: Some(rn),
                     rd,
+                    rd_read:false,
                     operand2,
                 }
             }
@@ -242,6 +230,7 @@ pub(crate) fn create_instr(
                     loc,
                     rn: None,
                     rd,
+                    rd_read: false,
                     operand2,
                 }
             }
@@ -356,15 +345,27 @@ pub(crate) fn create_instr(
         Opcode::CMP => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            // instr.source_cnt = 3;
-            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            // instr.source[1] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
-            // instr.source[2] = Register(CPSR);
-            //
-            // instr.sink_cnt = 1;
-            // instr.sink[0] = Register(CPSR);
+            let rd = CPSR as RegisterType;
+            let rn = operands[0].get_register();
 
-            panic!();
+            // todo: ugly
+            let operand2 = match operands[1] {
+                Register(register) => Operand2::Register { register },
+                Immediate(value) => Operand2::Immediate { value },
+                _ => { panic!() }
+            };
+
+            Instr::DataProcessing {
+                data_processing: DataProcessing {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    rn: Some(rn),
+                    rd,
+                    rd_read: true,
+                    operand2,
+                }
+            }
         }
         Opcode::BEQ |
         Opcode::BNE |
@@ -481,6 +482,8 @@ pub struct DataProcessing {
     pub rd: RegisterType,
     // Second operand, which can be an immediate value or a shifted register.
     pub operand2: Operand2,
+    // If the destination register should be read before it is written to
+    pub rd_read: bool,
 }
 
 #[derive(Clone, Copy, Debug)]

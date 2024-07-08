@@ -13,15 +13,17 @@ BUGS
 
 TODO
 
-- fix test_store
+- cdb_broadcast_buffer filling should be done in execute
+
+- SDIV proper division by zero handling
+
+- fix parsing of instructions that modify the control flow implicitly (so when accessing e.g. IP)
+
+- fix CMP
 
 - fix EXIT
 
-- only an LDR should trigger a register update on CDB. Now it is also done for a store.
-
 - operands can move to the AST section since not used inside the CPU
-
-- CDBbroadcast: missing branch
 
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
 
@@ -76,6 +78,33 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix CMP execution
+    - how to properly deal with the original value of the CMP register.
+    with normal dataprocessing operands, the whole destination register is updated
+    but in this case we only want to set/unset specific flags and therefor we need to know
+    the original value of the register.
+
+- fix ORR
+
+- add test for ORR
+
+- fix EOR
+
+- add test for EOR
+
+- fix AND
+
+- add test for AND
+
+- CDBbroadcast: missing branch
+
+- fix CMP parsing
+
+- fix test_store
+        phys register 1 is not in busy state
+
+- only an LDR should trigger a register update on CDB. Now it is also done for a store.
 
 - fix LDR/STR parsing
 

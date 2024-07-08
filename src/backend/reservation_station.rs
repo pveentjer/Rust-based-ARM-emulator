@@ -41,6 +41,7 @@ pub struct RSDataProcessing {
     pub condition: ConditionCode,
     pub rn: Option<RenamedRegister>,
     pub rd: RenamedRegister,
+    pub rd_src: Option<RenamedRegister>,
     pub operand2: RSOperand2,
 }
 

@@ -10,6 +10,7 @@ use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions;
 use crate::instructions::instructions::{Branch, BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
+use crate::instructions::instructions::Opcode::LDR;
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 struct CDBBroadcast {
@@ -179,6 +180,11 @@ impl Backend {
                             } else {
                                 None
                             },
+                            rd_src: if data_processing.rd_read {
+                                Some(register_rename_src(data_processing.rd, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
+                            }else{
+                                None
+                            },
                             rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
                             operand2: match data_processing.operand2 {
                                 Operand2::Unused() => RSOperand2::Unused(),
@@ -327,6 +333,7 @@ impl Backend {
 
                 debug_assert!(eu.state == EUState::COMPLETED);
 
+                // todo: this could be integrate in the execute.
                 match &rs.instr {
                     RSInstr::DataProcessing { data_processing } => {
                         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
@@ -335,11 +342,13 @@ impl Backend {
                         self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
                     }
                     RSInstr::LoadStore { load_store } => {
-                        // todo: only a LDR should trigger a register update.
-                        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-                        let rd = load_store.rd.phys_reg.unwrap();
-                        let phys_reg_entry = phys_reg_file.get_mut(rd);
-                        self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
+                        // todo: This is ugly because it couples to the LDR. Leads to problems when more loads are added
+                        if load_store.opcode == LDR {
+                            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+                            let rd = load_store.rd.phys_reg.unwrap();
+                            let phys_reg_entry = phys_reg_file.get_mut(rd);
+                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
+                        }
                     }
                     _ => {}
                 }
@@ -403,6 +412,16 @@ impl Backend {
                                 }
                             };
                         }
+
+                        if let Some(rd_src) = &mut data_processing.rd_src {
+                            if let Some(r) = rd_src.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    rd_src.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
+                        };
                     }
                     RSInstr::Branch { branch } => {
                         if let RSBranchTarget::Register {register} = &mut branch.target{
