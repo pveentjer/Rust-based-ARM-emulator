@@ -493,7 +493,7 @@ impl Backend {
                     println!("Retiring {}", instr);
                 }
 
-
+                // Update the architectural registers
                 for renamed_register in &rob_slot.renamed_registers {
                     let rat_entry = self.rat.get_mut(renamed_register.arch_reg);
                     debug_assert!(rat_entry.valid);
@@ -514,10 +514,12 @@ impl Backend {
                     phys_reg_file.deallocate(rob_phys_reg);
                 }
 
+                // commit the store.
                 if rob_slot.sb_pos.is_some() {
                     memory_subsytem.sb.commit(rob_slot.sb_pos.unwrap())
                 }
 
+                // deal with any branch misprediction
                 if let instructions::instructions::Instr::Branch{branch} = &instr.as_ref() {
                     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
                         // the branch was not correctly predicted

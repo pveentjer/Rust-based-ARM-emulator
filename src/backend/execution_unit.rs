@@ -103,11 +103,30 @@ impl EU {
 
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
         let result = match &data_processing.opcode {
-            Opcode::ADD => { data_processing.rn.as_ref().unwrap().value.unwrap() + data_processing.operand2.value() }
-            Opcode::SUB => { data_processing.rn.as_ref().unwrap().value.unwrap() - data_processing.operand2.value() }
-            Opcode::RSB => { 0 }
-            Opcode::MUL => { data_processing.rn.as_ref().unwrap().value.unwrap() * data_processing.operand2.value() }
-            Opcode::MOV => { data_processing.operand2.value() }
+            Opcode::ADD => {
+                let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+                let operand2_value = data_processing.operand2.value();
+                rn_value + operand2_value
+            }
+            Opcode::SUB => {
+                let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+                let operand2_value = data_processing.operand2.value();
+                rn_value - operand2_value
+            }
+            Opcode::RSB => {    // let rn = rs.source[0].value.unwrap();
+                let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+                let operand2_value = data_processing.operand2.value();
+                operand2_value.wrapping_sub(rn_value)
+            },
+            Opcode::MUL => {
+                let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+                let operand2_value = data_processing.operand2.value();
+                rn_value * operand2_value
+            }
+            Opcode::MOV => {
+                let operand2_value = data_processing.operand2.value();
+                operand2_value
+            }
             Opcode::SDIV => { 0 }
             _ => unreachable!()
         };
@@ -126,7 +145,10 @@ impl EU {
                 let value = memory_subsystem.memory[address];
 
                 let rd = load_store.rd.phys_reg.unwrap();
+                load_store.rd.value = Some(value);
                 self.phys_reg_file.borrow_mut().set_value(rd, value);
+
+                rob_slot.renamed_registers.push(load_store.rd.clone())
             }
             Opcode::STR => {
                 let value = load_store.rd.value.unwrap();

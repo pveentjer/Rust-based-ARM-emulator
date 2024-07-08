@@ -193,7 +193,12 @@ pub(crate) fn create_instr(
             validate_operand_count(2, operands, opcode, loc)?;
 
             let rd = operands[0].get_register();
-            let rn = operands[1].get_register();
+
+            // todo: ugly
+            let rn = match operands[1] {
+                Operand::MemRegisterIndirect(register) => register,
+                _ => { panic!() }
+            };
 
             Instr::LoadStore {
                 load_store: LoadStore {

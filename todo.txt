@@ -13,6 +13,8 @@ BUGS
 
 TODO
 
+- fix test_store
+
 - fix EXIT
 
 - only an LDR should trigger a register update on CDB. Now it is also done for a store.
@@ -74,6 +76,10 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix LDR/STR parsing
+
+- fix test_rsb
 
 - retirement missing
 

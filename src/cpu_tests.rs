@@ -81,7 +81,6 @@ mod tests {
         harness.assert_reg_value(2, 1000);
     }
 
-
     #[test]
     fn test_loop_CMP_BNE() {
         let src = r#"
