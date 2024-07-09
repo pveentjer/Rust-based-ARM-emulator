@@ -191,6 +191,23 @@ pub(crate) fn create_instr(
                 }
             }
         }
+        Opcode::MVN => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            let rn = match operands[2] {
+                Register(register) => Operand2::Register { register },
+                Immediate(value) => Operand2::Immediate { value },
+                _ => { panic!() }
+            };
+
+            // instr.sink_cnt = 1;
+            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
+            //
+            // instr.source_cnt = 1;
+            // instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
+
+            panic!();
+        }
         Opcode::ADR => { panic!() }
         Opcode::STR |
         Opcode::LDR => {
@@ -231,7 +248,6 @@ pub(crate) fn create_instr(
 
             let rd = operands[0].get_register();
 
-            // todo: ugly
             let operand2 = match operands[1] {
                 Register(register) => Operand2::Register { register },
                 Immediate(value) => Operand2::Immediate { value },
@@ -250,7 +266,6 @@ pub(crate) fn create_instr(
                 }
             }
         }
-
         Opcode::RET => {
             if operands.len() > 1 {
                 return Err(format!("Operand count mismatch. {:?} expects 0 or 1 argument, but {} are provided at {}:{}",
@@ -271,7 +286,7 @@ pub(crate) fn create_instr(
         Opcode::B => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let offset = operands[0].get_immediate();
+            let offset = operands[0].get_code_address();
 
             Instr::Branch {
                 branch: Branch {
@@ -301,14 +316,17 @@ pub(crate) fn create_instr(
         Opcode::BL => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            // instr.source_cnt = 1;
-            // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            //
-            // instr.sink_cnt = 1;
-            // instr.sink[0] = Register(LR);
-            // instr.set_branch();
+            let offset = operands[0].get_code_address();
 
-            panic!();
+            Instr::Branch {
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: true,
+                    target: BranchTarget::Immediate { offset: offset as u32 },
+                }
+            }
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
@@ -334,18 +352,6 @@ pub(crate) fn create_instr(
                     loc: Some(loc),
                 }
             }
-        }
-
-        Opcode::MVN => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            // instr.sink_cnt = 1;
-            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            //
-            // instr.source_cnt = 1;
-            // instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
-
-            panic!();
         }
         Opcode::CMP => {
             validate_operand_count(2, operands, opcode, loc)?;

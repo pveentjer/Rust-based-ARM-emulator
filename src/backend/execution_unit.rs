@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
-use crate::backend::reservation_station::{RS, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
+use crate::backend::reservation_station::{RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
 use crate::instructions::instructions::{DWordType, Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -56,7 +56,7 @@ impl EU {
 
         match &mut rs.instr {
             RSInstr::DataProcessing { data_processing } => self.execute_data_processing(data_processing, rob_slot),
-            RSInstr::Branch { branch } => panic!(),
+            RSInstr::Branch { branch } => self.execute_branch(branch, rob_slot),
             RSInstr::LoadStore { load_store } => self.execute_load_store(load_store, rob_slot),
             RSInstr::Printr { printr } => self.execute_printr(printr),
             RSInstr::Synchronization { .. } => {}
@@ -67,7 +67,20 @@ impl EU {
         println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
     }
 
+    fn execute_branch(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
+        println!("opcode:{:?}", branch.opcode);
+        match &branch.opcode {
+            Opcode::B => self.execute_B(branch, rob_slot),
+            Opcode::BL => self.execute_BL(branch, rob_slot),
+            Opcode::BX => self.execute_BX(branch, rob_slot),
+            _ => unreachable!()
+        };
+    }
+
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
+
+        // todo: here the conditional execution can be added
+
         let result = match &data_processing.opcode {
             Opcode::ADD => self.execute_add(data_processing),
             Opcode::SUB => self.execute_sub(data_processing),
@@ -80,6 +93,7 @@ impl EU {
             Opcode::ORR => self.execute_orr(data_processing),
             Opcode::EOR => self.execute_eor(data_processing),
             Opcode::NEG => self.execute_neg(data_processing),
+            Opcode::MVN => self.execute_mvn(data_processing),
             _ => unreachable!()
         };
         data_processing.rd.value = Some(result);
@@ -178,6 +192,11 @@ impl EU {
         rn_value | operand2_value
     }
 
+    fn execute_mvn(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+        let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+        !rn_value
+    }
+
     fn execute_eor(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
@@ -187,7 +206,7 @@ impl EU {
     fn execute_neg(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
 
-        println!("NEG {}",rn_value.wrapping_neg());
+        println!("NEG {}", rn_value.wrapping_neg());
 
         rn_value.wrapping_neg()
     }
@@ -317,30 +336,51 @@ impl EU {
         // rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_BL(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let branch_target = rs.source[0].value.unwrap();
-        //
-        // let pc_update = branch_target;
-        //
-        // // update LR
-        // let value = (rob_slot.pc + 1) as DWordType;
-        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
-        // rob_slot.branch_target_actual = pc_update as usize;
+    fn execute_BL(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
+        if let RSBranchTarget::Immediate { offset } = &branch.target {
+            let branch_target = *offset;
+            rob_slot.branch_target_actual = branch_target as usize;
+
+            let pc_update = branch_target;
+
+            // update LR
+            let value = (rob_slot.pc + 1) as DWordType;
+            let lr = branch.lr.as_mut().unwrap();
+            lr.value = Some(value);
+            self.phys_reg_file.borrow_mut().set_value(lr.phys_reg.unwrap(), value);
+            rob_slot.branch_target_actual = pc_update as usize;
+        } else {
+            panic!();
+        }
+    }
+    //
+    // fn execute_BX(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+    //     // // update the PC
+    //     // let branch_target = rs.source[0].value.unwrap() as i64;
+    //     // let pc_update = branch_target;
+    //     // rob_slot.branch_target_actual = pc_update as usize;
+    // }
+
+    fn execute_B(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        // // update the PC
+
+        if let RSBranchTarget::Immediate { offset } = &branch.target {
+            let branch_target = *offset;
+            rob_slot.branch_target_actual = branch_target as usize;
+        } else {
+            panic!();
+        }
     }
 
-    fn execute_BX(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
+    fn execute_BX(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
         // // update the PC
-        // let branch_target = rs.source[0].value.unwrap() as i64;
-        // let pc_update = branch_target;
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
 
-    fn execute_B(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // // update the PC
-        // let branch_target = rs.source[0].value.unwrap();
-        // let pc_update = branch_target;
-        // rob_slot.branch_target_actual = pc_update as usize;
+        if let RSBranchTarget::Register { register } = &branch.target {
+            let branch_target = register.value.unwrap();
+            rob_slot.branch_target_actual = branch_target as usize;
+        } else {
+            panic!();
+        }
     }
 
     fn execute_RET(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
@@ -350,24 +390,9 @@ impl EU {
         // rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_MVN(&mut self, rs: &mut RS) {
-        // let value = !rs.source[0].value.unwrap();
-        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, value);
-    }
-
     fn execute_ADR(&mut self, _rs: &mut RS, _rob_slot: &mut ROBSlot) {
         panic!("ADR is not implemented");
     }
-
-    fn execute_SDIV(&mut self, rs: &mut RS) {
-        // let rn = rs.source[0].value.unwrap();
-        // let operand2 = rs.source[1].value.unwrap();
-        // let rd = rn / operand2;
-        // let dst_phys_reg = rs.sink[0].phys_reg.unwrap();
-        // self.phys_reg_file.borrow_mut().set_value(dst_phys_reg, rd);
-    }
-
 }
 
 /// The table containing all execution units of a CPU core.

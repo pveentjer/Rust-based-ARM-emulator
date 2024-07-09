@@ -13,6 +13,10 @@ BUGS
 
 TODO
 
+- fix MVN
+
+- add unit test for MVN
+
 - fix error handling of instruction parsing
 
 - cdb_broadcast_buffer filling should be done in execute
@@ -40,8 +44,6 @@ TODO
 - add TST
 
 - add TEQ
-
-- add MVN
 
 - add CSINC
 
@@ -80,6 +82,10 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix BL
+
+- fix BX
 
 - fix NEG
 

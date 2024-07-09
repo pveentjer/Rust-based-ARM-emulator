@@ -127,6 +127,21 @@ mod tests {
         harness.assert_reg_value(5, 0);
     }
 
+    #[test]
+    fn test_mvn() {
+        let src = r#"
+ .text
+     MOV r0, #100;
+     MVN r1, r0;
+     MOV r0, #0;
+     MVN r2, r0;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(1, 18446744073709551515); // NOT 100 = 2^64 - 101
+        harness.assert_reg_value(2, 18446744073709551615); // NOT 0 = 2^64 - 1
+    }
+
 
     #[test]
     fn test_sub() {
@@ -502,6 +517,8 @@ _start:
 
         harness.assert_reg_value(2, 16);
     }
+
+
 
     struct TestHarness {
         program: Option<Rc<Program>>,

@@ -56,7 +56,7 @@ pub enum RSBranchTarget {
 pub struct RSBranch {
     pub opcode: Opcode,
     pub condition: ConditionCode,
-    pub link_bit: bool,
+    pub lr: Option<RenamedRegister>,
     pub target: RSBranchTarget,
 }
 

@@ -6,7 +6,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
-use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
+use crate::cpu::{ArgRegFile, CPUConfig, LR, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions;
 use crate::instructions::instructions::{BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
@@ -182,7 +182,7 @@ impl Backend {
                             },
                             rd_src: if data_processing.rd_read {
                                 Some(register_rename_src(data_processing.rd, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
-                            }else{
+                            } else {
                                 None
                             },
                             rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
@@ -203,12 +203,16 @@ impl Backend {
                 Instr::Branch { branch } => {
                     rs.instr = RSInstr::Branch {
                         branch: RSBranch {
-                            opcode: Opcode::ADD,
-                            condition: ConditionCode::EQ,
-                            link_bit: false,
+                            opcode: branch.opcode,
+                            condition: ConditionCode::AL,
+                            lr: if branch.link_bit {
+                                Some(register_rename_sink(LR as RegisterType, &mut phys_reg_file, &mut self.rat))
+                            } else {
+                                None
+                            },
                             target: match branch.target {
-                                BranchTarget::Immediate { offset} => {
-                                    RSBranchTarget::Immediate {offset}
+                                BranchTarget::Immediate { offset } => {
+                                    RSBranchTarget::Immediate { offset }
                                 }
                                 BranchTarget::Register { register } => {
                                     RSBranchTarget::Register {
@@ -350,6 +354,14 @@ impl Backend {
                             self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
                         }
                     }
+                    RSInstr::Branch { branch } => {
+                        if let Some(lr) = &branch.lr {
+                            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+                            let phys_reg = lr.phys_reg.unwrap();
+                            let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
+                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: phys_reg_entry.value });
+                        }
+                    }
                     _ => {}
                 }
 
@@ -424,7 +436,7 @@ impl Backend {
                         };
                     }
                     RSInstr::Branch { branch } => {
-                        if let RSBranchTarget::Register {register} = &mut branch.target{
+                        if let RSBranchTarget::Register { register } = &mut branch.target {
                             if let Some(r) = register.phys_reg {
                                 if r == broadcast.phys_reg {
                                     register.value = Some(broadcast.value);
@@ -539,7 +551,7 @@ impl Backend {
                 }
 
                 // deal with any branch misprediction
-                if let instructions::instructions::Instr::Branch{branch} = &instr.as_ref() {
+                if let instructions::instructions::Instr::Branch { branch } = &instr.as_ref() {
                     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
                         // the branch was not correctly predicted
                         perf_counters.branch_miss_prediction_cnt += 1;
