@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
-use crate::backend::reservation_station::{RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
+use crate::backend::reservation_station::{RS, RSBranch, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
 use crate::instructions::instructions::{DWordType, Opcode, Operand};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -239,6 +239,7 @@ impl EU {
             Opcode::BLE => self.execute_BLE(branch, rob_slot),
             Opcode::CBZ => self.execute_CBZ(branch, rob_slot),
             Opcode::CBNZ => self.execute_CBNZ(branch, rob_slot),
+            Opcode::RET => self.execute_RET(branch, rob_slot),
             _ => unreachable!()
         };
     }
@@ -246,27 +247,18 @@ impl EU {
     fn execute_B(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
         // // update the PC
 
-        if let RSBranchTarget::Immediate { offset } = &branch.target {
-            let branch_target = *offset;
-            rob_slot.branch_target_actual = branch_target as usize;
-        } else {
-            panic!();
-        }
+        let branch_target = branch.target.value();
+        rob_slot.branch_target_actual = branch_target as usize;
     }
 
     fn execute_BX(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
         // // update the PC
-
-        if let RSBranchTarget::Register { register } = &branch.target {
-            let branch_target = register.value.unwrap();
-            rob_slot.branch_target_actual = branch_target as usize;
-        } else {
-            panic!();
-        }
+        let branch_target = branch.target.value();
+        rob_slot.branch_target_actual = branch_target as usize;
     }
 
     fn execute_BEQ(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
@@ -276,7 +268,7 @@ impl EU {
     }
 
     fn execute_BNE(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
@@ -286,7 +278,7 @@ impl EU {
     }
 
     fn execute_BLT(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
@@ -298,7 +290,7 @@ impl EU {
     }
 
     fn execute_BLE(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
@@ -315,7 +307,7 @@ impl EU {
     }
 
     fn execute_BGT(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
@@ -332,7 +324,7 @@ impl EU {
     }
 
     fn execute_BGE(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
         let pc = rob_slot.pc as DWordType;
 
@@ -347,20 +339,19 @@ impl EU {
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
-
     fn execute_CBZ(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
         let reg_value = branch.rt.as_ref().unwrap().value.unwrap();
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if reg_value == 0 { target } else { pc + 1 };
-        println!("pc_update {}",pc_update);
+        println!("pc_update {}", pc_update);
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_CBNZ(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
         let reg_value = branch.rt.as_ref().unwrap().value.unwrap();
-        let target = branch.target.as_immediate() as u64;
+        let target = branch.target.value() as u64;
         let pc = rob_slot.pc as DWordType;
 
         let pc_update = if reg_value != 0 { target } else { pc + 1 };
@@ -368,7 +359,7 @@ impl EU {
     }
 
     fn execute_BL(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
-        let branch_target = branch.target.as_immediate();
+        let branch_target = branch.target.value();
         rob_slot.branch_target_actual = branch_target as usize;
 
         let pc_update = branch_target;
@@ -381,11 +372,11 @@ impl EU {
         rob_slot.branch_target_actual = pc_update as usize;
     }
 
-    fn execute_RET(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // // update the PC
-        // let branch_target = rs.source[0].value.unwrap();
-        // let pc_update = branch_target;
-        // rob_slot.branch_target_actual = pc_update as usize;
+    fn execute_RET(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
+        // update the PC
+        let branch_target = branch.target.value();
+        let pc_update = branch_target;
+        rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_ADR(&mut self, _rs: &mut RS, _rob_slot: &mut ROBSlot) {

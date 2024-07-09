@@ -55,11 +55,10 @@ pub enum RSBranchTarget {
 }
 
 impl RSBranchTarget {
-    pub fn as_immediate(&self) -> u32 {
-        if let RSBranchTarget::Immediate { offset } = self {
-            *offset
-        } else {
-            panic!("Expected RSBranchTarget::Immediate");
+    pub fn value(&self) -> u32 {
+        match self {
+            RSBranchTarget::Immediate { offset } => *offset,
+            RSBranchTarget::Register { register } => register.value.unwrap()as u32,
         }
     }
 }

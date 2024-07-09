@@ -13,14 +13,11 @@ BUGS
 
 TODO
 
-
 - add test CMP/BEQ
 
 - add test CMP/BLE
 
 - move create_instr to AST?
-
-- fix RET
 
 - fix MVN
 
@@ -62,7 +59,6 @@ TODO
 
 - clean up the pc_update in the B.. methods
 
-
 - integration test: stack push
 
 - integration test: stack pop
@@ -89,6 +85,8 @@ TODO
 
 DONE
 
+- fix RET
+
 - fix BLT
 
 - fix BLE
@@ -104,78 +102,3 @@ DONE
 - fix BL
 
 - fix BX
-
-- fix NEG
-
-- add NEG test
-
-- fix CMP execution
-    - how to properly deal with the original value of the CMP register.
-    with normal dataprocessing operands, the whole destination register is updated
-    but in this case we only want to set/unset specific flags and therefor we need to know
-    the original value of the register.
-
-- fix ORR
-
-- add test for ORR
-
-- fix EOR
-
-- add test for EOR
-
-- fix AND
-
-- add test for AND
-
-- CDBbroadcast: missing branch
-
-- fix CMP parsing
-
-- fix test_store
-        phys register 1 is not in busy state
-
-- only an LDR should trigger a register update on CDB. Now it is also done for a store.
-
-- fix LDR/STR parsing
-
-- fix test_rsb
-
-- retirement missing
-
-- on execution, the physical registers written, need to be send to the ROB
-
-- the rob slot should keep track of the renamed registers that need to be written.
-
-- fix MOV
-    - the problem is that MOV currently doesn't fit nicely in the DataProcessing when there is a direct value
-      MOV r1, #10
-      The problem is that rn register isn't used in this case.
-
-- CDBBroadcast: missing load/store
-
-- DataProcessing: operand 2
-
-- DataProcessingInstr: register renaming
-
-- LoadStore instruction: register renaming
-
-- DataProcessing: Operand2 doesn't need to be available at all.
-
-- RSInstr:DataProcessing deal properly with the operand2
-
-- CDBbroadcast not implemented
-
-- follow the ARM instruction layout
-
-- figure out how the reservation station needs to deal with the different instruction classes
-
-- fix frontend with the new instruction hierarchy
-
-- pull out fields for RSInstr enum
-
-- pull out fields for Instr enum
-
-- NOP: how does it fit into the new instruction hierarchy
-
-- PRINTR: how does it fit into the new instruction hierarchy
-

@@ -297,16 +297,22 @@ pub(crate) fn create_instr(
                                    opcode, operands.len(), loc.line, loc.column));
             }
 
-            // instr.source_cnt = 1;
-            // instr.source[0] = if operands.len() == 0 {
-            //     Register(LR)
-            // } else {
-            //     validate_operand(0, operands, opcode, &[Register(0)])?
-            // };
-            //
-            // instr.sink_cnt = 0;
-            // instr.set_branch();
-            panic!();
+            let target = if operands.len() == 0 {
+                LR as RegisterType
+            } else {
+                operands[0].get_register()
+            };
+
+            Instr::Branch {
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: false,
+                    target: BranchTarget::Register { register: target },
+                    rt: None,
+                }
+            }
         }
         Opcode::B => {
             validate_operand_count(1, operands, opcode, loc)?;
@@ -327,7 +333,7 @@ pub(crate) fn create_instr(
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let register = operands[0].get_register();
+            let target = operands[0].get_register();
 
             Instr::Branch {
                 branch: Branch {
@@ -335,7 +341,7 @@ pub(crate) fn create_instr(
                     condition: ConditionCode::AL,
                     loc,
                     link_bit: false,
-                    target: BranchTarget::Register { register },
+                    target: BranchTarget::Register { register: target },
                     rt: None,
                 }
             }
@@ -360,8 +366,8 @@ pub(crate) fn create_instr(
         Opcode::CBNZ => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            let register = operands[0].get_register();
-            let offset = operands[1].get_code_address();
+            let rt = operands[0].get_register();
+            let target = operands[1].get_code_address();
 
             Instr::Branch {
                 branch: Branch {
@@ -369,8 +375,8 @@ pub(crate) fn create_instr(
                     condition: ConditionCode::AL,
                     loc,
                     link_bit: false,
-                    target: BranchTarget::Immediate { offset: offset as u32 },
-                    rt: Some(register),
+                    target: BranchTarget::Immediate { offset: target as u32 },
+                    rt: Some(rt),
                 }
             }
         }
@@ -406,14 +412,6 @@ pub(crate) fn create_instr(
                     rt: Some(CPSR),
                 }
             }
-
-            // instr.source_cnt = 2;
-            // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            // instr.source[1] = Register(CPSR);
-            //
-            // instr.sink_cnt = 0;
-            // instr.set_branch();
-            // panic!();
         }
     };
 
