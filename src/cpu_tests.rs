@@ -142,7 +142,6 @@ mod tests {
         harness.assert_reg_value(2, 18446744073709551615); // NOT 0 = 2^64 - 1
     }
 
-
     #[test]
     fn test_sub() {
         let src = r#"
@@ -276,6 +275,45 @@ loop:
         harness.assert_reg_value(0, 10);
     }
 
+    #[test]
+    fn test_teq() {
+        let src = r#"
+.text
+    MOV r0, #5;
+    MOV r1, #5;
+    TEQ r0, r1;
+    BNE fail;
+    TEQ r0, #0;
+    BEQ fail;
+    B end;
+fail:
+    MOV r2, #1;
+end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0); // Ensure fail indicator is not set
+    }
+
+    #[test]
+    fn test_tst() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #12;
+    TST r0, r1;
+    BEQ fail;
+    TST r0, #5;
+    BNE fail;
+    B end;
+fail:
+    MOV r2, #1;
+end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0); // Ensure fail indicator is not set
+    }
 
     #[test]
     fn test_load_store() {

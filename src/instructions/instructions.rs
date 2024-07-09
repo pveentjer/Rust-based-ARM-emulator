@@ -50,6 +50,8 @@ pub enum Opcode {
     EOR,
     MVN,
     CMP,
+    TST,
+    TEQ,
     BEQ,
     BNE,
     BLE,
@@ -92,6 +94,8 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::BGE => "BGE",
         Opcode::BGT => "BGT",
         Opcode::DSB => "DSB",
+        Opcode::TST => "TST",
+        Opcode::TEQ => "TEQ",
     }
 }
 
@@ -131,6 +135,8 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "BGE" => Some(Opcode::BGE),
         "BGT" => Some(Opcode::BGT),
         "DSB" => Some(Opcode::DSB),
+        "TST" => Some(Opcode::TST),
+        "TEQ" => Some(Opcode::TEQ),
         _ => None,
     }
 }
@@ -208,6 +214,8 @@ pub(crate) fn create_instr(
 
             panic!();
         }
+        Opcode::TEQ |
+        Opcode::TST |
         Opcode::CMP => {
             validate_operand_count(2, operands, opcode, loc)?;
 

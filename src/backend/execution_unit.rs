@@ -84,6 +84,8 @@ impl EU {
             Opcode::EOR => self.execute_EOR(data_processing),
             Opcode::NEG => self.execute_NEG(data_processing),
             Opcode::MVN => self.execute_MVN(data_processing),
+            Opcode::TST => self.execute_TST(data_processing),
+            Opcode::TEQ => self.execute_TEQ(data_processing),
             _ => unreachable!()
         };
         data_processing.rd.value = Some(result);
@@ -130,6 +132,57 @@ impl EU {
             rd_update |= 1 << OVERFLOW_FLAG;
         } else {
             rd_update &= !(1 << OVERFLOW_FLAG);
+        }
+
+        rd_update
+    }
+    fn execute_TST(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+        let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+        let operand2_value = data_processing.operand2.value();
+
+        let result = rn_value & operand2_value;
+
+        let zero_flag = result == 0;
+        let negative_flag = (result & (1 << 63)) != 0;
+
+        let mut rd_update = data_processing.rd_src.as_ref().unwrap().value.unwrap();
+
+        if zero_flag {
+            rd_update |= 1 << ZERO_FLAG;
+        } else {
+            rd_update &= !(1 << ZERO_FLAG);
+        }
+
+        if negative_flag {
+            rd_update |= 1 << NEGATIVE_FLAG;
+        } else {
+            rd_update &= !(1 << NEGATIVE_FLAG);
+        }
+
+        rd_update
+    }
+
+    fn execute_TEQ(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+        let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
+        let operand2_value = data_processing.operand2.value();
+
+        let result = rn_value ^ operand2_value;
+
+        let zero_flag = result == 0;
+        let negative_flag = (result & (1 << 63)) != 0;
+
+        let mut rd_update = data_processing.rd_src.as_ref().unwrap().value.unwrap();
+
+        if zero_flag {
+            rd_update |= 1 << ZERO_FLAG;
+        } else {
+            rd_update &= !(1 << ZERO_FLAG);
+        }
+
+        if negative_flag {
+            rd_update |= 1 << NEGATIVE_FLAG;
+        } else {
+            rd_update &= !(1 << NEGATIVE_FLAG);
         }
 
         rd_update

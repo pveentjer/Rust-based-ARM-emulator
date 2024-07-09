@@ -13,15 +13,15 @@ BUGS
 
 TODO
 
+- fix MVN
+
+- add unit test for MVN
+
 - add test CMP/BEQ
 
 - add test CMP/BLE
 
 - move create_instr to AST?
-
-- fix MVN
-
-- add unit test for MVN
 
 - fix error handling of instruction parsing
 
@@ -30,8 +30,6 @@ TODO
 - SDIV proper division by zero handling
 
 - fix parsing of instructions that modify the control flow implicitly (so when accessing e.g. IP)
-
-- fix CMP
 
 - fix EXIT
 
@@ -46,10 +44,6 @@ TODO
 - BranchInstr implement Display
 
 - add ConditionCode operand
-
-- add TST
-
-- add TEQ
 
 - add CSINC
 
@@ -73,6 +67,8 @@ TODO
 
 - support for precise exceptions
 
+- syntax: add support for loading a binary
+
 - syntax: case insensitive keywords
 
 - syntax: single line comments
@@ -84,6 +80,16 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- add TST
+
+- add TEQ
+
+- add test for TST
+
+- add tests for TEQ
+
+- fix CMP
 
 - fix RET
 
