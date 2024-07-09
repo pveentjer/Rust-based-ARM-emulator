@@ -179,6 +179,7 @@ pub(crate) fn create_instr(
                 }
             }
         }
+        Opcode::MVN|
         Opcode::NEG => {
             validate_operand_count(2, operands, opcode, loc)?;
 
@@ -196,23 +197,6 @@ pub(crate) fn create_instr(
                     operand2: Operand2::Unused(),
                 }
             }
-        }
-        Opcode::MVN => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            let rn = match operands[2] {
-                Register(register) => Operand2::Register { register },
-                Immediate(value) => Operand2::Immediate { value },
-                _ => { panic!() }
-            };
-
-            // instr.sink_cnt = 1;
-            // instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            //
-            // instr.source_cnt = 1;
-            // instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
-
-            panic!();
         }
         Opcode::TEQ |
         Opcode::TST |

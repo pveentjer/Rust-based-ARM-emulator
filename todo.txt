@@ -13,14 +13,6 @@ BUGS
 
 TODO
 
-- fix MVN
-
-- add unit test for MVN
-
-- add test CMP/BEQ
-
-- add test CMP/BLE
-
 - move create_instr to AST?
 
 - fix error handling of instruction parsing
@@ -80,6 +72,12 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- add test CMP/BEQ
+
+- add unit test for MVN
+
+- fix MVN
 
 - add TST
 

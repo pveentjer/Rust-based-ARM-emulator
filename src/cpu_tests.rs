@@ -276,6 +276,27 @@ loop:
     }
 
     #[test]
+    fn test_loop_CMP_BEQ() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #0;
+loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CMP r0, #0;
+    BEQ end;
+    B loop;
+end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 0);
+        harness.assert_reg_value(1, 10);
+    }
+
+    #[test]
     fn test_teq() {
         let src = r#"
 .text
