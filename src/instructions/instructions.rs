@@ -208,6 +208,31 @@ pub(crate) fn create_instr(
 
             panic!();
         }
+        Opcode::CMP => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            let rd = CPSR as RegisterType;
+            let rn = operands[0].get_register();
+
+            // todo: ugly
+            let operand2 = match operands[1] {
+                Register(register) => Operand2::Register { register },
+                Immediate(value) => Operand2::Immediate { value },
+                _ => { panic!() }
+            };
+
+            Instr::DataProcessing {
+                data_processing: DataProcessing {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    rn: Some(rn),
+                    rd,
+                    rd_read: true,
+                    operand2,
+                }
+            }
+        }
         Opcode::ADR => { panic!() }
         Opcode::STR |
         Opcode::LDR => {
@@ -295,6 +320,7 @@ pub(crate) fn create_instr(
                     loc,
                     link_bit: false,
                     target: BranchTarget::Immediate { offset: offset as u32 },
+                    rt: None,
                 }
             }
         }
@@ -310,6 +336,7 @@ pub(crate) fn create_instr(
                     loc,
                     link_bit: false,
                     target: BranchTarget::Register { register },
+                    rt: None,
                 }
             }
         }
@@ -325,6 +352,7 @@ pub(crate) fn create_instr(
                     loc,
                     link_bit: true,
                     target: BranchTarget::Immediate { offset: offset as u32 },
+                    rt: None,
                 }
             }
         }
@@ -332,14 +360,19 @@ pub(crate) fn create_instr(
         Opcode::CBNZ => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            // instr.source_cnt = 2;
-            // instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            // instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
-            //
-            // instr.sink_cnt = 0;
-            // instr.set_branch();
+            let register = operands[0].get_register();
+            let offset = operands[1].get_code_address();
 
-            panic!();
+            Instr::Branch {
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: false,
+                    target: BranchTarget::Immediate { offset: offset as u32 },
+                    rt: Some(register),
+                }
+            }
         }
         Opcode::NOP |
         Opcode::EXIT |
@@ -353,58 +386,34 @@ pub(crate) fn create_instr(
                 }
             }
         }
-        Opcode::CMP => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            let rd = CPSR as RegisterType;
-            let rn = operands[0].get_register();
-
-            // todo: ugly
-            let operand2 = match operands[1] {
-                Register(register) => Operand2::Register { register },
-                Immediate(value) => Operand2::Immediate { value },
-                _ => { panic!() }
-            };
-
-            Instr::DataProcessing {
-                data_processing: DataProcessing {
-                    opcode,
-                    condition: ConditionCode::AL,
-                    loc,
-                    rn: Some(rn),
-                    rd,
-                    rd_read: true,
-                    operand2,
-                }
-            }
-        }
         Opcode::BEQ |
         Opcode::BNE |
         Opcode::BLT |
         Opcode::BLE |
         Opcode::BGT |
         Opcode::BGE => {
-            // validate_operand_count(1, operands, opcode, loc)?;
-            //
-            // let offset = operands[0].get_immediate();
-            //
-            //
-            // Instr::Branch {
-            //     branch: Branch {
-            //         opcode,
-            //         condition: ConditionCode::AL,
-            //         loc,
-            //         link_bit: false,
-            //         offset: 0,
-            //     }
-            // }
+            validate_operand_count(1, operands, opcode, loc)?;
+
+            let offset = operands[0].get_code_address();
+
+            Instr::Branch {
+                branch: Branch {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    link_bit: false,
+                    target: BranchTarget::Immediate { offset: offset as u32 },
+                    rt: Some(CPSR),
+                }
+            }
+
             // instr.source_cnt = 2;
             // instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
             // instr.source[1] = Register(CPSR);
             //
             // instr.sink_cnt = 0;
             // instr.set_branch();
-            panic!();
+            // panic!();
         }
     };
 
@@ -514,6 +523,8 @@ pub struct Branch {
     pub loc: SourceLocation,
     pub link_bit: bool,
     pub target: BranchTarget,
+    // the register to test against.
+    pub rt: Option<RegisterType>,
 }
 
 #[derive(Clone, Copy, Debug)]

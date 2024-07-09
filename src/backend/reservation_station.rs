@@ -53,11 +53,23 @@ pub enum RSBranchTarget {
         register: RenamedRegister,
     },
 }
+
+impl RSBranchTarget {
+    pub fn as_immediate(&self) -> u32 {
+        if let RSBranchTarget::Immediate { offset } = self {
+            *offset
+        } else {
+            panic!("Expected RSBranchTarget::Immediate");
+        }
+    }
+}
+
 pub struct RSBranch {
     pub opcode: Opcode,
     pub condition: ConditionCode,
     pub lr: Option<RenamedRegister>,
     pub target: RSBranchTarget,
+    pub rt: Option<RenamedRegister>,
 }
 
 pub struct RSLoadStore {

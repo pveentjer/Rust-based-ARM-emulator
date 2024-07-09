@@ -67,33 +67,23 @@ impl EU {
         println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
     }
 
-    fn execute_branch(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
-        println!("opcode:{:?}", branch.opcode);
-        match &branch.opcode {
-            Opcode::B => self.execute_B(branch, rob_slot),
-            Opcode::BL => self.execute_BL(branch, rob_slot),
-            Opcode::BX => self.execute_BX(branch, rob_slot),
-            _ => unreachable!()
-        };
-    }
-
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
 
         // todo: here the conditional execution can be added
 
         let result = match &data_processing.opcode {
-            Opcode::ADD => self.execute_add(data_processing),
-            Opcode::SUB => self.execute_sub(data_processing),
-            Opcode::RSB => self.execute_rsb(data_processing),
-            Opcode::MUL => self.execute_mul(data_processing),
-            Opcode::MOV => self.execute_mov(data_processing),
-            Opcode::CMP => self.execute_cmp(data_processing),
-            Opcode::SDIV => self.execute_sdiv(data_processing),
-            Opcode::AND => self.execute_and(data_processing),
-            Opcode::ORR => self.execute_orr(data_processing),
-            Opcode::EOR => self.execute_eor(data_processing),
-            Opcode::NEG => self.execute_neg(data_processing),
-            Opcode::MVN => self.execute_mvn(data_processing),
+            Opcode::ADD => self.execute_ADD(data_processing),
+            Opcode::SUB => self.execute_SUB(data_processing),
+            Opcode::RSB => self.execute_RSB(data_processing),
+            Opcode::MUL => self.execute_MUL(data_processing),
+            Opcode::MOV => self.execute_MOV(data_processing),
+            Opcode::CMP => self.execute_CMP(data_processing),
+            Opcode::SDIV => self.execute_SDIV(data_processing),
+            Opcode::AND => self.execute_AND(data_processing),
+            Opcode::ORR => self.execute_ORR(data_processing),
+            Opcode::EOR => self.execute_EOR(data_processing),
+            Opcode::NEG => self.execute_NEG(data_processing),
+            Opcode::MVN => self.execute_MVN(data_processing),
             _ => unreachable!()
         };
         data_processing.rd.value = Some(result);
@@ -102,7 +92,7 @@ impl EU {
         rob_slot.renamed_registers.push(data_processing.rd.clone())
     }
 
-    fn execute_cmp(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_CMP(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
 
@@ -145,65 +135,65 @@ impl EU {
         rd_update
     }
 
-    fn execute_sdiv(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_SDIV(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
 
         rn_value / operand2_value
     }
 
-    fn execute_mov(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_MOV(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         data_processing.operand2.value()
     }
 
-    fn execute_mul(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_MUL(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
-        rn_value * operand2_value
+        rn_value.wrapping_mul(operand2_value)
     }
 
-    fn execute_rsb(&mut self, data_processing: &mut RSDataProcessing) -> u64 {    // let rn = rs.source[0].value.unwrap();
+    fn execute_RSB(&mut self, data_processing: &mut RSDataProcessing) -> u64 {    // let rn = rs.source[0].value.unwrap();
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
         operand2_value.wrapping_sub(rn_value)
     }
 
-    fn execute_sub(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_SUB(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
-        rn_value - operand2_value
+        rn_value.wrapping_sub(operand2_value)
     }
 
-    fn execute_add(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_ADD(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
-        rn_value + operand2_value
+        rn_value.wrapping_add(operand2_value)
     }
 
-    fn execute_and(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_AND(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
         rn_value & operand2_value
     }
 
-    fn execute_orr(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_ORR(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
         rn_value | operand2_value
     }
 
-    fn execute_mvn(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_MVN(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         !rn_value
     }
 
-    fn execute_eor(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_EOR(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
         rn_value ^ operand2_value
     }
 
-    fn execute_neg(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
+    fn execute_NEG(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
 
         println!("NEG {}", rn_value.wrapping_neg());
@@ -235,131 +225,23 @@ impl EU {
         };
     }
 
-    fn execute_BEQ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let target = rs.source[0].value.unwrap();
-        // let cpsr = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        // let pc_update = if zero_flag == 1 { target } else { pc + 1 };
-        // rob_slot.branch_target_actual = pc_update as usize;
+    fn execute_branch(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
+        println!("opcode:{:?}", branch.opcode);
+        match &branch.opcode {
+            Opcode::B => self.execute_B(branch, rob_slot),
+            Opcode::BL => self.execute_BL(branch, rob_slot),
+            Opcode::BX => self.execute_BX(branch, rob_slot),
+            Opcode::BEQ => self.execute_BEQ(branch, rob_slot),
+            Opcode::BNE => self.execute_BNE(branch, rob_slot),
+            Opcode::BGT => self.execute_BGT(branch, rob_slot),
+            Opcode::BGE => self.execute_BGE(branch, rob_slot),
+            Opcode::BLT => self.execute_BLT(branch, rob_slot),
+            Opcode::BLE => self.execute_BLE(branch, rob_slot),
+            Opcode::CBZ => self.execute_CBZ(branch, rob_slot),
+            Opcode::CBNZ => self.execute_CBNZ(branch, rob_slot),
+            _ => unreachable!()
+        };
     }
-
-    fn execute_BNE(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let target = rs.source[0].value.unwrap();
-        // let cpsr = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        // let pc_update = if zero_flag == 0 { target } else { pc + 1 };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_BLT(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let target = rs.source[0].value.unwrap();
-        // let cpsr = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-        //
-        // let pc_update = if negative_flag != overflow_flag { target } else { pc + 1 };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_BLE(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
-        // let target = rs.source[0].value.unwrap();
-        // let cpsr = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // // Extract the zero flag (bit 30), negative flag (bit 31), and overflow flag (bit 28) from CPSR
-        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-        //
-        // let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) {
-        //     target
-        // } else {
-        //     pc + 1
-        // };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_BGT(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
-        // let target = rs.source[0].value.unwrap();
-        // let cpsr = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
-        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-        //
-        // let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) {
-        //     target
-        // } else {
-        //     pc + 1
-        // };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_BGE(&mut self, rs: &RS, rob_slot: &mut ROBSlot) {
-        // let target = rs.source[0].value.unwrap();
-        // let cpsr = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
-        // let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
-        //
-        // let pc_update = if negative_flag == overflow_flag {
-        //     target
-        // } else {
-        //     pc + 1
-        // };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_CBZ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let reg_value = rs.source[0].value.unwrap();
-        // let branch = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let pc_update = if reg_value == 0 { branch } else { pc + 1 };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_CBNZ(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-        // let reg_value = rs.source[0].value.unwrap();
-        // let branch = rs.source[1].value.unwrap();
-        // let pc = rob_slot.pc as DWordType;
-        //
-        // let pc_update = if reg_value != 0 { branch } else { pc + 1 };
-        // rob_slot.branch_target_actual = pc_update as usize;
-    }
-
-    fn execute_BL(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
-        if let RSBranchTarget::Immediate { offset } = &branch.target {
-            let branch_target = *offset;
-            rob_slot.branch_target_actual = branch_target as usize;
-
-            let pc_update = branch_target;
-
-            // update LR
-            let value = (rob_slot.pc + 1) as DWordType;
-            let lr = branch.lr.as_mut().unwrap();
-            lr.value = Some(value);
-            self.phys_reg_file.borrow_mut().set_value(lr.phys_reg.unwrap(), value);
-            rob_slot.branch_target_actual = pc_update as usize;
-        } else {
-            panic!();
-        }
-    }
-    //
-    // fn execute_BX(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {
-    //     // // update the PC
-    //     // let branch_target = rs.source[0].value.unwrap() as i64;
-    //     // let pc_update = branch_target;
-    //     // rob_slot.branch_target_actual = pc_update as usize;
-    // }
 
     fn execute_B(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
         // // update the PC
@@ -381,6 +263,122 @@ impl EU {
         } else {
             panic!();
         }
+    }
+
+    fn execute_BEQ(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let target = branch.target.as_immediate() as u64;
+        let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
+        let pc = rob_slot.pc as DWordType;
+
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let pc_update = if zero_flag == 1 { target } else { pc + 1 };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_BNE(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let target = branch.target.as_immediate() as u64;
+        let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
+        let pc = rob_slot.pc as DWordType;
+
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let pc_update = if zero_flag == 0 { target } else { pc + 1 };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_BLT(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let target = branch.target.as_immediate() as u64;
+        let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
+        let pc = rob_slot.pc as DWordType;
+
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if negative_flag != overflow_flag { target } else { pc + 1 };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_BLE(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let target = branch.target.as_immediate() as u64;
+        let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
+        let pc = rob_slot.pc as DWordType;
+
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if (zero_flag == 1) || (negative_flag != overflow_flag) {
+            target
+        } else {
+            pc + 1
+        };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_BGT(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let target = branch.target.as_immediate() as u64;
+        let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
+        let pc = rob_slot.pc as DWordType;
+
+        let zero_flag = (cpsr >> ZERO_FLAG) & 0x1;
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if (zero_flag == 0) && (negative_flag == overflow_flag) {
+            target
+        } else {
+            pc + 1
+        };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_BGE(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let target = branch.target.as_immediate() as u64;
+        let cpsr = branch.rt.as_ref().unwrap().value.unwrap();
+        let pc = rob_slot.pc as DWordType;
+
+        let negative_flag = (cpsr >> NEGATIVE_FLAG) & 0x1;
+        let overflow_flag = (cpsr >> OVERFLOW_FLAG) & 0x1;
+
+        let pc_update = if negative_flag == overflow_flag {
+            target
+        } else {
+            pc + 1
+        };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+
+    fn execute_CBZ(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let reg_value = branch.rt.as_ref().unwrap().value.unwrap();
+        let target = branch.target.as_immediate() as u64;
+        let pc = rob_slot.pc as DWordType;
+
+        let pc_update = if reg_value == 0 { target } else { pc + 1 };
+        println!("pc_update {}",pc_update);
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_CBNZ(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) {
+        let reg_value = branch.rt.as_ref().unwrap().value.unwrap();
+        let target = branch.target.as_immediate() as u64;
+        let pc = rob_slot.pc as DWordType;
+
+        let pc_update = if reg_value != 0 { target } else { pc + 1 };
+        rob_slot.branch_target_actual = pc_update as usize;
+    }
+
+    fn execute_BL(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
+        let branch_target = branch.target.as_immediate();
+        rob_slot.branch_target_actual = branch_target as usize;
+
+        let pc_update = branch_target;
+
+        // update LR
+        let value = (rob_slot.pc + 1) as DWordType;
+        let lr = branch.lr.as_mut().unwrap();
+        lr.value = Some(value);
+        self.phys_reg_file.borrow_mut().set_value(lr.phys_reg.unwrap(), value);
+        rob_slot.branch_target_actual = pc_update as usize;
     }
 
     fn execute_RET(&mut self, rs: &mut RS, rob_slot: &mut ROBSlot) {

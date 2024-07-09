@@ -13,6 +13,15 @@ BUGS
 
 TODO
 
+
+- add test CMP/BEQ
+
+- add test CMP/BLE
+
+- move create_instr to AST?
+
+- fix RET
+
 - fix MVN
 
 - add unit test for MVN
@@ -53,9 +62,6 @@ TODO
 
 - clean up the pc_update in the B.. methods
 
-- add test CMP/BEQ
-
-- add test CMP/BLE
 
 - integration test: stack push
 
@@ -82,6 +88,18 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix BLT
+
+- fix BLE
+
+- fix BGE
+
+- fix BGT
+
+- fix CBZ
+
+- fix CBNZ
 
 - fix BL
 

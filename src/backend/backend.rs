@@ -205,11 +205,6 @@ impl Backend {
                         branch: RSBranch {
                             opcode: branch.opcode,
                             condition: ConditionCode::AL,
-                            lr: if branch.link_bit {
-                                Some(register_rename_sink(LR as RegisterType, &mut phys_reg_file, &mut self.rat))
-                            } else {
-                                None
-                            },
                             target: match branch.target {
                                 BranchTarget::Immediate { offset } => {
                                     RSBranchTarget::Immediate { offset }
@@ -219,6 +214,16 @@ impl Backend {
                                         register: register_rename_src(register, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
                                     }
                                 }
+                            },
+                            rt: if let Some(rt)= branch.rt{
+                                Some(register_rename_src(rt, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
+                            } else{
+                                None
+                            },
+                            lr: if branch.link_bit {
+                                Some(register_rename_sink(LR as RegisterType, &mut phys_reg_file, &mut self.rat))
+                            } else {
+                                None
                             },
                         },
                     }
@@ -437,6 +442,16 @@ impl Backend {
                     }
                     RSInstr::Branch { branch } => {
                         if let RSBranchTarget::Register { register } = &mut branch.target {
+                            if let Some(r) = register.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    register.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
+                        }
+
+                        if let Some(register) = &mut branch.rt{
                             if let Some(r) = register.phys_reg {
                                 if r == broadcast.phys_reg {
                                     register.value = Some(broadcast.value);
