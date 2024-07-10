@@ -1,5 +1,21 @@
 use std::str::FromStr;
-use crate::loader::ast::{ASTOperand, ASTInstr, ASTData, ASTTextSection, ASTDataSection, ASTAssemblyFile, ASTDirective, ASTTextLine, ASTDataLine, ASTLabel,ASTPreamble};
+use crate::instructions::instructions::RegisterType;
+use crate::loader::ast::{
+        ASTOperand,
+        ASTRegisterOperand,
+        ASTImmediateOperand,
+        ASTLabelOperand,
+        ASTAddressOfOperand,
+        ASTInstr,
+        ASTData,
+        ASTTextSection,
+        ASTDataSection,
+        ASTAssemblyFile,
+        ASTDirective,
+        ASTTextLine,
+        ASTDataLine,
+        ASTLabel,
+        ASTPreamble};
 use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
 
@@ -26,116 +42,115 @@ LabelName: String = {
 }
 
 Operand: ASTOperand = {
-    Register,
-    Immediate,
-    LabelOperand,
-    AddressOf,
-    MemoryAccess,
+    <o:RegisterOperand> => ASTOperand::Register(o),
+    <o:ImmediateOperand> => ASTOperand::Immediate(o),
+    <o:LabelOperand> =>ASTOperand::Label(o),
+    <o:AddressOfOperand> =>ASTOperand::AddressOf(o),
+//    MemoryAccess,
 }
 
-MemoryAccess: ASTOperand = {
-    <start:@L> "[" <b:Register> "]"                       => {
-                                                                let ASTOperand::Register(register, _) = b else { panic!() };
-                                                                ASTOperand::MemRegisterIndirect(register, start)
-                                                             },
-//    <start:@L> "[" <b:Register> "," <o:Immediate> "]"     => {
-//                                                                let ASTOperand::Register(register, _) = b else { panic!() };
-//                                                                let ASTOperand::Immediate(offset, _) = b else { panic!() };
-//                                                                ASTOperand::MemRegIndirectWithOffset(register, offset, start)
+//MemoryAccess: ASTOperand = {
+//    <start:@L> "[" <b:RegisterOperand> "]"                       => {
+//                                                                ASTOperand::MemRegisterIndirect(b.id, start)
 //                                                             },
-//    <start:@L> "[" <b:Register> "," <r:Register> "]"     =>  {
-//                                                                let ASTOperand::Register(register, _) = b else { panic!() };
-//                                                                let ASTOperand::Register(offset, _) = b else { panic!() };
-//                                                                ASTOperand::MemRegIndirectWithRegOffset(register, offset, start)
-//                                                             },
-}
+////    <start:@L> "[" <b:Register> "," <o:Immediate> "]"     => {
+////                                                                let ASTOperand::Register(register, _) = b else { panic!() };
+////                                                                let ASTOperand::Immediate(offset, _) = b else { panic!() };
+////                                                                ASTOperand::MemRegIndirectWithOffset(register, offset, start)
+////                                                             },
+////    <start:@L> "[" <b:Register> "," <r:Register> "]"     =>  {
+////                                                                let ASTOperand::Register(register, _) = b else { panic!() };
+////                                                                let ASTOperand::Register(offset, _) = b else { panic!() };
+////                                                                ASTOperand::MemRegIndirectWithRegOffset(register, offset, start)
+////                                                             },
+//}
 
 // with a regular expression, the following would lead to conflicts.
 // For the time being the capitalized versions are explicitly added due to difficulties with case insensitivity.
-Register: ASTOperand = {
-    <start:@L>  "r0"            => ASTOperand::Register(0, start),
-    <start:@L>  "R0"            => ASTOperand::Register(0, start),
-    <start:@L>  "r1"            => ASTOperand::Register(1, start),
-    <start:@L>  "R1"            => ASTOperand::Register(1, start),
-    <start:@L>  "r2"            => ASTOperand::Register(2, start),
-    <start:@L>  "R2"            => ASTOperand::Register(2, start),
-    <start:@L>  "r3"            => ASTOperand::Register(3, start),
-    <start:@L>  "R3"            => ASTOperand::Register(3, start),
-    <start:@L>  "r4"            => ASTOperand::Register(4, start),
-    <start:@L>  "R4"            => ASTOperand::Register(4, start),
-    <start:@L>  "r5"            => ASTOperand::Register(5, start),
-    <start:@L>  "R5"            => ASTOperand::Register(5, start),
-    <start:@L>  "r6"            => ASTOperand::Register(6, start),
-    <start:@L>  "R6"            => ASTOperand::Register(6, start),
-    <start:@L>  "r7"            => ASTOperand::Register(7, start),
-    <start:@L>  "R7"            => ASTOperand::Register(7, start),
-    <start:@L>  "r8"            => ASTOperand::Register(8, start),
-    <start:@L>  "R8"            => ASTOperand::Register(8, start),
-    <start:@L>  "r9"            => ASTOperand::Register(9, start),
-    <start:@L>  "R9"            => ASTOperand::Register(9, start),
-    <start:@L>  "r10"           => ASTOperand::Register(10, start),
-    <start:@L>  "R10"           => ASTOperand::Register(10, start),
-    <start:@L>  "r11"           => ASTOperand::Register(11, start),
-    <start:@L>  "R11"           => ASTOperand::Register(11, start),
-    <start:@L>  "r12"           => ASTOperand::Register(12, start),
-    <start:@L>  "R12"           => ASTOperand::Register(12, start),
-    <start:@L>  "r13"           => ASTOperand::Register(13, start),
-    <start:@L>  "R13"           => ASTOperand::Register(13, start),
-    <start:@L>  "r14"           => ASTOperand::Register(14, start),
-    <start:@L>  "R14"           => ASTOperand::Register(14, start),
-    <start:@L>  "r15"           => ASTOperand::Register(15, start),
-    <start:@L>  "R15"           => ASTOperand::Register(15, start),
-    <start:@L>  "r16"           => ASTOperand::Register(16, start),
-    <start:@L>  "R16"           => ASTOperand::Register(16, start),
-    <start:@L>  "r17"           => ASTOperand::Register(17, start),
-    <start:@L>  "R17"           => ASTOperand::Register(17, start),
-    <start:@L>  "r18"           => ASTOperand::Register(18, start),
-    <start:@L>  "R18"           => ASTOperand::Register(18, start),
-    <start:@L>  "r19"           => ASTOperand::Register(19, start),
-    <start:@L>  "R19"           => ASTOperand::Register(19, start),
-    <start:@L>  "r20"           => ASTOperand::Register(20, start),
-    <start:@L>  "R20"           => ASTOperand::Register(20, start),
-    <start:@L>  "r21"           => ASTOperand::Register(21, start),
-    <start:@L>  "R21"           => ASTOperand::Register(21, start),
-    <start:@L>  "r22"           => ASTOperand::Register(22, start),
-    <start:@L>  "R22"           => ASTOperand::Register(22, start),
-    <start:@L>  "r23"           => ASTOperand::Register(23, start),
-    <start:@L>  "R23"           => ASTOperand::Register(23, start),
-    <start:@L>  "r24"           => ASTOperand::Register(24, start),
-    <start:@L>  "R24"           => ASTOperand::Register(24, start),
-    <start:@L>  "r25"           => ASTOperand::Register(25, start),
-    <start:@L>  "R25"           => ASTOperand::Register(25, start),
-    <start:@L>  "r26"           => ASTOperand::Register(26, start),
-    <start:@L>  "R26"           => ASTOperand::Register(26, start),
-    <start:@L>  "r27"           => ASTOperand::Register(27, start),
-    <start:@L>  "R27"           => ASTOperand::Register(27, start),
-    <start:@L>  "r28"           => ASTOperand::Register(28, start),
-    <start:@L>  "R28"           => ASTOperand::Register(28, start),
-    <start:@L>  "r29"           => ASTOperand::Register(29, start),
-    <start:@L>  "R29"           => ASTOperand::Register(29, start),
-    <start:@L>  "r30"           => ASTOperand::Register(30, start),
-    <start:@L>  "R30"           => ASTOperand::Register(30, start),
-    <start:@L>  "fp"            => ASTOperand::Register(FP as u64, start),
-    <start:@L>  "FP"            => ASTOperand::Register(FP as u64, start),
-    <start:@L>  "sp"            => ASTOperand::Register(SP as u64, start),
-    <start:@L>  "SP"            => ASTOperand::Register(SP as u64, start),
-    <start:@L>  "lr"            => ASTOperand::Register(LR as u64, start),
-    <start:@L>  "LR"            => ASTOperand::Register(LR as u64, start),
-    <start:@L>  "pc"            => ASTOperand::Register(PC as u64, start),
-    <start:@L>  "PC"            => ASTOperand::Register(PC as u64, start)
+RegisterOperand: ASTRegisterOperand = {
+    <start:@L>  "r0"            => ASTRegisterOperand{id:0 as RegisterType, position:start},
+    <start:@L>  "R0"            => ASTRegisterOperand{id:0 as RegisterType, position:start},
+    <start:@L>  "r1"            => ASTRegisterOperand{id:1 as RegisterType, position:start},
+    <start:@L>  "R1"            => ASTRegisterOperand{id:1 as RegisterType, position:start},
+    <start:@L>  "r2"            => ASTRegisterOperand{id:2 as RegisterType, position:start},
+    <start:@L>  "R2"            => ASTRegisterOperand{id:2 as RegisterType, position:start},
+    <start:@L>  "r3"            => ASTRegisterOperand{id:3 as RegisterType, position:start},
+    <start:@L>  "R3"            => ASTRegisterOperand{id:3 as RegisterType, position:start},
+    <start:@L>  "r4"            => ASTRegisterOperand{id:4 as RegisterType, position:start},
+    <start:@L>  "R4"            => ASTRegisterOperand{id:4 as RegisterType, position:start},
+    <start:@L>  "r5"            => ASTRegisterOperand{id:5 as RegisterType, position:start},
+    <start:@L>  "R5"            => ASTRegisterOperand{id:5 as RegisterType, position:start},
+    <start:@L>  "r6"            => ASTRegisterOperand{id:6 as RegisterType, position:start},
+    <start:@L>  "R6"            => ASTRegisterOperand{id:6 as RegisterType, position:start},
+    <start:@L>  "r7"            => ASTRegisterOperand{id:7 as RegisterType, position:start},
+    <start:@L>  "R7"            => ASTRegisterOperand{id:7 as RegisterType, position:start},
+    <start:@L>  "r8"            => ASTRegisterOperand{id:8 as RegisterType, position:start},
+    <start:@L>  "R8"            => ASTRegisterOperand{id:8 as RegisterType, position:start},
+    <start:@L>  "r9"            => ASTRegisterOperand{id:9 as RegisterType, position:start},
+    <start:@L>  "R9"            => ASTRegisterOperand{id:9 as RegisterType, position:start},
+    <start:@L>  "r10"           => ASTRegisterOperand{id:10 as RegisterType, position:start},
+    <start:@L>  "R10"           => ASTRegisterOperand{id:10 as RegisterType, position:start},
+    <start:@L>  "r11"           => ASTRegisterOperand{id:11 as RegisterType, position:start},
+    <start:@L>  "R11"           => ASTRegisterOperand{id:11 as RegisterType, position:start},
+    <start:@L>  "r12"           => ASTRegisterOperand{id:12 as RegisterType, position:start},
+    <start:@L>  "R12"           => ASTRegisterOperand{id:12 as RegisterType, position:start},
+    <start:@L>  "r13"           => ASTRegisterOperand{id:13 as RegisterType, position:start},
+    <start:@L>  "R13"           => ASTRegisterOperand{id:13 as RegisterType, position:start},
+    <start:@L>  "r14"           => ASTRegisterOperand{id:14 as RegisterType, position:start},
+    <start:@L>  "R14"           => ASTRegisterOperand{id:14 as RegisterType, position:start},
+    <start:@L>  "r15"           => ASTRegisterOperand{id:15 as RegisterType, position:start},
+    <start:@L>  "R15"           => ASTRegisterOperand{id:15 as RegisterType, position:start},
+    <start:@L>  "r16"           => ASTRegisterOperand{id:16 as RegisterType, position:start},
+    <start:@L>  "R16"           => ASTRegisterOperand{id:16 as RegisterType, position:start},
+    <start:@L>  "r17"           => ASTRegisterOperand{id:17 as RegisterType, position:start},
+    <start:@L>  "R17"           => ASTRegisterOperand{id:17 as RegisterType, position:start},
+    <start:@L>  "r18"           => ASTRegisterOperand{id:18 as RegisterType, position:start},
+    <start:@L>  "R18"           => ASTRegisterOperand{id:18 as RegisterType, position:start},
+    <start:@L>  "r19"           => ASTRegisterOperand{id:19 as RegisterType, position:start},
+    <start:@L>  "R19"           => ASTRegisterOperand{id:19 as RegisterType, position:start},
+    <start:@L>  "r20"           => ASTRegisterOperand{id:20 as RegisterType, position:start},
+    <start:@L>  "R20"           => ASTRegisterOperand{id:20 as RegisterType, position:start},
+    <start:@L>  "r21"           => ASTRegisterOperand{id:21 as RegisterType, position:start},
+    <start:@L>  "R21"           => ASTRegisterOperand{id:21 as RegisterType, position:start},
+    <start:@L>  "r22"           => ASTRegisterOperand{id:22 as RegisterType, position:start},
+    <start:@L>  "R22"           => ASTRegisterOperand{id:22 as RegisterType, position:start},
+    <start:@L>  "r23"           => ASTRegisterOperand{id:23 as RegisterType, position:start},
+    <start:@L>  "R23"           => ASTRegisterOperand{id:23 as RegisterType, position:start},
+    <start:@L>  "r24"           => ASTRegisterOperand{id:24 as RegisterType, position:start},
+    <start:@L>  "R24"           => ASTRegisterOperand{id:24 as RegisterType, position:start},
+    <start:@L>  "r25"           => ASTRegisterOperand{id:25 as RegisterType, position:start},
+    <start:@L>  "R25"           => ASTRegisterOperand{id:25 as RegisterType, position:start},
+    <start:@L>  "r26"           => ASTRegisterOperand{id:26 as RegisterType, position:start},
+    <start:@L>  "R26"           => ASTRegisterOperand{id:26 as RegisterType, position:start},
+    <start:@L>  "r27"           => ASTRegisterOperand{id:27 as RegisterType, position:start},
+    <start:@L>  "R27"           => ASTRegisterOperand{id:27 as RegisterType, position:start},
+    <start:@L>  "r28"           => ASTRegisterOperand{id:28 as RegisterType, position:start},
+    <start:@L>  "R28"           => ASTRegisterOperand{id:28 as RegisterType, position:start},
+    <start:@L>  "r29"           => ASTRegisterOperand{id:29 as RegisterType, position:start},
+    <start:@L>  "R29"           => ASTRegisterOperand{id:29 as RegisterType, position:start},
+    <start:@L>  "r30"           => ASTRegisterOperand{id:30 as RegisterType, position:start},
+    <start:@L>  "R30"           => ASTRegisterOperand{id:30 as RegisterType, position:start},
+    <start:@L>  "fp"            => ASTRegisterOperand{id:FP, position:start},
+    <start:@L>  "FP"            => ASTRegisterOperand{id:FP, position:start},
+    <start:@L>  "sp"            => ASTRegisterOperand{id:SP, position:start},
+    <start:@L>  "SP"            => ASTRegisterOperand{id:SP, position:start},
+    <start:@L>  "lr"            => ASTRegisterOperand{id:LR, position:start},
+    <start:@L>  "LR"            => ASTRegisterOperand{id:LR, position:start},
+    <start:@L>  "pc"            => ASTRegisterOperand{id:PC, position:start},
+    <start:@L>  "PC"            => ASTRegisterOperand{id:PC, position:start}
 };
 
 
-Immediate: ASTOperand = {
-    <start:@L> "#" <i:Integer> => ASTOperand::Immediate(i, start),
+ImmediateOperand: ASTImmediateOperand = {
+    <start:@L> "#" <v:Integer> => ASTImmediateOperand{value:v, position:start},
 };
 
-AddressOf: ASTOperand = {
-    <start:@L> "=" <l:LabelName> => ASTOperand::AddressOf(l, start),
+AddressOfOperand: ASTAddressOfOperand = {
+    <start:@L> "=" <l:LabelName> => ASTAddressOfOperand{label:l, position:start},
 };
 
-LabelOperand: ASTOperand = {
-     <start:@L> <l:LabelName> => ASTOperand::Label(l, start),
+LabelOperand: ASTLabelOperand = {
+     <start:@L> <l:LabelName> => ASTLabelOperand{label:l, position:start},
 };
 
 Directive: ASTDirective = {

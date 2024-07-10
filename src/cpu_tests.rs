@@ -22,7 +22,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add() {
+    fn test_ADD() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -37,7 +37,7 @@ mod tests {
     }
 
     #[test]
-    fn test_neg() {
+    fn test_NEG() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -53,7 +53,7 @@ mod tests {
     }
 
     #[test]
-    fn test_and() {
+    fn test_AND() {
         let src = r#"
 .text
     MOV r0, #0;
@@ -78,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orr() {
+    fn test_ORR() {
         let src = r#"
 .text
     MOV r0, #0;
@@ -103,7 +103,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eor() {
+    fn test_EOR() {
         let src = r#"
 .text
     MOV r0, #0;
@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mvn() {
+    fn test_MVN() {
         let src = r#"
  .text
      MOV r0, #100;
@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sub() {
+    fn test_SUB() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rsb() {
+    fn test_RSB() {
         let src = r#"
 .text
     MOV r0, #10;
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mul() {
+    fn test_MUL() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -297,7 +297,7 @@ end:
     }
 
     #[test]
-    fn test_teq() {
+    fn test_TEQ() {
         let src = r#"
 .text
     MOV r0, #5;
@@ -317,7 +317,7 @@ end:
     }
 
     #[test]
-    fn test_tst() {
+    fn test_TST() {
         let src = r#"
 .text
     MOV r0, #10;
@@ -337,7 +337,7 @@ end:
     }
 
     #[test]
-    fn test_load_store() {
+    fn test_LDR_STR() {
         let src = r#"
 .data
     var_a: .dword 5
@@ -358,7 +358,7 @@ end:
     }
 
     #[test]
-    fn test_load() {
+    fn test_LDR() {
         let src = r#"
 .data
     var_a: .dword 5
@@ -373,7 +373,7 @@ end:
     }
 
     #[test]
-    fn test_store() {
+    fn test_STR() {
         let src = r#"
 .data
     var_a: .dword 0
@@ -390,7 +390,7 @@ end:
 
     // Ensures that stores update to memory out of order even they can be performed in order.
     #[test]
-    fn test_store_WAW() {
+    fn test_STR_WAW() {
         let src = r#"
 .data
     var_a: .dword 0
@@ -420,7 +420,7 @@ end:
     }
 
     #[test]
-    fn test_store_loop() {
+    fn test_STR_loop() {
         let src = r#"
 .data
     var_a: .dword 0
@@ -576,8 +576,6 @@ _start:
 
         harness.assert_reg_value(2, 16);
     }
-
-
 
     struct TestHarness {
         program: Option<Rc<Program>>,

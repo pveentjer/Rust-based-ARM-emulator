@@ -1,6 +1,6 @@
 BUGS
 
-- fix BNE
+- fix error handling of instruction parsing
 
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs to allocate
@@ -11,20 +11,19 @@ BUGS
 
 - store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
 
-TODO
-
-- move create_instr to AST?
-
-- fix error handling of instruction parsing
-
-- cdb_broadcast_buffer filling should be done in execute
-
 - SDIV proper division by zero handling
 
 - fix parsing of instructions that modify the control flow implicitly (so when accessing e.g. IP)
 
 - fix EXIT
 
+TODO
+
+- fix address of operand
+
+- fix PRINTR (register)
+
+- cdb_broadcast_buffer filling should be done in execute
 - operands can move to the AST section since not used inside the CPU
 
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
@@ -73,36 +72,9 @@ TODO
 
 DONE
 
-- add test CMP/BEQ
+- ASTOperands: explicit structs
 
-- add unit test for MVN
+- remove normal Operand; only keep the AST version
 
-- fix MVN
+- move create_instr to AST?
 
-- add TST
-
-- add TEQ
-
-- add test for TST
-
-- add tests for TEQ
-
-- fix CMP
-
-- fix RET
-
-- fix BLT
-
-- fix BLE
-
-- fix BGE
-
-- fix BGT
-
-- fix CBZ
-
-- fix CBNZ
-
-- fix BL
-
-- fix BX

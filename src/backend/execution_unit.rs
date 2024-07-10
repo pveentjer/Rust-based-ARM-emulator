@@ -5,7 +5,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::{RS, RSBranch, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
-use crate::instructions::instructions::{DWordType, Opcode, Operand};
+use crate::instructions::instructions::{DWordType, Opcode};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 /// A single execution unit.
@@ -64,7 +64,7 @@ impl EU {
     }
 
     fn execute_printr(&mut self, printr: &mut RSPrintr) {
-        println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
+        //println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
     }
 
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
