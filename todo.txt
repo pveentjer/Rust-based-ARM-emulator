@@ -26,11 +26,8 @@ TODO
 - fix address of operand
 
 - cdb_broadcast_buffer filling should be done in execute
-- operands can move to the AST section since not used inside the CPU
 
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
-
-- LoadStoreInstr implement Display
 
 - DataProcessingInstr implement Display
 
@@ -73,6 +70,20 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- DataProcessing implements Display
+
+- SyncInstr implements Display
+
+- Printr implements Display
+
+- LoadStoreInstr implement Display
+
+- operands can move to the AST section since not used inside the CPU
+
+- simplify the Instr enum
+
+- fix running of junk
 
 - fix display LDR
 

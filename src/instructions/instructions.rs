@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter, Pointer};
 use std::rc::Rc;
 
 use crate::cpu::{CPSR, SP};
@@ -214,6 +214,16 @@ pub enum Operand2 {
     Unused(),
 }
 
+impl Display for Operand2 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Operand2::Immediate { value } => write!(f, "{}", *value),
+            Operand2::Register { reg_id } => write!(f, "{}", RegisterTypeDisplay { register: *reg_id }),
+            Operand2::Unused() => write!(f, "Unused"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ConditionCode {
     EQ, // Equal
@@ -248,6 +258,37 @@ pub struct DataProcessing {
     pub rd_read: bool,
 }
 
+impl Display for DataProcessing {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.opcode {
+            Opcode::SUB |
+            Opcode::MUL |
+            Opcode::SDIV |
+            Opcode::AND |
+            Opcode::ORR |
+            Opcode::EOR |
+            Opcode::RSB |
+            Opcode::ADD => write!(f, "{:?} {}, {}, {}",
+                                  self.opcode,
+                                  RegisterTypeDisplay { register: self.rd },
+                                  RegisterTypeDisplay { register: self.rn.unwrap() },
+                                  self.operand2),
+            Opcode::NEG|
+            Opcode::MOV => write!(f, "{:?} {}, {}",
+                                  self.opcode, RegisterTypeDisplay { register: self.rd }, self.operand2),
+            Opcode::MVN => write!(f, "{:?} {}, {}",
+                                  self.opcode, RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay{register:self.rn.unwrap()}),
+            Opcode::TEQ |
+            Opcode::TST |
+            Opcode::CMP => write!(f, "{:?} {}, {}",
+                                  self.opcode,
+                                  RegisterTypeDisplay { register: self.rn.unwrap() },
+                                  self.operand2),
+            _ => unreachable!("Unknown opcode {:?}", self.opcode),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum BranchTarget {
     Immediate {
@@ -256,6 +297,15 @@ pub enum BranchTarget {
     Register {
         register: RegisterType,
     },
+}
+
+impl Display for BranchTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BranchTarget::Immediate { offset } => write!(f, "{}", offset),
+            BranchTarget::Register { register } => write!(f, "{}", RegisterTypeDisplay { register: *register }),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -269,6 +319,26 @@ pub struct Branch {
     pub rt: Option<RegisterType>,
 }
 
+impl Display for Branch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.opcode {
+            Opcode::RET |
+            Opcode::B |
+            Opcode::BX |
+            Opcode::BL => write!(f, "{:?} {}", self.opcode, self.target),
+            // Opcode::CBZ |
+            // Opcode::CBNZ => write!(f, "{:?} {}, {}", self.opcode, self.rt.unwrap(), self.target)?,
+            // Opcode::BEQ |
+            // Opcode::BNE |
+            // Opcode::BLT |
+            // Opcode::BLE |
+            // Opcode::BGT |
+            // Opcode::BGE => write!(f, "{:?} {}", self.opcode, self.source[0])?,
+            _ => unreachable!("Unknown opcode {:?}", self.opcode),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct LoadStore {
     pub opcode: Opcode,
@@ -279,16 +349,38 @@ pub struct LoadStore {
     pub offset: u16,
 }
 
+impl Display for LoadStore {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.opcode {
+            Opcode::LDR => write!(f, "LDR {}, {}", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
+            Opcode::STR => write!(f, "STR {}, {}", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
+            _ => unreachable!("Unknown opcode {:?}", self.opcode),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Synchronization {
     pub opcode: Opcode,
     pub loc: Option<SourceLocation>,
 }
 
+impl Display for Synchronization {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.opcode)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Printr {
     pub loc: Option<SourceLocation>,
     pub rn: RegisterType,
+}
+
+impl Display for Printr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PRINTR {}", RegisterTypeDisplay { register: self.rn })
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -301,43 +393,13 @@ pub enum Instr {
 }
 
 impl Display for Instr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Instr::DataProcessing(dp) => {
-                // match dp.opcode {
-                //     Opcode::ADD |
-                //     Opcode::SUB |
-                //     Opcode::RSB |
-                //     Opcode::MUL |
-                //     Opcode::SDIV |
-                //     Opcode::AND |
-                //     Opcode::ORR |
-                //     Opcode::EOR => write!(f, "{}, {}, {}", RegisterTypeDisplay(dp.rd), self.source[0], self.source[1])?,
-                // }
-
-                write!(f, "DataProcessing: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, operand2={:?}",
-                       dp.opcode, dp.condition, dp.loc.line, dp.loc.column, dp.rn, dp.rd, dp.operand2)
-            }
-            Instr::Branch(branch) => {
-                write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, target={:?}",
-                       branch.opcode, branch.condition, branch.loc.line, branch.loc.column, branch.link_bit, branch.target)
-            }
-            Instr::LoadStore(load_store) => {
-                match load_store.opcode {
-                    Opcode::LDR => write!(f, "LDR {}, {}", RegisterTypeDisplay { register: load_store.rd }, RegisterTypeDisplay { register: load_store.rn }),
-                    Opcode::STR => write!(f, "STR {}, {}", RegisterTypeDisplay { register: load_store.rd }, RegisterTypeDisplay { register: load_store.rn }),
-                    _ => unreachable!(),
-                }
-                //
-                // write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rt={:?}, offset={}",
-                //        load_store.opcode, load_store.condition, load_store.loc.line, load_store.loc.column, load_store.rn, load_store.rd, load_store.offset)
-            }
-            Instr::Synchronization(synchronization) => {
-                write!(f, "{:?}", synchronization.opcode)
-            }
-            Instr::Printr(printr) => {
-                write!(f, "PRINTR {}", RegisterTypeDisplay { register: printr.rn })
-            }
+            Instr::DataProcessing(dp) => Display::fmt(dp, f),
+            Instr::Branch(branch) => Display::fmt(branch, f),
+            Instr::LoadStore(load_store) => Display::fmt(load_store, f),
+            Instr::Synchronization(synchronization) => Display::fmt(synchronization, f),
+            Instr::Printr(printr) => Display::fmt(printr, f),
         }
     }
 }

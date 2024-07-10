@@ -113,11 +113,7 @@ impl Loader {
     }
 }
 
-pub(crate) fn create_instr(
-    opcode: Opcode,
-    operands: &Vec<ASTOperand>,
-    loc: SourceLocation,
-) -> Result<Instr, String> {
+pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: SourceLocation, ) -> Result<Instr, String> {
     let instr = match opcode {
         Opcode::SUB |
         Opcode::MUL |
@@ -195,6 +191,30 @@ pub(crate) fn create_instr(
                 }
             )
         }
+        Opcode::MOV => {
+            validate_operand_count(2, operands, opcode, loc)?;
+
+            let rd = operands[0].get_register();
+
+            let operand2 = match &operands[1] {
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
+                ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
+                ASTOperand::AddressOf(address_of) => Operand2::Immediate { value: address_of.offset },
+                _ => { panic!("Unhandled {:?}", &operands[1]) }
+            };
+
+            Instr::DataProcessing (
+                DataProcessing {
+                    opcode,
+                    condition: ConditionCode::AL,
+                    loc,
+                    rn: None,
+                    rd,
+                    rd_read: false,
+                    operand2,
+                }
+            )
+        }
         Opcode::ADR => { panic!() }
         Opcode::STR |
         Opcode::LDR => {
@@ -230,30 +250,7 @@ pub(crate) fn create_instr(
                 }
             )
         }
-        Opcode::MOV => {
-            validate_operand_count(2, operands, opcode, loc)?;
 
-            let rd = operands[0].get_register();
-
-            let operand2 = match &operands[1] {
-                ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
-                ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
-                ASTOperand::AddressOf(address_of) => Operand2::Immediate { value: address_of.offset },
-                _ => { panic!("Unhandled {:?}", &operands[1]) }
-            };
-
-            Instr::DataProcessing (
-                DataProcessing {
-                    opcode,
-                    condition: ConditionCode::AL,
-                    loc,
-                    rn: None,
-                    rd,
-                    rd_read: false,
-                    operand2,
-                }
-            )
-        }
         Opcode::RET => {
             if operands.len() > 1 {
                 return Err(format!("Operand count mismatch. {:?} expects 0 or 1 argument, but {} are provided at {}:{}",
@@ -343,18 +340,7 @@ pub(crate) fn create_instr(
                 }
             )
         }
-        Opcode::NOP |
-        Opcode::EXIT |
-        Opcode::DSB => {
-            validate_operand_count(0, operands, opcode, loc)?;
 
-            Instr::Synchronization (
-                Synchronization {
-                    opcode,
-                    loc: Some(loc),
-                }
-            )
-        }
         Opcode::BEQ |
         Opcode::BNE |
         Opcode::BLT |
@@ -373,6 +359,19 @@ pub(crate) fn create_instr(
                     link_bit: false,
                     target: BranchTarget::Immediate { offset: offset as u32 },
                     rt: Some(CPSR),
+                }
+            )
+        }
+
+        Opcode::NOP |
+        Opcode::EXIT |
+        Opcode::DSB => {
+            validate_operand_count(0, operands, opcode, loc)?;
+
+            Instr::Synchronization (
+                Synchronization {
+                    opcode,
+                    loc: Some(loc),
                 }
             )
         }
