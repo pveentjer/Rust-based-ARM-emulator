@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+
 use crate::instructions::instructions::{DWordType, RegisterType};
 
 /// The AST for an AssemblyFile
@@ -11,36 +12,36 @@ use crate::instructions::instructions::{DWordType, RegisterType};
 ///
 /// Because it is decoupled, it will make it easier to switch to a different parser generator
 /// at some point.
-
-
 #[derive(Debug, Clone)]
 pub struct ASTRegisterOperand {
-    pub id: RegisterType,
-    pub position: usize,
+    pub reg_id: RegisterType,
+    pub pos: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct ASTImmediateOperand {
     pub value: u64,
-    pub position: usize,
+    pub pos: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct ASTLabelOperand {
     pub label: String,
-    pub position: usize,
+    pub offset: DWordType,
+    pub pos: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct ASTAddressOfOperand {
     pub label: String,
-    pub position: usize,
+    pub pos: usize,
+    pub offset: DWordType,
 }
 
 #[derive(Debug, Clone)]
 pub struct ASTMemRegisterIndirectOperand {
-    pub register: RegisterType,
-    pub position: usize,
+    pub reg_id: RegisterType,
+    pub pos: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -59,13 +60,13 @@ pub enum ASTOperand {
 // The visitor is a DFS visitor which is good enough for now. If more flexibility is needed
 // then the traversal of the visitor could be externalized
 impl ASTOperand {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_operand(self)
     }
 
     pub fn get_register(&self) -> RegisterType {
         match self {
-            ASTOperand::Register(reg) => reg.id,
+            ASTOperand::Register(reg) => reg.reg_id,
             _ => panic!("Operation is not a Register but of type {:?}", self),
         }
     }
@@ -78,11 +79,11 @@ impl ASTOperand {
     }
 
     pub fn get_code_address(&self) -> DWordType {
-        panic!();
-        // match self {
-        //     ASTOperand::AddressOf(address_of_operand) => address_of_operand.label,
-        //     _ => panic!("Operand is not a Code but of type {:?}", self),
-        // }
+        match self {
+            ASTOperand::Label(label) => label.offset,
+            ASTOperand::AddressOf(address_of) => address_of.offset,
+            _ => panic!("Operand is not a Constant but of type {:?}", self),
+        }
     }
     //
     // pub fn get_memory_addr(&self) -> DWordType {
@@ -91,7 +92,6 @@ impl ASTOperand {
     //         _ => panic!("Operand is not a Memory but of type {:?}", self),
     //     }
     // }
-
 }
 
 #[derive(Debug)]
@@ -102,7 +102,7 @@ pub struct ASTData {
 }
 
 impl ASTData {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_data(self)
     }
 }
@@ -117,7 +117,7 @@ pub struct ASTInstr {
 }
 
 impl ASTInstr {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         if !self.op1.accept(visitor) { return false; }
         if !self.op2.accept(visitor) { return false; }
         if !self.op3.accept(visitor) { return false; }
@@ -132,7 +132,7 @@ pub enum ASTDirective {
 }
 
 impl ASTDirective {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_directive(self)
     }
 }
@@ -150,7 +150,7 @@ pub enum ASTDataLine {
 }
 
 impl ASTDataLine {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         let result = match self {
             ASTDataLine::Data(data) => data.accept(visitor),
             ASTDataLine::Directive(directive) => directive.accept(visitor),
@@ -168,7 +168,7 @@ pub struct ASTLabel {
 
 
 impl ASTLabel {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_label(self)
     }
 }
@@ -181,7 +181,7 @@ pub enum ASTTextLine {
 }
 
 impl ASTTextLine {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         let result = match self {
             ASTTextLine::Text(instr) => instr.accept(visitor),
             ASTTextLine::Directive(directive) => directive.accept(visitor),
@@ -198,8 +198,8 @@ pub struct ASTTextSection {
 }
 
 impl ASTTextSection {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
-        for line in &self.lines {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
+        for line in &mut self.lines {
             if !line.accept(visitor) { return false; }
         }
         visitor.visit_text_section(self)
@@ -212,8 +212,8 @@ pub struct ASTDataSection {
 }
 
 impl ASTDataSection {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
-        for line in &self.lines {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
+        for line in &mut self.lines {
             if !line.accept(visitor) { return false; }
         }
         visitor.visit_data_section(self)
@@ -226,8 +226,8 @@ pub struct ASTPreamble {
 }
 
 impl ASTPreamble {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
-        for directive in &self.directives {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
+        for directive in &mut self.directives {
             if !directive.accept(visitor) { return false; }
         }
         visitor.visit_preamble(self)
@@ -243,16 +243,16 @@ pub struct ASTAssemblyFile {
 }
 
 impl ASTAssemblyFile {
-    pub fn accept(&self, visitor: &mut dyn ASTVisitor) -> bool {
+    pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         if !self.preamble.accept(visitor) { return false; }
 
-        for section in &self.ds_before {
+        for section in &mut self.ds_before {
             if !section.accept(visitor) { return false; }
         }
 
         if !self.ts.accept(visitor) { return false; }
 
-        for section in &self.ds_after {
+        for section in &mut self.ds_after {
             if !section.accept(visitor) { return false; }
         }
         visitor.visit_assembly_file(self)
@@ -260,15 +260,15 @@ impl ASTAssemblyFile {
 }
 
 pub trait ASTVisitor {
-    fn visit_operand(&mut self, _ast_operand: &ASTOperand) -> bool { true }
-    fn visit_data(&mut self, _ast_data: &ASTData) -> bool { true }
-    fn visit_instr(&mut self, _ast_instr: &ASTInstr) -> bool { true }
-    fn visit_directive(&mut self, _ast_directive: &ASTDirective) -> bool { true }
-    fn visit_label(&mut self, _ast_label: &ASTLabel) -> bool { true }
-    fn visit_text_section(&mut self, _ast_label: &ASTTextSection) -> bool { true }
-    fn visit_text_line(&mut self, _ast_text_line: &ASTTextLine) -> bool { true }
-    fn visit_data_section(&mut self, _ast_label: &ASTDataSection) -> bool { true }
-    fn visit_data_line(&mut self, _ast_data_line: &ASTDataLine) -> bool { true }
-    fn visit_preamble(&mut self, _ast_preamble: &ASTPreamble) -> bool { true }
-    fn visit_assembly_file(&mut self, _ast_assembly: &ASTAssemblyFile) -> bool { true }
+    fn visit_operand(&mut self, _ast_operand: &mut ASTOperand) -> bool { true }
+    fn visit_data(&mut self, _ast_data: &mut ASTData) -> bool { true }
+    fn visit_instr(&mut self, _ast_instr: &mut ASTInstr) -> bool { true }
+    fn visit_directive(&mut self, _ast_directive: &mut ASTDirective) -> bool { true }
+    fn visit_label(&mut self, _ast_label: &mut ASTLabel) -> bool { true }
+    fn visit_text_section(&mut self, _ast_label: &mut ASTTextSection) -> bool { true }
+    fn visit_text_line(&mut self, _ast_text_line: &mut ASTTextLine) -> bool { true }
+    fn visit_data_section(&mut self, _ast_label: &mut ASTDataSection) -> bool { true }
+    fn visit_data_line(&mut self, _ast_data_line: &mut ASTDataLine) -> bool { true }
+    fn visit_preamble(&mut self, _ast_preamble: &mut ASTPreamble) -> bool { true }
+    fn visit_assembly_file(&mut self, _ast_assembly: &mut ASTAssemblyFile) -> bool { true }
 }

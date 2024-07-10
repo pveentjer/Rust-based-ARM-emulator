@@ -189,7 +189,7 @@ pub enum Operand2 {
         value: DWordType,
     },
     Register {
-        register: RegisterType,
+        reg_id: RegisterType,
     },
     Unused(),
 }

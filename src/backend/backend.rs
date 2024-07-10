@@ -188,7 +188,7 @@ impl Backend {
                             rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
                             operand2: match data_processing.operand2 {
                                 Operand2::Unused() => RSOperand2::Unused(),
-                                Operand2::Register { register } => {
+                                Operand2::Register { reg_id: register } => {
                                     RSOperand2::Register {
                                         register: register_rename_src(register, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
                                     }

@@ -19,6 +19,10 @@ BUGS
 
 TODO
 
+- the AST operands should get their own visit methods
+
+- fix register to string
+
 - fix address of operand
 
 - fix PRINTR (register)
@@ -71,6 +75,12 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix parsing memory address
+
+- fix address of parsing
+
+- fix label parsing
 
 - ASTOperands: explicit structs
 

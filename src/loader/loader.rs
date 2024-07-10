@@ -8,7 +8,9 @@ use regex::Regex;
 
 use crate::assembly;
 use crate::cpu::{CPSR, CPUConfig, GENERAL_ARG_REG_CNT, LR};
-use crate::instructions::instructions::{Branch, BranchTarget, ConditionCode, Data, DataProcessing, DWordType, get_opcode, Instr, LoadStore, Opcode, Operand2, Printr, Program, RegisterType, SourceLocation, Synchronization};
+use crate::instructions::instructions::{Branch, BranchTarget, ConditionCode, Data, DataProcessing, DWordType,
+                                        get_opcode, Instr, LoadStore, Opcode, Operand2, Printr, Program, RegisterType,
+                                        SourceLocation, Synchronization};
 use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
 
@@ -37,7 +39,7 @@ impl Loader {
             self.src.push('\n');
         }
 
-        let assembly = match self.parse() {
+        let mut assembly = match self.parse() {
             Ok(value) => value,
             Err(error) => return error,
         };
@@ -111,157 +113,6 @@ impl Loader {
     }
 }
 
-pub struct SymbolScan<'a> {
-    loader: &'a mut Loader,
-}
-
-impl ASTVisitor for SymbolScan<'_> {
-    fn visit_data(&mut self, ast_data: &ASTData) -> bool {
-        if self.loader.heap_limit == self.loader.cpu_config.memory_size {
-            let loc = self.loader.to_source_location(ast_data.pos);
-            self.loader.errors.push(format!("Insufficient heap to declare variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
-            return false;
-        }
-
-        if !is_valid_variable_name(&ast_data.name) {
-            let loc = self.loader.to_source_location(ast_data.pos);
-            self.loader.errors.push(format!("Illegal variable name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
-        }
-
-        if self.loader.labels.contains_key(&ast_data.name) {
-            let loc = self.loader.to_source_location(ast_data.pos);
-            self.loader.errors.push(format!("There already exists a label with name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
-        }
-
-        if self.loader.data_section.contains_key(&ast_data.name) {
-            let loc = self.loader.to_source_location(ast_data.pos);
-            self.loader.errors.push(format!("Duplicate variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
-        }
-
-        self.loader.data_section.insert(ast_data.name.clone(),
-                                        Rc::new(Data { value: ast_data.value as DWordType, offset: self.loader.heap_limit as u64 }));
-        self.loader.heap_limit += 1;
-        true
-    }
-
-    fn visit_instr(&mut self, _: &ASTInstr) -> bool {
-        self.loader.instr_cnt += 1;
-        true
-    }
-
-    fn visit_label(&mut self, ast_label: &ASTLabel) -> bool {
-        if self.loader.data_section.contains_key(&ast_label.name) {
-            let loc = self.loader.to_source_location(ast_label.pos);
-            self.loader.errors.push(format!("There already exists a variable with name '{}' at {}:{}", ast_label.name, loc.line, loc.column));
-        }
-
-        if self.loader.labels.contains_key(&ast_label.name) {
-            let loc = self.loader.to_source_location(ast_label.pos);
-            self.loader.errors.push(format!("Duplicate label '{}' at {}:{}", ast_label.name, loc.line, loc.column));
-        } else {
-            self.loader.labels.insert(ast_label.name.clone(), self.loader.instr_cnt);
-        }
-        true
-    }
-}
-
-pub struct ProgramGeneration<'a> {
-    loader: &'a mut Loader,
-    operand_stack: Vec<ASTOperand>,
-}
-
-impl ASTVisitor for ProgramGeneration<'_> {
-    fn visit_operand(&mut self, ast_operand: &ASTOperand) -> bool {
-        match ast_operand {
-            ASTOperand::Register(register) => {
-                if register.id >= GENERAL_ARG_REG_CNT as RegisterType {
-                    let loc = self.loader.to_source_location(register.position);
-                    self.loader.errors.push(format!("Unknown register r'{}' at {}:{}", register.id, loc.line, loc.column));
-                    return false;
-                }
-
-                self.operand_stack.push(ast_operand.clone());
-            }
-            ASTOperand::Immediate(immediate) => {
-                self.operand_stack.push(ast_operand.clone());
-            }
-            ASTOperand::Label(label) => {
-                match self.loader.labels.get(&label.label) {
-                    Some(code_address) => {
-                        self.operand_stack.push(ast_operand.clone());
-                    }
-                    None => {
-                        let loc = self.loader.to_source_location(label.position);
-                        self.loader.errors.push(format!("Unknown label '{}' at {}:{}", label.label, loc.line, loc.column));
-                        return false;
-                    }
-                }
-            }
-            ASTOperand::AddressOf(address_of) => {
-                match self.loader.data_section.get(&address_of.label) {
-                    Some(data) => {
-                        self.operand_stack.push(ast_operand.clone());
-                    }
-                    None => {
-                        let loc = self.loader.to_source_location(address_of.position);
-                        self.loader.errors.push(format!("Unknown variable '{}' at {}:{}", address_of.label, loc.line, loc.column));
-                        return false;
-                    }
-                }
-            }
-
-            ASTOperand::Unused() => {}
-            ASTOperand::MemRegisterIndirect(mem_register_indirect) => {
-                self.operand_stack.push(ast_operand.clone());
-            }
-            //ASTOperand::MemoryAccessWithImmediate(_, _, _) => {}
-        };
-
-        true
-    }
-
-    fn visit_instr(&mut self, ast_instr: &ASTInstr) -> bool {
-        // todo: this is very inefficient because for every instruction the whole file content is scanned.
-        let loc = self.loader.to_source_location(ast_instr.pos);
-        let opcode_option = get_opcode(&ast_instr.mnemonic);
-
-        if opcode_option.is_none() || opcode_option.unwrap() == Opcode::EXIT {
-            self.loader.errors.push(format!("Unknown mnemonic '{}' at {}:{}", ast_instr.mnemonic, loc.line, loc.column));
-            return false;
-        }
-
-        let opcode = opcode_option.unwrap();
-        match create_instr(opcode, &self.operand_stack, loc) {
-            Ok(instr) => {
-                self.loader.code.push(instr);
-            }
-            Err(msg) => {
-                self.loader.errors.push(format!("{} at {}:{}", msg, loc.line, loc.column));
-            }
-        };
-        self.operand_stack.clear();
-        true
-    }
-
-    fn visit_directive(&mut self, ast_directive: &ASTDirective) -> bool {
-        match ast_directive {
-            ASTDirective::Global(start_label, pos) => {
-                match self.loader.labels.get(start_label) {
-                    Some(code_address) => {
-                        self.loader.entry_point = *code_address as usize;
-                        return true;
-                    }
-                    None => {
-                        let loc = self.loader.to_source_location(*pos);
-                        self.loader.errors.push(format!("Unknown label '{}' at {}:{}", start_label, loc.line, loc.column));
-                        return false;
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub(crate) fn create_instr(
     opcode: Opcode,
     operands: &Vec<ASTOperand>,
@@ -282,8 +133,8 @@ pub(crate) fn create_instr(
             let rn = operands[1].get_register();
 
             let operand2 = match &operands[2] {
-                ASTOperand::Register(register) => Operand2::Register { register:register.id },
-                ASTOperand::Immediate(immediate) => Operand2::Immediate { value:immediate.value },
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.reg_id },
+                ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
                 _ => { panic!() }
             };
 
@@ -299,7 +150,7 @@ pub(crate) fn create_instr(
                 }
             }
         }
-        Opcode::MVN|
+        Opcode::MVN |
         Opcode::NEG => {
             validate_operand_count(2, operands, opcode, loc)?;
 
@@ -327,8 +178,8 @@ pub(crate) fn create_instr(
             let rn = operands[0].get_register();
 
             let operand2 = match &operands[1] {
-                ASTOperand::Register(register) => Operand2::Register { register:register.id },
-                ASTOperand::Immediate(immediate) => Operand2::Immediate { value:immediate.value },
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.reg_id },
+                ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
                 _ => { panic!() }
             };
 
@@ -353,7 +204,7 @@ pub(crate) fn create_instr(
 
             let rn = match &operands[1] {
                 ASTOperand::MemRegisterIndirect(mem_register_indirect)
-                    => mem_register_indirect.register,
+                => mem_register_indirect.reg_id,
                 _ => { panic!() }
             };
 
@@ -386,9 +237,10 @@ pub(crate) fn create_instr(
             let rd = operands[0].get_register();
 
             let operand2 = match &operands[1] {
-                ASTOperand::Register(register) => Operand2::Register { register:register.id },
-                ASTOperand::Immediate(immediate) => Operand2::Immediate { value:immediate.value },
-                _ => { panic!() }
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.reg_id },
+                ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
+                ASTOperand::AddressOf(address_of) => Operand2::Immediate { value: address_of.offset },
+                _ => { panic!("Unhandled {:?}", &operands[1]) }
             };
 
             Instr::DataProcessing {
@@ -459,7 +311,7 @@ pub(crate) fn create_instr(
             }
         }
         Opcode::BL => {
-            validate_operand_count(1, operands, opcode, loc)?;
+            crate::loader::loader::validate_operand_count(1, operands, opcode, loc)?;
 
             let offset = operands[0].get_code_address();
 
@@ -476,7 +328,7 @@ pub(crate) fn create_instr(
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
-            validate_operand_count(2, operands, opcode, loc)?;
+            crate::loader::loader::validate_operand_count(2, operands, opcode, loc)?;
 
             let rt = operands[0].get_register();
             let target = operands[1].get_code_address();
@@ -545,6 +397,159 @@ fn validate_operand_count(expected: usize,
                            opcode, expected, operands.len(), loc.line, loc.column));
     }
     Ok(())
+}
+
+pub struct SymbolScan<'a> {
+    loader: &'a mut Loader,
+}
+
+impl ASTVisitor for SymbolScan<'_> {
+    fn visit_data(&mut self, ast_data: &mut ASTData) -> bool {
+        if self.loader.heap_limit == self.loader.cpu_config.memory_size {
+            let loc = self.loader.to_source_location(ast_data.pos);
+            self.loader.errors.push(format!("Insufficient heap to declare variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+            return false;
+        }
+
+        if !is_valid_variable_name(&ast_data.name) {
+            let loc = self.loader.to_source_location(ast_data.pos);
+            self.loader.errors.push(format!("Illegal variable name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+        }
+
+        if self.loader.labels.contains_key(&ast_data.name) {
+            let loc = self.loader.to_source_location(ast_data.pos);
+            self.loader.errors.push(format!("There already exists a label with name '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+        }
+
+        if self.loader.data_section.contains_key(&ast_data.name) {
+            let loc = self.loader.to_source_location(ast_data.pos);
+            self.loader.errors.push(format!("Duplicate variable '{}' at {}:{}", ast_data.name, loc.line, loc.column));
+        }
+
+        self.loader.data_section.insert(ast_data.name.clone(),
+                                        Rc::new(Data { value: ast_data.value as DWordType, offset: self.loader.heap_limit as u64 }));
+        self.loader.heap_limit += 1;
+        true
+    }
+
+    fn visit_instr(&mut self, _: &mut ASTInstr) -> bool {
+        self.loader.instr_cnt += 1;
+        true
+    }
+
+    fn visit_label(&mut self, ast_label: &mut ASTLabel) -> bool {
+        if self.loader.data_section.contains_key(&ast_label.name) {
+            let loc = self.loader.to_source_location(ast_label.pos);
+            self.loader.errors.push(format!("There already exists a variable with name '{}' at {}:{}", ast_label.name, loc.line, loc.column));
+        }
+
+        if self.loader.labels.contains_key(&ast_label.name) {
+            let loc = self.loader.to_source_location(ast_label.pos);
+            self.loader.errors.push(format!("Duplicate label '{}' at {}:{}", ast_label.name, loc.line, loc.column));
+        } else {
+            self.loader.labels.insert(ast_label.name.clone(), self.loader.instr_cnt);
+        }
+        true
+    }
+}
+
+pub struct ProgramGeneration<'a> {
+    loader: &'a mut Loader,
+    operand_stack: Vec<ASTOperand>,
+}
+
+impl ASTVisitor for ProgramGeneration<'_> {
+    fn visit_operand(&mut self, ast_operand: &mut ASTOperand) -> bool {
+        match ast_operand {
+            ASTOperand::Register(register) => {
+                if register.reg_id >= GENERAL_ARG_REG_CNT as RegisterType {
+                    let loc = self.loader.to_source_location(register.pos);
+                    self.loader.errors.push(format!("Unknown register r'{}' at {}:{}", register.reg_id, loc.line, loc.column));
+                    return false;
+                }
+
+                self.operand_stack.push(ast_operand.clone());
+            }
+            ASTOperand::Immediate(immediate) => {
+                self.operand_stack.push(ast_operand.clone());
+            }
+            ASTOperand::Label(label) => {
+                match self.loader.labels.get(&mut label.label) {
+                    Some(code_address) => {
+                        label.offset = *code_address as DWordType;
+                        self.operand_stack.push(ast_operand.clone());
+                    }
+                    None => {
+                        let loc = self.loader.to_source_location(label.pos);
+                        self.loader.errors.push(format!("Unknown label '{}' at {}:{}", label.label, loc.line, loc.column));
+                        return false;
+                    }
+                }
+            }
+            ASTOperand::AddressOf(address_of) => {
+                match self.loader.data_section.get(&address_of.label) {
+                    Some(data) => {
+                        address_of.offset = data.offset as DWordType;
+                        self.operand_stack.push(ast_operand.clone());
+                    }
+                    None => {
+                        let loc = self.loader.to_source_location(address_of.pos);
+                        self.loader.errors.push(format!("Unknown variable '{}' at {}:{}", address_of.label, loc.line, loc.column));
+                        return false;
+                    }
+                }
+            }
+
+            ASTOperand::Unused() => {}
+            ASTOperand::MemRegisterIndirect(mem_register_indirect) => {
+                self.operand_stack.push(ast_operand.clone());
+            }
+            //ASTOperand::MemoryAccessWithImmediate(_, _, _) => {}
+        };
+
+        true
+    }
+
+    fn visit_instr(&mut self, ast_instr: &mut ASTInstr) -> bool {
+        // todo: this is very inefficient because for every instruction the whole file content is scanned.
+        let loc = self.loader.to_source_location(ast_instr.pos);
+        let opcode_option = get_opcode(&ast_instr.mnemonic);
+
+        if opcode_option.is_none() || opcode_option.unwrap() == Opcode::EXIT {
+            self.loader.errors.push(format!("Unknown mnemonic '{}' at {}:{}", ast_instr.mnemonic, loc.line, loc.column));
+            return false;
+        }
+
+        let opcode = opcode_option.unwrap();
+        match create_instr(opcode, &self.operand_stack, loc) {
+            Ok(instr) => {
+                self.loader.code.push(instr);
+            }
+            Err(msg) => {
+                self.loader.errors.push(format!("{} at {}:{}", msg, loc.line, loc.column));
+            }
+        };
+        self.operand_stack.clear();
+        true
+    }
+
+    fn visit_directive(&mut self, ast_directive: &mut ASTDirective) -> bool {
+        match ast_directive {
+            ASTDirective::Global(start_label, pos) => {
+                match self.loader.labels.get(start_label) {
+                    Some(code_address) => {
+                        self.loader.entry_point = *code_address as usize;
+                        return true;
+                    }
+                    None => {
+                        let loc = self.loader.to_source_location(*pos);
+                        self.loader.errors.push(format!("Unknown label '{}' at {}:{}", start_label, loc.line, loc.column));
+                        return false;
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn is_valid_variable_name(name: &String) -> bool {
