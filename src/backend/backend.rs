@@ -8,7 +8,6 @@ use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPUConfig, LR, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
-use crate::instructions;
 use crate::instructions::instructions::{BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
 use crate::instructions::instructions::Opcode::LDR;
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -251,7 +250,7 @@ impl Backend {
                         _ => unreachable!(),
                     }
                 }
-                Instr::Printr (printr ) => rs.instr = RSInstr::Printr {
+                Instr::Printr(printr) => rs.instr = RSInstr::Printr {
                     printr: RSPrintr {
                         rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
                     },
@@ -527,7 +526,7 @@ impl Backend {
 
                 perf_counters.retired_cnt += 1;
 
-                if let Instr::Synchronization (synchronization ) = instr.as_ref() {
+                if let Instr::Synchronization(synchronization) = instr.as_ref() {
                     if synchronization.opcode == Opcode::EXIT {
                         self.exit = true;
                     }
@@ -564,7 +563,7 @@ impl Backend {
                 }
 
                 // deal with any branch misprediction
-                if let Instr::Branch (branch ) = &instr.as_ref() {
+                if let Instr::Branch(_) = &instr.as_ref() {
                     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
                         // the branch was not correctly predicted
                         perf_counters.branch_miss_prediction_cnt += 1;

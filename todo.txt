@@ -29,10 +29,6 @@ TODO
 
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
 
-- DataProcessingInstr implement Display
-
-- BranchInstr implement Display
-
 - add ConditionCode operand
 
 - add CSINC
@@ -70,6 +66,12 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix issue with LDR to use []
+
+- fix issue with STR to use []
+
+- Branch implement Display
 
 - DataProcessing implements Display
 

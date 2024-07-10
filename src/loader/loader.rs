@@ -223,7 +223,7 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
             let rd = operands[0].get_register();
 
             let rn = match &operands[1] {
-                ASTOperand::Register(mem_register_indirect) => mem_register_indirect.register,
+                ASTOperand::MemRegisterIndirect(mem_register_indirect) => mem_register_indirect.register,
                 _ => { panic!("Unknown type {:?}",operands[1]) }
             };
 
@@ -601,3 +601,34 @@ pub fn load_from_string(cpu_config: CPUConfig, src: String) -> Result<Program, L
 
     return loader.load();
 }
+
+
+//
+// fn validate_operand(
+//     op_index: usize,
+//     operands: &Vec<ASTOperand>,
+//     opcode: Opcode,
+//     acceptable_types: &[ASTOperand],
+// ) -> Result<ASTOperand, String> {
+//     let operand = &operands[op_index];
+//
+//     for &typ in acceptable_types {
+//         if std::mem::discriminant(&operand) == std::mem::discriminant(&typ) {
+//             return Ok(operand);
+//         }
+//     }
+//     let acceptable_names: Vec<&str> = acceptable_types.iter().map(|t| t.base_name()).collect();
+//     let acceptable_names_str = acceptable_names.join(", ");
+//
+//     Err(format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
+//                 opcode, acceptable_names_str, op_index + 1, operand.base_name()))
+// }
+//
+// fn has_control_operands(instr: &Instr) -> bool {
+//     instr.source.iter().any(|op| is_control_operand(op)) ||
+//         instr.sink.iter().any(|op| is_control_operand(op))
+// }
+//
+// fn is_control_operand(op: &Operand) -> bool {
+//     matches!(op, Register(register) if *register == PC)
+// }

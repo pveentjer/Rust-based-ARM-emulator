@@ -16,7 +16,7 @@ pub struct RegisterTypeDisplay {
 }
 
 impl Display for RegisterTypeDisplay {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.register as u16 {
             FP => write!(f, "FP"),
             LR => write!(f, "LR"),
@@ -158,37 +158,6 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
     }
 }
 
-
-//
-// fn validate_operand(
-//     op_index: usize,
-//     operands: &Vec<ASTOperand>,
-//     opcode: Opcode,
-//     acceptable_types: &[ASTOperand],
-// ) -> Result<ASTOperand, String> {
-//     let operand = &operands[op_index];
-//
-//     for &typ in acceptable_types {
-//         if std::mem::discriminant(&operand) == std::mem::discriminant(&typ) {
-//             return Ok(operand);
-//         }
-//     }
-//     let acceptable_names: Vec<&str> = acceptable_types.iter().map(|t| t.base_name()).collect();
-//     let acceptable_names_str = acceptable_names.join(", ");
-//
-//     Err(format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
-//                 opcode, acceptable_names_str, op_index + 1, operand.base_name()))
-// }
-//
-// fn has_control_operands(instr: &Instr) -> bool {
-//     instr.source.iter().any(|op| is_control_operand(op)) ||
-//         instr.sink.iter().any(|op| is_control_operand(op))
-// }
-//
-// fn is_control_operand(op: &Operand) -> bool {
-//     matches!(op, Register(register) if *register == PC)
-// }
-
 pub(crate) const NOP: Instr = Instr::Synchronization(
     Synchronization {
         opcode: Opcode::NOP,
@@ -326,14 +295,14 @@ impl Display for Branch {
             Opcode::B |
             Opcode::BX |
             Opcode::BL => write!(f, "{:?} {}", self.opcode, self.target),
-            // Opcode::CBZ |
-            // Opcode::CBNZ => write!(f, "{:?} {}, {}", self.opcode, self.rt.unwrap(), self.target)?,
-            // Opcode::BEQ |
-            // Opcode::BNE |
-            // Opcode::BLT |
-            // Opcode::BLE |
-            // Opcode::BGT |
-            // Opcode::BGE => write!(f, "{:?} {}", self.opcode, self.source[0])?,
+            Opcode::CBZ |
+            Opcode::CBNZ => write!(f, "{:?} {}, {}", self.opcode, self.rt.unwrap(), self.target),
+            Opcode::BEQ |
+            Opcode::BNE |
+            Opcode::BLT |
+            Opcode::BLE |
+            Opcode::BGT |
+            Opcode::BGE => write!(f, "{:?} {}", self.opcode, self.target),
             _ => unreachable!("Unknown opcode {:?}", self.opcode),
         }
     }
@@ -352,8 +321,8 @@ pub struct LoadStore {
 impl Display for LoadStore {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.opcode {
-            Opcode::LDR => write!(f, "LDR {}, {}", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
-            Opcode::STR => write!(f, "STR {}, {}", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
+            Opcode::LDR => write!(f, "LDR {}, [{}]", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
+            Opcode::STR => write!(f, "STR {}, [{}]", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
             _ => unreachable!("Unknown opcode {:?}", self.opcode),
         }
     }
@@ -403,53 +372,6 @@ impl Display for Instr {
         }
     }
 }
-
-// impl fmt::Display for Instr {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{} ", mnemonic(self.opcode))?;
-//
-//         match self.opcode {
-//             Opcode::ADD |
-//             Opcode::SUB |
-//             Opcode::RSB |
-//             Opcode::MUL |
-//             Opcode::SDIV |
-//             Opcode::AND |
-//             Opcode::ORR |
-//             Opcode::EOR => write!(f, "{}, {}, {}", self.sink[0], self.source[0], self.source[1])?,
-//             Opcode::LDR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-//             Opcode::STR => write!(f, "{}, {}", self.source[0], self.sink[0])?,
-//             Opcode::MOV => write!(f, "{}, {}", self.sink[0], self.source[1])?,
-//             Opcode::NOP => {}
-//             Opcode::ADR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-//             Opcode::PRINTR => write!(f, "{}", self.source[0])?,
-//             Opcode::RET |
-//             Opcode::B |
-//             Opcode::BX |
-//             Opcode::BL => write!(f, "{}", self.source[0])?,
-//             Opcode::CBZ |
-//             Opcode::CBNZ => write!(f, "{}, {}", self.source[0], self.source[1])?,
-//             Opcode::NEG => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-//             Opcode::MVN => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-//             Opcode::CMP => write!(f, "{}, {}", self.source[0], self.source[1])?,
-//             Opcode::EXIT => {}
-//             Opcode::DSB => {}
-//             Opcode::BEQ |
-//             Opcode::BNE |
-//             Opcode::BLT |
-//             Opcode::BLE |
-//             Opcode::BGT |
-//             Opcode::BGE => write!(f, "{}", self.source[0])?,
-//         }
-//
-//         if let Some(loc) = self.loc {
-//             write!(f, " ; {}:{}", loc.line, loc.column)?;
-//         }
-//
-//         Ok(())
-//     }
-// }
-
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
