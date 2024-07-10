@@ -148,7 +148,7 @@ impl Backend {
 
             let instr = rob_slot.instr.as_ref().unwrap();
 
-            if let Instr::LoadStore { load_store } = instr.as_ref() {
+            if let Instr::LoadStore(load_store) = instr.as_ref() {
                 if load_store.opcode == Opcode::STR {
                     if !memory_subsystem.sb.has_space() {
                         // we can't allocate a slot in the store buffer, we are done
@@ -170,7 +170,7 @@ impl Backend {
             //rs.source_cnt = instr.source_cnt;
 
             match instr.as_ref() {
-                Instr::DataProcessing { data_processing } => {
+                Instr::DataProcessing(data_processing) => {
                     rs.instr = RSInstr::DataProcessing {
                         data_processing: RSDataProcessing {
                             opcode: data_processing.opcode,
@@ -200,7 +200,7 @@ impl Backend {
 
                     println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
                 }
-                Instr::Branch { branch } => {
+                Instr::Branch(branch) => {
                     rs.instr = RSInstr::Branch {
                         branch: RSBranch {
                             opcode: branch.opcode,
@@ -215,9 +215,9 @@ impl Backend {
                                     }
                                 }
                             },
-                            rt: if let Some(rt)= branch.rt{
+                            rt: if let Some(rt) = branch.rt {
                                 Some(register_rename_src(rt, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
-                            } else{
+                            } else {
                                 None
                             },
                             lr: if branch.link_bit {
@@ -228,7 +228,7 @@ impl Backend {
                         },
                     }
                 }
-                Instr::LoadStore { load_store } => {
+                Instr::LoadStore(load_store) => {
                     match load_store.opcode {
                         Opcode::LDR => rs.instr = RSInstr::LoadStore {
                             load_store: RSLoadStore {
@@ -251,7 +251,7 @@ impl Backend {
                         _ => unreachable!(),
                     }
                 }
-                Instr::Printr { printr } => rs.instr = RSInstr::Printr {
+                Instr::Printr (printr ) => rs.instr = RSInstr::Printr {
                     printr: RSPrintr {
                         rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
                     },
@@ -396,8 +396,6 @@ impl Backend {
                     continue;
                 }
 
-                println!("CDBBroadcast: looking");
-
                 let rob_slot_index = rs.rob_slot_index.unwrap();
                 let rob_slot = rob.get_mut(rob_slot_index);
                 if rob_slot.state != ROBSlotState::ISSUED {
@@ -451,7 +449,7 @@ impl Backend {
                             };
                         }
 
-                        if let Some(register) = &mut branch.rt{
+                        if let Some(register) = &mut branch.rt {
                             if let Some(r) = register.phys_reg {
                                 if r == broadcast.phys_reg {
                                     register.value = Some(broadcast.value);
@@ -529,7 +527,7 @@ impl Backend {
 
                 perf_counters.retired_cnt += 1;
 
-                if let Instr::Synchronization { synchronization } = instr.as_ref() {
+                if let Instr::Synchronization (synchronization ) = instr.as_ref() {
                     if synchronization.opcode == Opcode::EXIT {
                         self.exit = true;
                     }
@@ -566,7 +564,7 @@ impl Backend {
                 }
 
                 // deal with any branch misprediction
-                if let instructions::instructions::Instr::Branch { branch } = &instr.as_ref() {
+                if let Instr::Branch (branch ) = &instr.as_ref() {
                     if rob_slot.branch_target_actual != rob_slot.branch_target_predicted {
                         // the branch was not correctly predicted
                         perf_counters.branch_miss_prediction_cnt += 1;

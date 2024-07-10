@@ -58,7 +58,7 @@ impl RSBranchTarget {
     pub fn value(&self) -> u32 {
         match self {
             RSBranchTarget::Immediate { offset } => *offset,
-            RSBranchTarget::Register { register } => register.value.unwrap()as u32,
+            RSBranchTarget::Register { register } => register.value.unwrap() as u32,
         }
     }
 }

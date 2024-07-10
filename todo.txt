@@ -25,8 +25,6 @@ TODO
 
 - fix address of operand
 
-- fix PRINTR (register)
-
 - cdb_broadcast_buffer filling should be done in execute
 - operands can move to the AST section since not used inside the CPU
 
@@ -75,6 +73,12 @@ TODO
 - syntax: unwanted semicolon after instructions
 
 DONE
+
+- fix display LDR
+
+- fix display STR
+
+- fix PRINTR (register)
 
 - fix parsing memory address
 

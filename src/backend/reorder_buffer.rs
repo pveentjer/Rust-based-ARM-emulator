@@ -1,6 +1,6 @@
 use std::rc::Rc;
-use crate::backend::reservation_station::RenamedRegister;
 
+use crate::backend::reservation_station::RenamedRegister;
 use crate::instructions::instructions::Instr;
 
 #[derive(Clone, Copy, PartialEq, Debug)]

@@ -138,8 +138,8 @@ pub(crate) fn create_instr(
                 _ => { panic!() }
             };
 
-            Instr::DataProcessing {
-                data_processing: DataProcessing {
+            Instr::DataProcessing (
+                DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -148,7 +148,7 @@ pub(crate) fn create_instr(
                     rd_read: false,
                     operand2,
                 }
-            }
+            )
         }
         Opcode::MVN |
         Opcode::NEG => {
@@ -157,8 +157,8 @@ pub(crate) fn create_instr(
             let rd = operands[0].get_register();
             let rn = operands[1].get_register();
 
-            Instr::DataProcessing {
-                data_processing: DataProcessing {
+            Instr::DataProcessing (
+                DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -167,7 +167,7 @@ pub(crate) fn create_instr(
                     rd_read: false,
                     operand2: Operand2::Unused(),
                 }
-            }
+            )
         }
         Opcode::TEQ |
         Opcode::TST |
@@ -183,8 +183,8 @@ pub(crate) fn create_instr(
                 _ => { panic!() }
             };
 
-            Instr::DataProcessing {
-                data_processing: DataProcessing {
+            Instr::DataProcessing (
+                DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -193,7 +193,7 @@ pub(crate) fn create_instr(
                     rd_read: true,
                     operand2,
                 }
-            }
+            )
         }
         Opcode::ADR => { panic!() }
         Opcode::STR |
@@ -203,13 +203,12 @@ pub(crate) fn create_instr(
             let rd = operands[0].get_register();
 
             let rn = match &operands[1] {
-                ASTOperand::MemRegisterIndirect(mem_register_indirect)
-                => mem_register_indirect.register,
-                _ => { panic!() }
+                ASTOperand::Register(mem_register_indirect) => mem_register_indirect.register,
+                _ => { panic!("Unknown type {:?}",operands[1]) }
             };
 
-            Instr::LoadStore {
-                load_store: LoadStore {
+            Instr::LoadStore (
+                LoadStore {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -217,19 +216,19 @@ pub(crate) fn create_instr(
                     rn,
                     offset: 0,
                 }
-            }
+            )
         }
         Opcode::PRINTR => {
             validate_operand_count(1, operands, opcode, loc)?;
 
             let rn = operands[0].get_register();
 
-            Instr::Printr {
-                printr: Printr {
+            Instr::Printr (
+                Printr {
                     loc: Some(loc),
                     rn,
                 }
-            }
+            )
         }
         Opcode::MOV => {
             validate_operand_count(2, operands, opcode, loc)?;
@@ -243,8 +242,8 @@ pub(crate) fn create_instr(
                 _ => { panic!("Unhandled {:?}", &operands[1]) }
             };
 
-            Instr::DataProcessing {
-                data_processing: DataProcessing {
+            Instr::DataProcessing (
+                DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -253,7 +252,7 @@ pub(crate) fn create_instr(
                     rd_read: false,
                     operand2,
                 }
-            }
+            )
         }
         Opcode::RET => {
             if operands.len() > 1 {
@@ -267,8 +266,8 @@ pub(crate) fn create_instr(
                 operands[0].get_register()
             };
 
-            Instr::Branch {
-                branch: Branch {
+            Instr::Branch (
+                Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -276,15 +275,15 @@ pub(crate) fn create_instr(
                     target: BranchTarget::Register { register: target },
                     rt: None,
                 }
-            }
+            )
         }
         Opcode::B => {
             validate_operand_count(1, operands, opcode, loc)?;
 
             let offset = operands[0].get_code_address();
 
-            Instr::Branch {
-                branch: Branch {
+            Instr::Branch (
+                Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -292,15 +291,15 @@ pub(crate) fn create_instr(
                     target: BranchTarget::Immediate { offset: offset as u32 },
                     rt: None,
                 }
-            }
+            )
         }
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
 
             let target = operands[0].get_register();
 
-            Instr::Branch {
-                branch: Branch {
+            Instr::Branch (
+                Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -308,15 +307,15 @@ pub(crate) fn create_instr(
                     target: BranchTarget::Register { register: target },
                     rt: None,
                 }
-            }
+            )
         }
         Opcode::BL => {
             crate::loader::loader::validate_operand_count(1, operands, opcode, loc)?;
 
             let offset = operands[0].get_code_address();
 
-            Instr::Branch {
-                branch: Branch {
+            Instr::Branch (
+                Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -324,7 +323,7 @@ pub(crate) fn create_instr(
                     target: BranchTarget::Immediate { offset: offset as u32 },
                     rt: None,
                 }
-            }
+            )
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
@@ -333,8 +332,8 @@ pub(crate) fn create_instr(
             let rt = operands[0].get_register();
             let target = operands[1].get_code_address();
 
-            Instr::Branch {
-                branch: Branch {
+            Instr::Branch (
+                Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -342,19 +341,19 @@ pub(crate) fn create_instr(
                     target: BranchTarget::Immediate { offset: target as u32 },
                     rt: Some(rt),
                 }
-            }
+            )
         }
         Opcode::NOP |
         Opcode::EXIT |
         Opcode::DSB => {
             validate_operand_count(0, operands, opcode, loc)?;
 
-            Instr::Synchronization {
-                synchronization: Synchronization {
+            Instr::Synchronization (
+                Synchronization {
                     opcode,
                     loc: Some(loc),
                 }
-            }
+            )
         }
         Opcode::BEQ |
         Opcode::BNE |
@@ -366,8 +365,8 @@ pub(crate) fn create_instr(
 
             let offset = operands[0].get_code_address();
 
-            Instr::Branch {
-                branch: Branch {
+            Instr::Branch (
+                Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
@@ -375,7 +374,7 @@ pub(crate) fn create_instr(
                     target: BranchTarget::Immediate { offset: offset as u32 },
                     rt: Some(CPSR),
                 }
-            }
+            )
         }
     };
 

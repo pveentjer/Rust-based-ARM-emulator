@@ -8,6 +8,26 @@ use crate::cpu::FP;
 use crate::cpu::LR;
 use crate::cpu::PC;
 
+pub type RegisterType = u16;
+pub type DWordType = u64;
+
+pub struct RegisterTypeDisplay {
+    pub register: RegisterType,
+}
+
+impl Display for RegisterTypeDisplay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.register as u16 {
+            FP => write!(f, "FP"),
+            LR => write!(f, "LR"),
+            SP => write!(f, "SP"),
+            PC => write!(f, "PC"),
+            CPSR => write!(f, "CPSR"),
+            _ => write!(f, "R{}", self.register),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceLocation {
     pub line: usize,
@@ -169,19 +189,19 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
 //     matches!(op, Register(register) if *register == PC)
 // }
 
-pub(crate) const NOP: Instr = Instr::Synchronization {
-    synchronization: Synchronization {
+pub(crate) const NOP: Instr = Instr::Synchronization(
+    Synchronization {
         opcode: Opcode::NOP,
         loc: None,
     }
-};
+);
 
-pub(crate) const EXIT: Instr = Instr::Synchronization {
-    synchronization: Synchronization {
+pub(crate) const EXIT: Instr = Instr::Synchronization(
+    Synchronization {
         opcode: Opcode::EXIT,
         loc: None,
     }
-};
+);
 
 #[derive(Clone, Copy, Debug)]
 pub enum Operand2 {
@@ -192,6 +212,25 @@ pub enum Operand2 {
         reg_id: RegisterType,
     },
     Unused(),
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ConditionCode {
+    EQ, // Equal
+    NE, // Not Equal
+    CS, // Carry Set
+    CC, // Carry Clear
+    MI, // Minus/Negative
+    PL, // Plus/Positive or Zero
+    VS, // Overflow
+    VC, // No Overflow
+    HI, // Unsigned Higher
+    LS, // Unsigned Lower or Same
+    GE, // Signed Greater Than or Equal
+    LT, // Signed Less Than
+    GT, // Signed Greater Than
+    LE, // Signed Less Than or Equal
+    AL, // Always (unconditional)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -254,47 +293,50 @@ pub struct Printr {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Instr {
-    DataProcessing {
-        data_processing: DataProcessing,
-    },
-
-    Branch {
-        branch: Branch,
-    },
-
-    LoadStore {
-        load_store: LoadStore,
-    },
-
-    Synchronization {
-        synchronization: Synchronization,
-    },
-
-    Printr {
-        printr: Printr,
-    },
+    DataProcessing(DataProcessing),
+    Branch(Branch),
+    LoadStore(LoadStore),
+    Synchronization(Synchronization),
+    Printr(Printr),
 }
 
 impl Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Instr::DataProcessing { data_processing: fields } => {
+            Instr::DataProcessing(dp) => {
+                // match dp.opcode {
+                //     Opcode::ADD |
+                //     Opcode::SUB |
+                //     Opcode::RSB |
+                //     Opcode::MUL |
+                //     Opcode::SDIV |
+                //     Opcode::AND |
+                //     Opcode::ORR |
+                //     Opcode::EOR => write!(f, "{}, {}, {}", RegisterTypeDisplay(dp.rd), self.source[0], self.source[1])?,
+                // }
+
                 write!(f, "DataProcessing: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rd={:?}, operand2={:?}",
-                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.rn, fields.rd, fields.operand2)
+                       dp.opcode, dp.condition, dp.loc.line, dp.loc.column, dp.rn, dp.rd, dp.operand2)
             }
-            Instr::Branch { branch: fields } => {
+            Instr::Branch(branch) => {
                 write!(f, "Branch: opcode={:?}, condition={:?}, loc=({}, {}), link_bit={}, target={:?}",
-                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.link_bit, fields.target)
+                       branch.opcode, branch.condition, branch.loc.line, branch.loc.column, branch.link_bit, branch.target)
             }
-            Instr::LoadStore { load_store: fields } => {
-                write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rt={:?}, offset={}",
-                       fields.opcode, fields.condition, fields.loc.line, fields.loc.column, fields.rn, fields.rd, fields.offset)
+            Instr::LoadStore(load_store) => {
+                match load_store.opcode {
+                    Opcode::LDR => write!(f, "LDR {}, {}", RegisterTypeDisplay { register: load_store.rd }, RegisterTypeDisplay { register: load_store.rn }),
+                    Opcode::STR => write!(f, "STR {}, {}", RegisterTypeDisplay { register: load_store.rd }, RegisterTypeDisplay { register: load_store.rn }),
+                    _ => unreachable!(),
+                }
+                //
+                // write!(f, "LoadStore: opcode={:?}, condition={:?}, loc=({}, {}), rn={:?}, rt={:?}, offset={}",
+                //        load_store.opcode, load_store.condition, load_store.loc.line, load_store.loc.column, load_store.rn, load_store.rd, load_store.offset)
             }
-            Instr::Synchronization { synchronization: fields } => {
-                write!(f, "{:?}", fields.opcode)
+            Instr::Synchronization(synchronization) => {
+                write!(f, "{:?}", synchronization.opcode)
             }
-            Instr::Printr { printr: fields } => {
-                write!(f, "PRINTR {}", fields.rn)
+            Instr::Printr(printr) => {
+                write!(f, "PRINTR {}", RegisterTypeDisplay { register: printr.rn })
             }
         }
     }
@@ -346,10 +388,6 @@ impl Display for Instr {
 //     }
 // }
 
-
-
-pub(crate) type RegisterType = u16;
-pub(crate) type DWordType = u64;
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
@@ -420,59 +458,12 @@ impl InstrQueue {
     }
 }
 
-// The maximum number of source (input) operands for an instruction.
-pub(crate) const MAX_SOURCE_COUNT: u8 = 3;
-pub(crate) const MAX_SINK_COUNT: u8 = 2;
-
 // True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
 // A control instruction gets issued into the rob, but it will prevent the next instruction to be issued, so
 // That the branch condition can be determined.
 pub(crate) const INSTR_FLAG_IS_BRANCH: u8 = 0;
 pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
 pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ConditionCode {
-    EQ, // Equal
-    NE, // Not Equal
-    CS, // Carry Set
-    CC, // Carry Clear
-    MI, // Minus/Negative
-    PL, // Plus/Positive or Zero
-    VS, // Overflow
-    VC, // No Overflow
-    HI, // Unsigned Higher
-    LS, // Unsigned Lower or Same
-    GE, // Signed Greater Than or Equal
-    LT, // Signed Less Than
-    GT, // Signed Greater Than
-    LE, // Signed Less Than or Equal
-    AL, // Always (unconditional)
-}
-
-// impl Display for Operand {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             Register(reg) => {
-//                 match *reg as u16 {
-//                     FP => write!(f, "FP"),
-//                     LR => write!(f, "LR"),
-//                     SP => write!(f, "SP"),
-//                     PC => write!(f, "PC"),
-//                     CPSR => write!(f, "CPSR"),
-//                     _ => write!(f, "R{}", reg),
-//                 }
-//             }  // Add a comma here
-//             Immediate(val) => write!(f, "#{}", val),
-//             Memory(addr) => write!(f, "[{}]", addr),
-//             Code(addr) => write!(f, "[{}]", addr),
-//             Memory(addr) => write!(f, "[{}]", addr),
-//             Unused => write!(f, "Unused"),
-//             MemRegisterIndirect(reg) => write!(f, "[{}]", Register(*reg)),
-//         }
-//     }
-// }
-
 
 pub struct Data {
     pub value: DWordType,

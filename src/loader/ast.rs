@@ -60,7 +60,6 @@ pub enum ASTOperand {
 // The visitor is a DFS visitor which is good enough for now. If more flexibility is needed
 // then the traversal of the visitor could be externalized
 impl ASTOperand {
-
     pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_operand(self)
     }

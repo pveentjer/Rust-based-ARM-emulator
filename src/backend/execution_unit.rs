@@ -5,7 +5,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::{RS, RSBranch, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
-use crate::instructions::instructions::{DWordType, Opcode};
+use crate::instructions::instructions::{DWordType, Opcode, RegisterTypeDisplay};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 /// A single execution unit.
@@ -64,7 +64,7 @@ impl EU {
     }
 
     fn execute_printr(&mut self, printr: &mut RSPrintr) {
-        //println!("PRINTR {}={}", Operand::Register(printr.rn.arch_reg), printr.rn.value.unwrap())
+        println!("PRINTR {}={}", RegisterTypeDisplay { register: printr.rn.arch_reg }, printr.rn.value.unwrap())
     }
 
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
@@ -249,33 +249,35 @@ impl EU {
     fn execute_NEG(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
 
-        println!("NEG {}", rn_value.wrapping_neg());
-
         rn_value.wrapping_neg()
     }
 
     fn execute_load_store(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {
         match &load_store.opcode {
-            Opcode::LDR => {
-                let memory_subsystem = self.memory_subsystem.borrow_mut();
-                let address = load_store.rn.value.unwrap() as usize;
-                let value = memory_subsystem.memory[address];
-
-                let rd = load_store.rd.phys_reg.unwrap();
-                load_store.rd.value = Some(value);
-                self.phys_reg_file.borrow_mut().set_value(rd, value);
-
-                rob_slot.renamed_registers.push(load_store.rd.clone())
-            }
-            Opcode::STR => {
-                let value = load_store.rd.value.unwrap();
-                let address = load_store.rn.value.unwrap();
-
-                let mut memory_subsystem = self.memory_subsystem.borrow_mut();
-                memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
-            }
+            Opcode::LDR => self.execute_LDR(load_store, rob_slot),
+            Opcode::STR => self.execute_STR(load_store, rob_slot),
             _ => unreachable!()
         };
+    }
+
+    fn execute_STR(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {
+        let value = load_store.rd.value.unwrap();
+        let address = load_store.rn.value.unwrap();
+
+        let mut memory_subsystem = self.memory_subsystem.borrow_mut();
+        memory_subsystem.sb.store(rob_slot.sb_pos.unwrap(), address, value);
+    }
+
+    fn execute_LDR(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {
+        let memory_subsystem = self.memory_subsystem.borrow_mut();
+        let address = load_store.rn.value.unwrap() as usize;
+        let value = memory_subsystem.memory[address];
+
+        let rd = load_store.rd.phys_reg.unwrap();
+        load_store.rd.value = Some(value);
+        self.phys_reg_file.borrow_mut().set_value(rd, value);
+
+        rob_slot.renamed_registers.push(load_store.rd.clone())
     }
 
     fn execute_branch(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {

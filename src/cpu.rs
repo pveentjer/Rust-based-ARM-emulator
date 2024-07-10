@@ -206,7 +206,7 @@ impl CPU {
             self.frontend.do_cycle();
             thread::sleep(self.cycle_period);
 
-            if self.stats_seconds> 0 && last_log_stats_time.elapsed() >= log_stats_interval {
+            if self.stats_seconds > 0 && last_log_stats_time.elapsed() >= log_stats_interval {
                 self.log_stats();
                 last_log_stats_time = Instant::now();
             }

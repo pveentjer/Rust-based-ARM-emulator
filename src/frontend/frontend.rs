@@ -83,8 +83,8 @@ impl Frontend {
                         println!("Frontend: pc: {}  '{}'", pc, instr);
                     }
 
-                    if let Instr::Synchronization { synchronization: fields } = instr.as_ref() {
-                        if fields.opcode == Opcode::EXIT {
+                    if let Instr::Synchronization (synchronization ) = instr.as_ref() {
+                        if synchronization.opcode == Opcode::EXIT {
                             self.exit = true;
                         }
                     }
@@ -93,8 +93,8 @@ impl Frontend {
                     let slot = instr_queue.get_mut(tail_index);
 
                     let pc_value_next = match instr.as_ref() {
-                        Instr::Branch { branch: fields } => {
-                            slot.branch_target_predicted = Self::predict(pc, fields);
+                        Instr::Branch (branch ) => {
+                            slot.branch_target_predicted = Self::predict(pc, branch);
                             //println!("Frontend branch predicted={}", slot.branch_target_predicted);
                             slot.branch_target_predicted
                         }
