@@ -14,7 +14,7 @@ use crate::instructions::instructions::{DWordType, RegisterType};
 /// at some point.
 #[derive(Debug, Clone)]
 pub struct ASTRegisterOperand {
-    pub reg_id: RegisterType,
+    pub register: RegisterType,
     pub pos: usize,
 }
 
@@ -40,7 +40,7 @@ pub struct ASTAddressOfOperand {
 
 #[derive(Debug, Clone)]
 pub struct ASTMemRegisterIndirectOperand {
-    pub reg_id: RegisterType,
+    pub register: RegisterType,
     pub pos: usize,
 }
 
@@ -60,13 +60,14 @@ pub enum ASTOperand {
 // The visitor is a DFS visitor which is good enough for now. If more flexibility is needed
 // then the traversal of the visitor could be externalized
 impl ASTOperand {
+
     pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {
         visitor.visit_operand(self)
     }
 
     pub fn get_register(&self) -> RegisterType {
         match self {
-            ASTOperand::Register(reg) => reg.reg_id,
+            ASTOperand::Register(reg) => reg.register,
             _ => panic!("Operation is not a Register but of type {:?}", self),
         }
     }
@@ -165,7 +166,6 @@ pub struct ASTLabel {
     pub name: String,
     pub pos: usize,
 }
-
 
 impl ASTLabel {
     pub fn accept(&mut self, visitor: &mut dyn ASTVisitor) -> bool {

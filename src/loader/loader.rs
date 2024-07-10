@@ -133,7 +133,7 @@ pub(crate) fn create_instr(
             let rn = operands[1].get_register();
 
             let operand2 = match &operands[2] {
-                ASTOperand::Register(register) => Operand2::Register { reg_id: register.reg_id },
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
                 ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
                 _ => { panic!() }
             };
@@ -178,7 +178,7 @@ pub(crate) fn create_instr(
             let rn = operands[0].get_register();
 
             let operand2 = match &operands[1] {
-                ASTOperand::Register(register) => Operand2::Register { reg_id: register.reg_id },
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
                 ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
                 _ => { panic!() }
             };
@@ -204,7 +204,7 @@ pub(crate) fn create_instr(
 
             let rn = match &operands[1] {
                 ASTOperand::MemRegisterIndirect(mem_register_indirect)
-                => mem_register_indirect.reg_id,
+                => mem_register_indirect.register,
                 _ => { panic!() }
             };
 
@@ -237,7 +237,7 @@ pub(crate) fn create_instr(
             let rd = operands[0].get_register();
 
             let operand2 = match &operands[1] {
-                ASTOperand::Register(register) => Operand2::Register { reg_id: register.reg_id },
+                ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
                 ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
                 ASTOperand::AddressOf(address_of) => Operand2::Immediate { value: address_of.offset },
                 _ => { panic!("Unhandled {:?}", &operands[1]) }
@@ -462,9 +462,9 @@ impl ASTVisitor for ProgramGeneration<'_> {
     fn visit_operand(&mut self, ast_operand: &mut ASTOperand) -> bool {
         match ast_operand {
             ASTOperand::Register(register) => {
-                if register.reg_id >= GENERAL_ARG_REG_CNT as RegisterType {
+                if register.register >= GENERAL_ARG_REG_CNT as RegisterType {
                     let loc = self.loader.to_source_location(register.pos);
-                    self.loader.errors.push(format!("Unknown register r'{}' at {}:{}", register.reg_id, loc.line, loc.column));
+                    self.loader.errors.push(format!("Unknown register r'{}' at {}:{}", register.register, loc.line, loc.column));
                     return false;
                 }
 
