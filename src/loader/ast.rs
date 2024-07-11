@@ -57,6 +57,41 @@ pub enum ASTOperand {
     Unused(),
 }
 
+impl ASTOperand {
+    pub fn get_type(&self)->ASTOperandType{
+        match self {
+            ASTOperand::Register(_) => ASTOperandType::Register,
+            ASTOperand::Immediate(_) => ASTOperandType::Immediate,
+            ASTOperand::Label(_) => ASTOperandType::Label,
+            ASTOperand::AddressOf(_) => ASTOperandType::AddressOf,
+            ASTOperand::MemRegisterIndirect(_) => ASTOperandType::MemRegisterIndirect,
+            ASTOperand::Unused() => ASTOperandType::Unused,
+        }
+    }
+}
+
+pub enum ASTOperandType{
+    Register,
+    Immediate,
+    Label,
+    AddressOf,
+    MemRegisterIndirect,
+    Unused,
+}
+
+impl ASTOperandType {
+    pub fn base_name(&self)->&str{
+        match  self {
+            ASTOperandType::Register => "Register",
+            ASTOperandType::Immediate => "Immediate",
+            ASTOperandType::Label => "Label",
+            ASTOperandType::AddressOf => "AddressOf",
+            ASTOperandType::MemRegisterIndirect => "MemRegisterIndirect",
+            ASTOperandType::Unused => "Unused",
+        }
+    }
+}
+
 // The visitor is a DFS visitor which is good enough for now. If more flexibility is needed
 // then the traversal of the visitor could be externalized
 impl ASTOperand {

@@ -11,7 +11,7 @@ use crate::cpu::{CPSR, CPUConfig, GENERAL_ARG_REG_CNT, LR};
 use crate::instructions::instructions::{Branch, BranchTarget, ConditionCode, Data, DataProcessing, DWordType,
                                         get_opcode, Instr, LoadStore, Opcode, Operand2, Printr, Program, RegisterType,
                                         SourceLocation, Synchronization};
-use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTVisitor};
+use crate::loader::ast::{ASTAssemblyFile, ASTData, ASTDirective, ASTInstr, ASTLabel, ASTOperand, ASTOperandType, ASTVisitor};
 use crate::loader::loader::LoadError::AnalysisError;
 
 struct Loader {
@@ -113,7 +113,7 @@ impl Loader {
     }
 }
 
-pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: SourceLocation, ) -> Result<Instr, String> {
+pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: SourceLocation) -> Result<Instr, String> {
     let instr = match opcode {
         Opcode::SUB |
         Opcode::MUL |
@@ -125,16 +125,26 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::ADD => {
             validate_operand_count(3, operands, opcode, loc)?;
 
-            let rd = operands[0].get_register();
-            let rn = operands[1].get_register();
+            let rd = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
+
+            let rn = match &operands[1] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 1, &operands[1],
+                                              vec![ASTOperandType::Register]))
+            };
 
             let operand2 = match &operands[2] {
                 ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
                 ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
-                _ => { panic!() }
+                _ => return Err(type_mismatch(opcode, 2, &operands[2],
+                                              vec![ASTOperandType::Register, ASTOperandType::Immediate]))
             };
 
-            Instr::DataProcessing (
+            Instr::DataProcessing(
                 DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
@@ -150,10 +160,19 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::NEG => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            let rd = operands[0].get_register();
-            let rn = operands[1].get_register();
+            let rd = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
 
-            Instr::DataProcessing (
+            let rn = match &operands[1] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 1, &operands[1],
+                                              vec![ASTOperandType::Register]))
+            };
+
+            Instr::DataProcessing(
                 DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
@@ -171,15 +190,21 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
             validate_operand_count(2, operands, opcode, loc)?;
 
             let rd = CPSR as RegisterType;
-            let rn = operands[0].get_register();
+
+            let rn = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 1, &operands[1],
+                                              vec![ASTOperandType::Register]))
+            };
 
             let operand2 = match &operands[1] {
                 ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
                 ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
-                _ => { panic!() }
+                _ => return Err(type_mismatch(opcode, 2, &operands[2],
+                                              vec![ASTOperandType::Register, ASTOperandType::Immediate]))
             };
 
-            Instr::DataProcessing (
+            Instr::DataProcessing(
                 DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
@@ -194,16 +219,21 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::MOV => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            let rd = operands[0].get_register();
+            let rd = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
 
             let operand2 = match &operands[1] {
                 ASTOperand::Register(register) => Operand2::Register { reg_id: register.register },
                 ASTOperand::Immediate(immediate) => Operand2::Immediate { value: immediate.value },
                 ASTOperand::AddressOf(address_of) => Operand2::Immediate { value: address_of.offset },
-                _ => { panic!("Unhandled {:?}", &operands[1]) }
+                _ => return Err(type_mismatch(opcode, 2, &operands[2],
+                                              vec![ASTOperandType::Register, ASTOperandType::Immediate, ASTOperandType::AddressOf]))
             };
 
-            Instr::DataProcessing (
+            Instr::DataProcessing(
                 DataProcessing {
                     opcode,
                     condition: ConditionCode::AL,
@@ -220,14 +250,19 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::LDR => {
             validate_operand_count(2, operands, opcode, loc)?;
 
-            let rd = operands[0].get_register();
+            let rd = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
 
             let rn = match &operands[1] {
                 ASTOperand::MemRegisterIndirect(mem_register_indirect) => mem_register_indirect.register,
-                _ => { panic!("Unknown type {:?}",operands[1]) }
+                _ => return Err(type_mismatch(opcode, 1, &operands[1],
+                                              vec![ASTOperandType::MemRegisterIndirect]))
             };
 
-            Instr::LoadStore (
+            Instr::LoadStore(
                 LoadStore {
                     opcode,
                     condition: ConditionCode::AL,
@@ -241,9 +276,13 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::PRINTR => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let rn = operands[0].get_register();
+            let rn = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
 
-            Instr::Printr (
+            Instr::Printr(
                 Printr {
                     loc: Some(loc),
                     rn,
@@ -260,10 +299,14 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
             let target = if operands.len() == 0 {
                 LR as RegisterType
             } else {
-                operands[0].get_register()
+                match &operands[0] {
+                    ASTOperand::Register(o) => o.register,
+                    _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                                  vec![ASTOperandType::Register]))
+                }
             };
 
-            Instr::Branch (
+            Instr::Branch(
                 Branch {
                     opcode,
                     condition: ConditionCode::AL,
@@ -277,9 +320,13 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::B => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let offset = operands[0].get_code_address();
+            let offset = match &operands[0] {
+                ASTOperand::Label(o) =>  o.offset ,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Label]))
+            };
 
-            Instr::Branch (
+            Instr::Branch(
                 Branch {
                     opcode,
                     condition: ConditionCode::AL,
@@ -293,9 +340,13 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::BX => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let target = operands[0].get_register();
+            let target = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
 
-            Instr::Branch (
+            Instr::Branch(
                 Branch {
                     opcode,
                     condition: ConditionCode::AL,
@@ -307,29 +358,41 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
             )
         }
         Opcode::BL => {
-            crate::loader::loader::validate_operand_count(1, operands, opcode, loc)?;
+            validate_operand_count(1, operands, opcode, loc)?;
 
-            let offset = operands[0].get_code_address();
-
-            Instr::Branch (
+            let target = match &operands[0] {
+                ASTOperand::Label(o) =>  o.offset ,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Label]))
+            };
+            Instr::Branch(
                 Branch {
                     opcode,
                     condition: ConditionCode::AL,
                     loc,
                     link_bit: true,
-                    target: BranchTarget::Immediate { offset: offset as u32 },
+                    target: BranchTarget::Immediate { offset: target as u32 },
                     rt: None,
                 }
             )
         }
         Opcode::CBZ |
         Opcode::CBNZ => {
-            crate::loader::loader::validate_operand_count(2, operands, opcode, loc)?;
+            validate_operand_count(2, operands, opcode, loc)?;
 
-            let rt = operands[0].get_register();
-            let target = operands[1].get_code_address();
+            let rt = match &operands[0] {
+                ASTOperand::Register(o) => o.register,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Register]))
+            };
 
-            Instr::Branch (
+            let target = match &operands[1] {
+                ASTOperand::Label(o) =>  o.offset ,
+                _ => return Err(type_mismatch(opcode, 1, &operands[1],
+                                              vec![ASTOperandType::Label]))
+            };
+
+            Instr::Branch(
                 Branch {
                     opcode,
                     condition: ConditionCode::AL,
@@ -340,7 +403,6 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
                 }
             )
         }
-
         Opcode::BEQ |
         Opcode::BNE |
         Opcode::BLT |
@@ -349,9 +411,13 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::BGE => {
             validate_operand_count(1, operands, opcode, loc)?;
 
-            let offset = operands[0].get_code_address();
+            let offset = match &operands[0] {
+                ASTOperand::Label(o) =>  o.offset ,
+                _ => return Err(type_mismatch(opcode, 0, &operands[0],
+                                              vec![ASTOperandType::Label]))
+            };
 
-            Instr::Branch (
+            Instr::Branch(
                 Branch {
                     opcode,
                     condition: ConditionCode::AL,
@@ -368,7 +434,7 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
         Opcode::DSB => {
             validate_operand_count(0, operands, opcode, loc)?;
 
-            Instr::Synchronization (
+            Instr::Synchronization(
                 Synchronization {
                     opcode,
                     loc: Some(loc),
@@ -384,6 +450,18 @@ pub(crate) fn create_instr(opcode: Opcode, operands: &Vec<ASTOperand>, loc: Sour
     // }
 
     return Ok(instr);
+}
+
+fn type_mismatch(opcode: Opcode, op_index: i32, found: &ASTOperand, acceptable_types: Vec<ASTOperandType>) -> String {
+    let acceptable_names: Vec<&str> = acceptable_types.iter().map(|t| t.base_name()).collect();
+    let acceptable_names_str = acceptable_names.join(", ");
+
+    format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
+            opcode, acceptable_names_str, op_index + 1, found.get_type().base_name())
+
+    //
+    // return Err(format!("Operand count mismatch. {:?} expects {} arguments, but {} are provided at {}:{}",
+    //                    opcode, expected, operands.len(), loc.line, loc.column));
 }
 
 fn validate_operand_count(expected: usize,

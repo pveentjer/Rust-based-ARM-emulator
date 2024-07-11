@@ -1,7 +1,5 @@
 BUGS
 
-- fix error handling of instruction parsing
-
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs to allocate
     and don't allow for an instruction to get a rs if there are not sufficient
@@ -18,6 +16,32 @@ BUGS
 - fix EXIT
 
 TODO
+
+- fix program2 (panic)
+        Executing STR R2, [R3]
+        thread 'main' panicked at src/backend/backend.rs:485:33:
+        attempt to subtract with overflow
+        stack backtrace:
+           0: rust_begin_unwind
+                     at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/std/src/panicking.rs:652:5
+           1: core::panicking::panic_fmt
+                     at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:72:14
+           2: core::panicking::panic_const::panic_const_sub_overflow
+                     at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:179:21
+           3: rust_cpu_emulator::backend::backend::Backend::cdb_broadcast
+                     at ./src/backend/backend.rs:485:33
+           4: rust_cpu_emulator::backend::backend::Backend::cycle_eu_table
+                     at ./src/backend/backend.rs:383:9
+           5: rust_cpu_emulator::backend::backend::Backend::do_cycle
+                     at ./src/backend/backend.rs:72:9
+           6: rust_cpu_emulator::cpu::CPU::run
+                     at ./src/cpu.rs:205:13
+           7: rust_cpu_emulator::main
+                     at ./src/main.rs:81:5
+           8: core::ops::function::FnOnce::call_once
+                     at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/ops/function.rs:250:5
+        note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
 
 - the AST operands should get their own visit methods
 
@@ -67,41 +91,6 @@ TODO
 
 DONE
 
-- fix issue with LDR to use []
+- fix error handling of instruction parsing
 
-- fix issue with STR to use []
-
-- Branch implement Display
-
-- DataProcessing implements Display
-
-- SyncInstr implements Display
-
-- Printr implements Display
-
-- LoadStoreInstr implement Display
-
-- operands can move to the AST section since not used inside the CPU
-
-- simplify the Instr enum
-
-- fix running of junk
-
-- fix display LDR
-
-- fix display STR
-
-- fix PRINTR (register)
-
-- fix parsing memory address
-
-- fix address of parsing
-
-- fix label parsing
-
-- ASTOperands: explicit structs
-
-- remove normal Operand; only keep the AST version
-
-- move create_instr to AST?
 
