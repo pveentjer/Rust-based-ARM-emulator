@@ -16,7 +16,7 @@ _start:
     MOV r0, #10;
     _loop:
     SUB r0, r0, #1;
-    MOD r1, r1, #2;
+    MOV r1, r1, #2;
     CBZ r1, _print_zero;
     CBNZ r1, _print_one;
     CBNZ r0, _loop;

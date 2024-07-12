@@ -196,9 +196,7 @@ impl Backend {
                             },
                         }
                     };
-
-                    println!("dataprocessing rs.pending_cnt: {}", rs.pending_cnt)
-                }
+        }
                 Instr::Branch(branch) => {
                     rs.instr = RSInstr::Branch {
                         branch: RSBranch {
@@ -480,6 +478,9 @@ impl Backend {
                     RSInstr::Printr { printr } => {
                         if let Some(r) = printr.rn.phys_reg {
                             if r == broadcast.phys_reg {
+                                if printr.rn.value.is_some() {
+                                    println!("Value set again! ");
+                                }
                                 printr.rn.value = Some(broadcast.value);
                                 at_least_one_resolved = true;
                                 rs.pending_cnt -= 1;
@@ -489,11 +490,6 @@ impl Backend {
                     RSInstr::Synchronization { .. } => {}
                 }
 
-                // bug: it can happen that the same rs is offered multiple times
-                // one time it triggered when the allocation of rs is done
-                // and the other time here.
-                // todo: not sure if this can still happen due to the at_least_one_resolved.
-                // todo: perhaps this issue is that we don't check if the register was already resolved.
                 if at_least_one_resolved && rs.pending_cnt == 0 {
                     self.rs_table.enqueue_ready(rob_slot.rs_index.unwrap());
                 }
@@ -632,7 +628,6 @@ fn register_rename_src(arch_reg: RegisterType,
             phys_reg = Some(rat_entry.phys_reg);
         }
     } else {
-        println!("Reading physical register");
         value = Some(arch_reg_file.get_value(arch_reg));
     }
 

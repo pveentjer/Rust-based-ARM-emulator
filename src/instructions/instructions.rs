@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::{Debug, Display, Formatter, Pointer};
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
 use crate::cpu::{CPSR, SP};

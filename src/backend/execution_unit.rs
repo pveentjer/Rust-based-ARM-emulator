@@ -88,10 +88,20 @@ impl EU {
             Opcode::TEQ => self.execute_TEQ(data_processing),
             _ => unreachable!()
         };
+
+        // todo: replace by assert
+        if data_processing.rd.value.is_some() {
+            panic!();
+        }
+
         data_processing.rd.value = Some(result);
         self.phys_reg_file.borrow_mut().set_value(data_processing.rd.phys_reg.unwrap(), result);
 
-        rob_slot.renamed_registers.push(data_processing.rd.clone())
+        rob_slot.renamed_registers.push(data_processing.rd.clone());
+
+        if data_processing.opcode==Opcode::SUB {
+            println!("renamed_registers.len {}", rob_slot.renamed_registers.len());
+        }
     }
 
     fn execute_CMP(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
@@ -281,7 +291,6 @@ impl EU {
     }
 
     fn execute_branch(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) {
-        println!("opcode:{:?}", branch.opcode);
         match &branch.opcode {
             Opcode::B => self.execute_B(branch, rob_slot),
             Opcode::BL => self.execute_BL(branch, rob_slot),

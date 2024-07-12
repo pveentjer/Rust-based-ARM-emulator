@@ -546,7 +546,7 @@ impl ASTVisitor for ProgramGeneration<'_> {
 
                 self.operand_stack.push(ast_operand.clone());
             }
-            ASTOperand::Immediate(immediate) => {
+            ASTOperand::Immediate(_) => {
                 self.operand_stack.push(ast_operand.clone());
             }
             ASTOperand::Label(label) => {
@@ -577,7 +577,7 @@ impl ASTVisitor for ProgramGeneration<'_> {
             }
 
             ASTOperand::Unused() => {}
-            ASTOperand::MemRegisterIndirect(mem_register_indirect) => {
+            ASTOperand::MemRegisterIndirect(_) => {
                 self.operand_stack.push(ast_operand.clone());
             }
             //ASTOperand::MemoryAccessWithImmediate(_, _, _) => {}
