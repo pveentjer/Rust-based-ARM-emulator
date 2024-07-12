@@ -1,7 +1,4 @@
-use std::rc::Rc;
-
-use crate::cpu::{CPU, CPUConfig};
-use crate::instructions::instructions::{DWordType, Program, RegisterType};
+use crate::instructions::instructions::{Program, RegisterType};
 
 #[cfg(test)]
 mod tests {

@@ -1,28 +1,12 @@
 BUGS
 
-- there is no back pressure if there are no physical registers, just panic
-    - each instruction should track how many physical registers it needs to allocate
-    and don't allow for an instruction to get a rs if there are not sufficient
-    physical registers.
-
 - restore the 'control' instr
-
-- store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
-
-- SDIV proper division by zero handling
 
 - fix parsing of instructions that modify the control flow implicitly (so when accessing e.g. IP)
 
-- fix EXIT
-
 TODO
 
-
 - the AST operands should get their own visit methods
-
-- fix register to string
-
-- fix address of operand
 
 - cdb_broadcast_buffer filling should be done in execute
 
@@ -50,20 +34,6 @@ TODO
 
 - optimize the flush of the ROB (idle entries can be skipped)
 
-- syntax: add support for loading a binary
-
 - syntax: case insensitive keywords
 
-- syntax: single line comments
-
-- syntax: multiline comment
-
 - syntax: new lines
-
-- syntax: unwanted semicolon after instructions
-
-DONE
-
-- fix error handling of instruction parsing
-
-
