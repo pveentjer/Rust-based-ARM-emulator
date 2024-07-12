@@ -9,12 +9,11 @@ use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranc
 use crate::cpu::{ArgRegFile, CPUConfig, LR, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
-use crate::instructions::instructions::Opcode::LDR;
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
-struct CDBBroadcast {
-    phys_reg: RegisterType,
-    value: DWordType,
+pub struct CDBBroadcast {
+    pub phys_reg: RegisterType,
+    pub value: DWordType,
 }
 
 pub(crate) struct Backend {
@@ -31,7 +30,7 @@ pub(crate) struct Backend {
     retire_n_wide: u8,
     dispatch_n_wide: u8,
     issue_n_wide: u8,
-    cdb_broadcast_buffer: Vec<CDBBroadcast>,
+    cdb_broadcast_buffer: Rc<RefCell<Vec<CDBBroadcast>>>,
     pub(crate) exit: bool,
     perf_counters: Rc<RefCell<PerfCounters>>,
 }
@@ -46,6 +45,7 @@ impl Backend {
         perf_counters: &Rc<RefCell<PerfCounters>>,
     ) -> Backend {
         let phys_reg_file = Rc::new(RefCell::new(PhysRegFile::new(cpu_config.phys_reg_count)));
+        let broadcast_buffer = Rc::new(RefCell::new(Vec::with_capacity(cpu_config.eu_count as usize)));
 
         Backend {
             trace: cpu_config.trace.clone(),
@@ -56,11 +56,11 @@ impl Backend {
             phys_reg_file: Rc::clone(&phys_reg_file),
             rat: RAT::new(cpu_config.phys_reg_count),
             rob: Rc::new(RefCell::new(ROB::new(cpu_config.rob_capacity))),
-            eu_table: EUTable::new(cpu_config, &memory_subsystem, &phys_reg_file, &perf_counters),
+            eu_table: EUTable::new(cpu_config, &memory_subsystem, &phys_reg_file, &perf_counters, &broadcast_buffer),
             retire_n_wide: cpu_config.retire_n_wide,
             dispatch_n_wide: cpu_config.dispatch_n_wide,
             issue_n_wide: cpu_config.issue_n_wide,
-            cdb_broadcast_buffer: Vec::with_capacity(cpu_config.eu_count as usize),
+            cdb_broadcast_buffer: Rc::clone(&broadcast_buffer),
             frontend_control: Rc::clone(frontend_control),
             exit: false,
             perf_counters: Rc::clone(perf_counters),
@@ -70,7 +70,8 @@ impl Backend {
     pub(crate) fn do_cycle(&mut self) {
         self.cycle_retire();
         self.cycle_eu_table();
-        debug_assert!(self.cdb_broadcast_buffer.is_empty());
+        self.cdb_broadcast();
+        debug_assert!(self.cdb_broadcast_buffer.borrow().is_empty());
         self.cycle_dispatch();
         self.cycle_rs_allocation();
         self.cycle_issue();
@@ -165,8 +166,6 @@ impl Backend {
             rob_slot.rs_index = Some(rs_index);
 
             rs.rob_slot_index = Some(rob_slot_index);
-            //rs.opcode = instr.opcode;
-            //rs.source_cnt = instr.source_cnt;
 
             match instr.as_ref() {
                 Instr::DataProcessing(data_processing) => {
@@ -196,7 +195,7 @@ impl Backend {
                             },
                         }
                     };
-        }
+                }
                 Instr::Branch(branch) => {
                     rs.instr = RSInstr::Branch {
                         branch: RSBranch {
@@ -307,85 +306,53 @@ impl Backend {
     }
 
     fn cycle_eu_table(&mut self) {
-        {
-            let mut rob = self.rob.borrow_mut();
-            // todo: we should only iterate over the used execution units.
-            for eu_index in 0..self.eu_table.capacity {
-                let eu = self.eu_table.get_mut(eu_index);
+        let mut rob = self.rob.borrow_mut();
+        // todo: we should only iterate over the used execution units.
+        for eu_index in 0..self.eu_table.capacity {
+            let eu = self.eu_table.get_mut(eu_index);
 
-                if eu.state == EUState::IDLE {
-                    continue;
-                }
-
-                debug_assert!(eu.state == EUState::EXECUTING);
-
-                let rs_index = eu.rs_index.unwrap();
-
-                let rs = self.rs_table.get_mut(rs_index);
-                debug_assert!(rs.state == RSState::BUSY);
-
-                let rob_index = rs.rob_slot_index.unwrap();
-                let rob_slot = rob.get_mut(rob_index);
-                debug_assert!(rob_slot.state == ROBSlotState::DISPATCHED,
-                              "rob_slot is not in dispatched state, but in {:?}, rs_index={}", rob_slot.state, rs_index);
-                debug_assert!(rob_slot.rs_index.is_some());
-                debug_assert!(rob_slot.eu_index.is_some());
-
-                eu.cycle(rs, rob_slot);
-
-                if eu.state == EUState::EXECUTING {
-                    continue;
-                }
-
-                debug_assert!(eu.state == EUState::COMPLETED);
-
-                // todo: this could be integrate in the execute.
-                match &rs.instr {
-                    RSInstr::DataProcessing { data_processing } => {
-                        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-                        let rd = data_processing.rd.phys_reg.unwrap();
-                        let phys_reg_entry = phys_reg_file.get_mut(rd);
-                        self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
-                    }
-                    RSInstr::LoadStore { load_store } => {
-                        // todo: This is ugly because it couples to the LDR. Leads to problems when more loads are added
-                        if load_store.opcode == LDR {
-                            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-                            let rd = load_store.rd.phys_reg.unwrap();
-                            let phys_reg_entry = phys_reg_file.get_mut(rd);
-                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
-                        }
-                    }
-                    RSInstr::Branch { branch } => {
-                        if let Some(lr) = &branch.lr {
-                            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
-                            let phys_reg = lr.phys_reg.unwrap();
-                            let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
-                            self.cdb_broadcast_buffer.push(CDBBroadcast { phys_reg, value: phys_reg_entry.value });
-                        }
-                    }
-                    _ => {}
-                }
-
-                let eu_index = eu.index;
-                self.eu_table.deallocate(eu_index);
-                rob_slot.eu_index = None;
-
-                self.rs_table.deallocate(rs_index);
-                rob_slot.rs_index = None;
-
-                rob_slot.state = ROBSlotState::EXECUTED;
+            if eu.state == EUState::IDLE {
+                continue;
             }
-        }
 
-        self.cdb_broadcast();
+            debug_assert!(eu.state == EUState::EXECUTING);
+
+            let rs_index = eu.rs_index.unwrap();
+
+            let rs = self.rs_table.get_mut(rs_index);
+            debug_assert!(rs.state == RSState::BUSY);
+
+            let rob_index = rs.rob_slot_index.unwrap();
+            let rob_slot = rob.get_mut(rob_index);
+            debug_assert!(rob_slot.state == ROBSlotState::DISPATCHED,
+                          "rob_slot is not in dispatched state, but in {:?}, rs_index={}", rob_slot.state, rs_index);
+            debug_assert!(rob_slot.rs_index.is_some());
+            debug_assert!(rob_slot.eu_index.is_some());
+
+            eu.cycle(rs, rob_slot);
+
+            if eu.state == EUState::EXECUTING {
+                continue;
+            }
+
+            debug_assert!(eu.state == EUState::COMPLETED);
+
+            let eu_index = eu.index;
+            self.eu_table.deallocate(eu_index);
+            rob_slot.eu_index = None;
+
+            self.rs_table.deallocate(rs_index);
+            rob_slot.rs_index = None;
+
+            rob_slot.state = ROBSlotState::EXECUTED;
+        }
     }
 
     fn cdb_broadcast(&mut self) {
         let rs_table_capacity = self.rs_table.capacity;
         let mut rob = self.rob.borrow_mut();
 
-        for broadcast in &mut *self.cdb_broadcast_buffer {
+        for broadcast in &mut *self.cdb_broadcast_buffer.borrow_mut() {
             // Iterate over all RS and replace every matching physical register, by the value
             for rs_index in 0..rs_table_capacity {
                 let rs = self.rs_table.get_mut(rs_index);
@@ -496,7 +463,7 @@ impl Backend {
             }
         }
 
-        self.cdb_broadcast_buffer.clear();
+        self.cdb_broadcast_buffer.borrow_mut().clear();
     }
 
     fn cycle_retire(&mut self) {

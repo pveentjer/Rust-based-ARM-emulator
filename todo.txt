@@ -6,8 +6,6 @@ TODO
 
 - the AST operands should get their own visit methods
 
-- cdb_broadcast_buffer filling should be done in execute
-
 - program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
 
 - add ConditionCode operand

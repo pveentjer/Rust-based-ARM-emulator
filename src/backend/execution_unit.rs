@@ -1,11 +1,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::backend::backend::CDBBroadcast;
 
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::{RS, RSBranch, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
 use crate::instructions::instructions::{DWordType, Opcode, RegisterTypeDisplay};
+use crate::instructions::instructions::Opcode::LDR;
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
 /// A single execution unit.
@@ -14,6 +16,7 @@ pub(crate) struct EU {
     pub(crate) rs_index: Option<u16>,
     pub(crate) cycles_remaining: u8,
     pub(crate) state: EUState,
+    pub(crate) broadcast_buffer:  Rc<RefCell<Vec<CDBBroadcast>>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     perf_counters: Rc<RefCell<PerfCounters>>,
     phys_reg_file: Rc<RefCell<PhysRegFile>>,
@@ -102,6 +105,12 @@ impl EU {
         if data_processing.opcode == Opcode::SUB {
             println!("renamed_registers.len {}", rob_slot.renamed_registers.len());
         }
+
+        let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+        let rd = data_processing.rd.phys_reg.unwrap();
+        let phys_reg_entry = phys_reg_file.get_mut(rd);
+        self.broadcast_buffer.borrow_mut().push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
+
     }
 
     fn execute_CMP(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
@@ -268,6 +277,14 @@ impl EU {
             Opcode::STR => self.execute_STR(load_store, rob_slot),
             _ => unreachable!()
         };
+
+        // todo: This is ugly because it couples to the LDR. Leads to problems when more loads are added
+        if load_store.opcode == LDR {
+            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+            let rd = load_store.rd.phys_reg.unwrap();
+            let phys_reg_entry = phys_reg_file.get_mut(rd);
+            self.broadcast_buffer.borrow_mut().push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
+        }
     }
 
     fn execute_STR(&mut self, load_store: &mut RSLoadStore, rob_slot: &mut ROBSlot) {
@@ -308,6 +325,13 @@ impl EU {
         };
 
         rob_slot.branch_target_actual = branch_target;
+
+        if let Some(lr) = &branch.lr {
+            let mut phys_reg_file = self.phys_reg_file.borrow_mut();
+            let phys_reg = lr.phys_reg.unwrap();
+            let phys_reg_entry = phys_reg_file.get_mut(phys_reg);
+            self.broadcast_buffer.borrow_mut().push(CDBBroadcast { phys_reg, value: phys_reg_entry.value });
+        }
     }
 
     fn execute_B(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) -> usize {
@@ -468,6 +492,7 @@ impl EUTable {
         memory_subsystem: &Rc<RefCell<MemorySubsystem>>,
         phys_reg_file: &Rc<RefCell<PhysRegFile>>,
         perf_counters: &Rc<RefCell<PerfCounters>>,
+        broadcast_buffer: &Rc<RefCell<Vec<CDBBroadcast>>>,
     ) -> EUTable {
         let capacity = cpu_config.eu_count;
         let mut free_stack = Vec::with_capacity(capacity as usize);
@@ -482,6 +507,7 @@ impl EUTable {
                 memory_subsystem: Rc::clone(memory_subsystem),
                 perf_counters: Rc::clone(perf_counters),
                 phys_reg_file: Rc::clone(phys_reg_file),
+                broadcast_buffer: Rc::clone(broadcast_buffer),
             });
             free_stack.push(i);
         }
