@@ -10,7 +10,23 @@ use crate::cpu::{SP,FP,LR,PC};
 grammar;
 
 Integer: u64 = {
+    Decimal,
+    Hexadecimal,
+    Binary,
+};
+
+Decimal: u64 = {
     r"[0-9]+" => u64::from_str(<>).unwrap()
+};
+
+Hexadecimal: u64 = {
+    r"0x[0-9A-Fa-f]+" => u64::from_str_radix(&<>[2..], 16).unwrap(),
+    r"0X[0-9A-Fa-f]+" => u64::from_str_radix(&<>[2..], 16).unwrap(),
+};
+
+Binary: u64 = {
+    r"0b[01]+" => u64::from_str_radix(&<>[2..], 2).unwrap(),
+    r"0B[01]+" => u64::from_str_radix(&<>[2..], 2).unwrap(),
 };
 
 Mnemonic: String = {

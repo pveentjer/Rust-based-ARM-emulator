@@ -17,74 +17,6 @@ BUGS
 
 TODO
 
-    bug: it can happen that the same rs is offered multiple times
-    one time it triggered when the allocation of rs is done
-    and the other time here.
-    todo: perhaps this issue is that we don't check if the register was already resolved.
-
-    Perhaps called by pipeline flush. And the renamed registers not being cleaned.
-        - Doesn't seem to be the case since it is cleared.
-
-    Perhaps caused by issue with Printr:
-        - Doesn't seem to be the case, when replacing by 'add r3, r1, r1'
-        then the same problem (as replacement for print r1)
-         So it seems to be an issue that isn't specific to a particular type of instruction.
-
-    It does seem to by tied to the pipeline flush because an loops where
-    the branch prediction was correct, there is no problem.
-
-    This seems weird:
-        Executing SUB R1, R1, 1
-        renamed_registers.len 1
-        Executing SUB R1, R1, 1
-
-    Could it be that due to speculative execution, you execute the same instrucition twice before
-    retiring any of them? There is a RAW dependency between these 2 instructions
-
-
-        - fix nested_countdown
-                opcode:CBNZ
-                thread 'main' panicked at src/backend/backend.rs:485:33:
-                attempt to subtract with overflow
-                stack backtrace:
-                   0: rust_begin_unwind
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/std/src/panicking.rs:652:5
-                   1: core::panicking::panic_fmt
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:72:14
-                   2: core::panicking::panic_const::panic_const_sub_overflow
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:179:21
-                   3: rust_cpu_emulator::backend::backend::Backend::cdb_broadcast
-                             at ./src/backend/backend.rs:485:33
-                   4: rust_cpu_emulator::backend::backend::Backend::cycle_eu_table
-                             at ./src/backend/backend.rs:383:9
-
-
-
-        - fix program2 (panic)
-                Executing STR R2, [R3]
-                thread 'main' panicked at src/backend/backend.rs:485:33:
-                attempt to subtract with overflow
-                stack backtrace:
-                   0: rust_begin_unwind
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/std/src/panicking.rs:652:5
-                   1: core::panicking::panic_fmt
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:72:14
-                   2: core::panicking::panic_const::panic_const_sub_overflow
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:179:21
-                   3: rust_cpu_emulator::backend::backend::Backend::cdb_broadcast
-                             at ./src/backend/backend.rs:485:33
-                   4: rust_cpu_emulator::backend::backend::Backend::cycle_eu_table
-                             at ./src/backend/backend.rs:383:9
-                   5: rust_cpu_emulator::backend::backend::Backend::do_cycle
-                             at ./src/backend/backend.rs:72:9
-                   6: rust_cpu_emulator::cpu::CPU::run
-                             at ./src/cpu.rs:205:13
-                   7: rust_cpu_emulator::main
-                             at ./src/main.rs:81:5
-                   8: core::ops::function::FnOnce::call_once
-                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/ops/function.rs:250:5
-                note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
-
 
 - the AST operands should get their own visit methods
 
@@ -117,8 +49,6 @@ TODO
 - dedicated EU for ALU, LOAD/STORE etc
 
 - optimize the flush of the ROB (idle entries can be skipped)
-
-- support for precise exceptions
 
 - syntax: add support for loading a binary
 

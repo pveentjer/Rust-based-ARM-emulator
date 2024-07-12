@@ -577,6 +577,38 @@ _start:
         harness.assert_reg_value(2, 16);
     }
 
+    // Add test for binary values
+    #[test]
+    fn test_binary_value() {
+        let src = r#"
+.text
+    MOV r0, #0b1010;
+    MOV r1, #0b1100;
+    ADD r2, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(0, 10);
+        harness.assert_reg_value(1, 12);
+        harness.assert_reg_value(2, 22);
+    }
+
+    // Add test for hexadecimal values
+    #[test]
+    fn test_hexadecimal_value() {
+        let src = r#"
+.text
+    MOV r0, #0xA;
+    MOV r1, #0xC;
+    ADD r2, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(0, 10);
+        harness.assert_reg_value(1, 12);
+        harness.assert_reg_value(2, 22);
+    }
+
     struct TestHarness {
         program: Option<Rc<Program>>,
         cpu: Option<CPU>,
