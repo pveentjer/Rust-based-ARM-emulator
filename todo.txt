@@ -2,8 +2,6 @@ BUGS
 
 - restore the 'control' instr
 
-- fix parsing of instructions that modify the control flow implicitly (so when accessing e.g. IP)
-
 TODO
 
 - the AST operands should get their own visit methods
@@ -19,8 +17,6 @@ TODO
 - add CSEL
 
 - add CSET
-
-- clean up the pc_update in the B.. methods
 
 - integration test: stack push
 

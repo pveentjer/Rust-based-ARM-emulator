@@ -7,8 +7,8 @@ instr_queue_capacity: 64
 # The frequency of the CPU in Hz.
 frequency_hz: 40
 # The number of reservation stations
-rs_count: 6500
-# The size of the memory in machine words
+rs_count: 100
+# The size of the memory in DWords
 memory_size: 128
 # The capacity of the store buffer
 sb_capacity: 16

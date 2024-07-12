@@ -2,6 +2,9 @@ use crate::instructions::instructions::{Program, RegisterType};
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+    use crate::cpu::{CPU, CPUConfig};
+    use crate::instructions::instructions::DWordType;
     use crate::loader::loader::{load_from_string, LoadError};
 
     use super::*;
