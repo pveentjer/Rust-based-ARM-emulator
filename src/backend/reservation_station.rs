@@ -1,24 +1,13 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::instructions::instructions::{DWordType, MAX_SINK_COUNT, MAX_SOURCE_COUNT, Opcode, Operand, RegisterType};
+use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, RegisterType};
 use crate::instructions::instructions::Opcode::NOP;
 
-pub(crate) struct RSOperand {
-    pub(crate) operand: Option<Operand>,
-    pub(crate) value: Option<DWordType>,
+#[derive(Clone)]
+pub(crate) struct RenamedRegister {
     pub(crate) phys_reg: Option<RegisterType>,
-}
-
-impl RSOperand {
-    fn new() -> RSOperand {
-        RSOperand { operand: None, value: None, phys_reg: None }
-    }
-
-    fn reset(&mut self) {
-        self.operand = None;
-        self.value = None;
-        self.phys_reg = None;
-    }
+    pub(crate) arch_reg: RegisterType,
+    pub(crate) value: Option<DWordType>,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -27,33 +16,120 @@ pub(crate) enum RSState {
     BUSY,
 }
 
+pub enum RSOperand2 {
+    Immediate {
+        value: DWordType,
+    },
+    Register {
+        register: RenamedRegister,
+    },
+    Unused(),
+}
+
+impl RSOperand2 {
+    pub fn value(&self) -> DWordType {
+        match self {
+            RSOperand2::Immediate { value } => *value,
+            RSOperand2::Register { register } => register.value.unwrap(),
+            RSOperand2::Unused() => panic!(),
+        }
+    }
+}
+
+pub struct RSDataProcessing {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub rn: Option<RenamedRegister>,
+    pub rd: RenamedRegister,
+    pub rd_src: Option<RenamedRegister>,
+    pub operand2: RSOperand2,
+}
+
+pub enum RSBranchTarget {
+    Immediate {
+        offset: u32,
+    },
+    Register {
+        register: RenamedRegister,
+    },
+}
+
+impl RSBranchTarget {
+    pub fn value(&self) -> u32 {
+        match self {
+            RSBranchTarget::Immediate { offset } => *offset,
+            RSBranchTarget::Register { register } => register.value.unwrap() as u32,
+        }
+    }
+}
+
+pub struct RSBranch {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub lr: Option<RenamedRegister>,
+    pub target: RSBranchTarget,
+    pub rt: Option<RenamedRegister>,
+}
+
+pub struct RSLoadStore {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub rn: RenamedRegister,
+    pub rd: RenamedRegister,
+    pub offset: u16,
+}
+
+pub struct RSPrintr {
+    pub rn: RenamedRegister,
+}
+
+pub struct RSSynchronization {
+    pub opcode: Opcode,
+}
+
+pub(crate) enum RSInstr {
+    DataProcessing {
+        data_processing: RSDataProcessing,
+    },
+
+    Branch {
+        branch: RSBranch,
+    },
+
+    LoadStore {
+        load_store: RSLoadStore,
+    },
+
+    Printr {
+        printr: RSPrintr,
+    },
+
+    Synchronization {
+        synchronization: RSSynchronization,
+    },
+}
 
 // A single reservation station
 pub(crate) struct RS {
     pub(crate) rob_slot_index: Option<u16>,
     pub(crate) opcode: Opcode,
     pub(crate) state: RSState,
-    pub(crate) source_cnt: u8,
-    pub(crate) source: [RSOperand; MAX_SOURCE_COUNT as usize],
-    pub(crate) source_ready_cnt: u8,
-    pub(crate) sink_cnt: u8,
-    pub(crate) sink: [RSOperand; MAX_SINK_COUNT as usize],
+    pub(crate) pending_cnt: u8,
+    pub(crate) instr: RSInstr,
     pub(crate) index: u16,
-
 }
 
 impl RS {
     fn new(index: u16) -> Self {
         Self {
-            opcode: Opcode::NOP,
+            opcode: NOP,
             state: RSState::IDLE,
-            source_cnt: 0,
-            source: [RSOperand::new(), RSOperand::new(), RSOperand::new()],
-            source_ready_cnt: 0,
-            sink_cnt: 0,
-            sink: [RSOperand::new(), RSOperand::new()],
+            pending_cnt: 0,
             rob_slot_index: None,
             index,
+            instr: RSInstr::Synchronization {
+                synchronization: RSSynchronization { opcode: NOP },
+            },
         }
     }
 
@@ -61,27 +137,15 @@ impl RS {
         self.rob_slot_index = None;
         self.opcode = NOP;
         self.state = RSState::IDLE;
-        self.source_cnt = 0;
-        self.source_ready_cnt = 0;
-        self.sink_cnt = 0;
-
-        // not needed
-        for k in 0..MAX_SINK_COUNT {
-            self.sink[k as usize].reset();
-        }
-
-        // not needed
-        for k in 0..MAX_SOURCE_COUNT {
-            self.source[k as usize].reset();
-        }
+        self.pending_cnt = 0;
+        self.instr = RSInstr::Synchronization {
+            synchronization: RSSynchronization { opcode: NOP }
+        };
     }
 }
 
 pub(crate) struct RSTable {
     idle_stack: Vec<u16>,
-    // ready_queue_head: u64,
-    // ready_queue_tail: u64,
-    // ready_queue: Vec<u16>,
     ready_queue: VecDeque<u16>,
     pub(crate) capacity: u16,
     array: Vec<RS>,
@@ -104,8 +168,6 @@ impl RSTable {
             array,
             idle_stack: free_stack,
             ready_queue: VecDeque::new(),
-            //ready_queue_head: 0,
-            //ready_queue_tail: 0,
             allocated: HashSet::new(),
         }
     }

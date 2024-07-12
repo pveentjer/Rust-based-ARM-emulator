@@ -22,7 +22,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add() {
+    fn test_ADD() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -37,7 +37,113 @@ mod tests {
     }
 
     #[test]
-    fn test_sub() {
+    fn test_NEG() {
+        let src = r#"
+.text
+    MOV r0, #100;
+    NEG r1, r0;
+    MOV r0, #0;
+    NEG r2, r0;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        // todo: ugly constant (2^64-100)
+        harness.assert_reg_value(1, 18446744073709551516);
+        harness.assert_reg_value(2, 0);
+    }
+
+    #[test]
+    fn test_AND() {
+        let src = r#"
+.text
+    MOV r0, #0;
+    MOV r1, #0;
+    AND r2, r0, r1;
+    MOV r0, #1;
+    MOV r1, #0;
+    AND r3, r0, r1;
+    MOV r0, #0;
+    MOV r1, #1;
+    AND r4, r0, r1;
+    MOV r0, #1;
+    MOV r1, #1;
+    AND r5, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0);
+        harness.assert_reg_value(3, 0);
+        harness.assert_reg_value(4, 0);
+        harness.assert_reg_value(5, 1);
+    }
+
+    #[test]
+    fn test_ORR() {
+        let src = r#"
+.text
+    MOV r0, #0;
+    MOV r1, #0;
+    ORR r2, r0, r1;
+    MOV r0, #1;
+    MOV r1, #0;
+    ORR r3, r0, r1;
+    MOV r0, #0;
+    MOV r1, #1;
+    ORR r4, r0, r1;
+    MOV r0, #1;
+    MOV r1, #1;
+    ORR r5, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0);
+        harness.assert_reg_value(3, 1);
+        harness.assert_reg_value(4, 1);
+        harness.assert_reg_value(5, 1);
+    }
+
+    #[test]
+    fn test_EOR() {
+        let src = r#"
+.text
+    MOV r0, #0;
+    MOV r1, #0;
+    EOR r2, r0, r1;
+    MOV r0, #1;
+    MOV r1, #0;
+    EOR r3, r0, r1;
+    MOV r0, #0;
+    MOV r1, #1;
+    EOR r4, r0, r1;
+    MOV r0, #1;
+    MOV r1, #1;
+    EOR r5, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0);
+        harness.assert_reg_value(3, 1);
+        harness.assert_reg_value(4, 1);
+        harness.assert_reg_value(5, 0);
+    }
+
+    #[test]
+    fn test_MVN() {
+        let src = r#"
+ .text
+     MOV r0, #100;
+     MVN r1, r0;
+     MOV r0, #0;
+     MVN r2, r0;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(1, 18446744073709551515); // NOT 100 = 2^64 - 101
+        harness.assert_reg_value(2, 18446744073709551615); // NOT 0 = 2^64 - 1
+    }
+
+    #[test]
+    fn test_SUB() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -53,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rsb() {
+    fn test_RSB() {
         let src = r#"
 .text
     MOV r0, #10;
@@ -67,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mul() {
+    fn test_MUL() {
         let src = r#"
 .text
     MOV r0, #100;
@@ -80,7 +186,6 @@ mod tests {
         harness.assert_reg_value(1, 10);
         harness.assert_reg_value(2, 1000);
     }
-
 
     #[test]
     fn test_loop_CMP_BNE() {
@@ -170,9 +275,69 @@ loop:
         harness.assert_reg_value(0, 10);
     }
 
+    #[test]
+    fn test_loop_CMP_BEQ() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #0;
+loop:
+    SUB r0, r0, #1;
+    ADD r1, r1, #1;
+    CMP r0, #0;
+    BEQ end;
+    B loop;
+end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+
+        harness.assert_reg_value(0, 0);
+        harness.assert_reg_value(1, 10);
+    }
 
     #[test]
-    fn test_load_store() {
+    fn test_TEQ() {
+        let src = r#"
+.text
+    MOV r0, #5;
+    MOV r1, #5;
+    TEQ r0, r1;
+    BNE fail;
+    TEQ r0, #0;
+    BEQ fail;
+    B end;
+fail:
+    MOV r2, #1;
+end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0); // Ensure fail indicator is not set
+    }
+
+    #[test]
+    fn test_TST() {
+        let src = r#"
+.text
+    MOV r0, #10;
+    MOV r1, #12;
+    TST r0, r1;
+    BEQ fail;
+    TST r0, #5;
+    BNE fail;
+    B end;
+fail:
+    MOV r2, #1;
+end:
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(2, 0); // Ensure fail indicator is not set
+    }
+
+    #[test]
+    fn test_LDR_STR() {
         let src = r#"
 .data
     var_a: .dword 5
@@ -193,7 +358,7 @@ loop:
     }
 
     #[test]
-    fn test_load() {
+    fn test_LDR() {
         let src = r#"
 .data
     var_a: .dword 5
@@ -208,7 +373,7 @@ loop:
     }
 
     #[test]
-    fn test_store() {
+    fn test_STR() {
         let src = r#"
 .data
     var_a: .dword 0
@@ -225,7 +390,7 @@ loop:
 
     // Ensures that stores update to memory out of order even they can be performed in order.
     #[test]
-    fn test_store_WAW() {
+    fn test_STR_WAW() {
         let src = r#"
 .data
     var_a: .dword 0
@@ -255,7 +420,7 @@ loop:
     }
 
     #[test]
-    fn test_store_loop() {
+    fn test_STR_loop() {
         let src = r#"
 .data
     var_a: .dword 0

@@ -1,7 +1,5 @@
 BUGS
 
-- fix BNE
-
 - there is no back pressure if there are no physical registers, just panic
     - each instruction should track how many physical registers it needs to allocate
     and don't allow for an instruction to get a rs if there are not sufficient
@@ -11,9 +9,92 @@ BUGS
 
 - store to load forwarding: currently the store in the sb isn't seen so CPU becomes incoherent
 
+- SDIV proper division by zero handling
+
+- fix parsing of instructions that modify the control flow implicitly (so when accessing e.g. IP)
+
+- fix EXIT
+
 TODO
 
-- follow the ARM instruction layout
+    bug: it can happen that the same rs is offered multiple times
+    one time it triggered when the allocation of rs is done
+    and the other time here.
+    todo: perhaps this issue is that we don't check if the register was already resolved.
+
+    Perhaps called by pipeline flush. And the renamed registers not being cleaned.
+        - Doesn't seem to be the case since it is cleared.
+
+    Perhaps caused by issue with Printr:
+        - Doesn't seem to be the case, when replacing by 'add r3, r1, r1'
+        then the same problem (as replacement for print r1)
+         So it seems to be an issue that isn't specific to a particular type of instruction.
+
+    It does seem to by tied to the pipeline flush because an loops where
+    the branch prediction was correct, there is no problem.
+
+    This seems weird:
+        Executing SUB R1, R1, 1
+        renamed_registers.len 1
+        Executing SUB R1, R1, 1
+
+    Could it be that due to speculative execution, you execute the same instrucition twice before
+    retiring any of them? There is a RAW dependency between these 2 instructions
+
+
+        - fix nested_countdown
+                opcode:CBNZ
+                thread 'main' panicked at src/backend/backend.rs:485:33:
+                attempt to subtract with overflow
+                stack backtrace:
+                   0: rust_begin_unwind
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/std/src/panicking.rs:652:5
+                   1: core::panicking::panic_fmt
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:72:14
+                   2: core::panicking::panic_const::panic_const_sub_overflow
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:179:21
+                   3: rust_cpu_emulator::backend::backend::Backend::cdb_broadcast
+                             at ./src/backend/backend.rs:485:33
+                   4: rust_cpu_emulator::backend::backend::Backend::cycle_eu_table
+                             at ./src/backend/backend.rs:383:9
+
+
+
+        - fix program2 (panic)
+                Executing STR R2, [R3]
+                thread 'main' panicked at src/backend/backend.rs:485:33:
+                attempt to subtract with overflow
+                stack backtrace:
+                   0: rust_begin_unwind
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/std/src/panicking.rs:652:5
+                   1: core::panicking::panic_fmt
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:72:14
+                   2: core::panicking::panic_const::panic_const_sub_overflow
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/panicking.rs:179:21
+                   3: rust_cpu_emulator::backend::backend::Backend::cdb_broadcast
+                             at ./src/backend/backend.rs:485:33
+                   4: rust_cpu_emulator::backend::backend::Backend::cycle_eu_table
+                             at ./src/backend/backend.rs:383:9
+                   5: rust_cpu_emulator::backend::backend::Backend::do_cycle
+                             at ./src/backend/backend.rs:72:9
+                   6: rust_cpu_emulator::cpu::CPU::run
+                             at ./src/cpu.rs:205:13
+                   7: rust_cpu_emulator::main
+                             at ./src/main.rs:81:5
+                   8: core::ops::function::FnOnce::call_once
+                             at /rustc/84b40fc908c3adc7e0e470b3fbaa264df0e122b8/library/core/src/ops/function.rs:250:5
+                note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+- the AST operands should get their own visit methods
+
+- fix register to string
+
+- fix address of operand
+
+- cdb_broadcast_buffer filling should be done in execute
+
+- program/loader should not construct 'Instr'; they are CPU internal detail for decoded instructions
 
 - add ConditionCode operand
 
@@ -24,10 +105,6 @@ TODO
 - add CSET
 
 - clean up the pc_update in the B.. methods
-
-- add test CMP/BEQ
-
-- add test CMP/BLE
 
 - integration test: stack push
 
@@ -43,6 +120,8 @@ TODO
 
 - support for precise exceptions
 
+- syntax: add support for loading a binary
+
 - syntax: case insensitive keywords
 
 - syntax: single line comments
@@ -55,45 +134,6 @@ TODO
 
 DONE
 
-- add test CMP/BLT
+- fix error handling of instruction parsing
 
-- add testing for RET
 
-- add RET
-
-- add test BLE
-
-- add test fix BLT
-
-- fix BGE
-
-- fix BGT
-
-- fix BEQ
-
-- fix problem with running BNE
-
-- add test_CMP_BNE
-
-- add test_CMP_BGT
-
-- add test_CMP_BGE
-
-- bug validation bug with BNE (argument count should be 1)
-
-- CPU metrics frequency:
-    - currently it is tied to the CPU frequency; but at higher frequency, the output will go too fast.
-
-- the EU should write directly to the physical register
-
-- implement store buffer flush
-
-- store should only be done with memindirectregister
-
-- load should only be done with memindirectregister/memory(direct.. goodname)
-
-- STR broken: allocation of the store doesn't work.
-
-- perf counters need to be shared with EU
-
-- decouple the RS operands from the Instruction operands.

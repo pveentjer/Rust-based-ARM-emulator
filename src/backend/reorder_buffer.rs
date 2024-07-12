@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
-use crate::instructions::instructions::{Instr, MAX_SINK_COUNT, RegisterType};
+use crate::backend::reservation_station::RenamedRegister;
+use crate::instructions::instructions::Instr;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum ROBSlotState {
@@ -21,7 +22,7 @@ pub(crate) struct ROBSlot {
     pub(crate) state: ROBSlotState,
     pub(crate) index: u16,
     pub(crate) rs_index: Option<u16>,
-    pub(crate) sink_phys_regs: [Option<RegisterType>; MAX_SINK_COUNT as usize],
+    pub(crate) renamed_registers: Vec<RenamedRegister>,
     pub(crate) branch_target_predicted: usize,
     pub(crate) branch_target_actual: usize,
     pub(crate) sb_pos: Option<u16>,
@@ -38,10 +39,7 @@ impl ROBSlot {
         self.sb_pos = None;
         self.eu_index = None;
         self.pc = 0;
-
-        for k in 0..MAX_SINK_COUNT {
-            self.sink_phys_regs[k as usize] = None;
-        }
+        self.renamed_registers.clear();
     }
 }
 
@@ -65,7 +63,7 @@ impl ROB {
                 instr: None,
                 state: ROBSlotState::IDLE,
                 rs_index: None,
-                sink_phys_regs: [None, None],
+                renamed_registers: Vec::new(),
                 branch_target_predicted: 0,
                 branch_target_actual: 0,
                 sb_pos: None,

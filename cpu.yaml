@@ -5,7 +5,7 @@ frontend_n_wide: 4
 # The size of the instruction queue between frontend and backend
 instr_queue_capacity: 64
 # The frequency of the CPU in Hz.
-frequency_hz: 4
+frequency_hz: 40
 # The number of reservation stations
 rs_count: 6500
 # The size of the memory in machine words
@@ -25,10 +25,10 @@ trace:
   decode: false
   issue: false
   allocate_rs: false
-  dispatch: false
-  execute: false
-  retire: false
-  pipeline_flush: false
+  dispatch: true
+  execute: true
+  retire: true
+  pipeline_flush: true
 # The number of instructions that can retire per clock cycle
 retire_n_wide: 2
 # The number of instructions that can be dispatched (sent to execution units) every clock cycle

@@ -206,7 +206,7 @@ impl CPU {
             self.frontend.do_cycle();
             thread::sleep(self.cycle_period);
 
-            if self.stats_seconds> 0 && last_log_stats_time.elapsed() >= log_stats_interval {
+            if self.stats_seconds > 0 && last_log_stats_time.elapsed() >= log_stats_interval {
                 self.log_stats();
                 last_log_stats_time = Instant::now();
             }
@@ -253,10 +253,10 @@ impl CPU {
 
 pub const GENERAL_ARG_REG_CNT: u16 = 31;
 pub const SPECIAL_ARG_REG_CNT: u16 = 1;
-pub const FP: u16 = 11;
-pub const SP: u16 = 13;
-pub const LR: u16 = 14;
-pub const PC: u16 = 15;
+pub const FP: RegisterType = 11;
+pub const SP: RegisterType = 13;
+pub const LR: RegisterType = 14;
+pub const PC: RegisterType = 15;
 pub const CPSR: u16 = GENERAL_ARG_REG_CNT;
 
 pub const ZERO_FLAG: u8 = 30;

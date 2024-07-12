@@ -1,22 +1,40 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-
-use Operand::Memory;
 
 use crate::cpu::{CPSR, SP};
 use crate::cpu::FP;
 use crate::cpu::LR;
 use crate::cpu::PC;
-use crate::instructions::instructions::Operand::{Code, Immediate, MemRegisterIndirect, Register, Unused};
 
-#[derive(Debug, Clone, Copy)]
+pub type RegisterType = u16;
+pub type DWordType = u64;
+
+pub struct RegisterTypeDisplay {
+    pub register: RegisterType,
+}
+
+impl Display for RegisterTypeDisplay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.register as u16 {
+            FP => write!(f, "FP"),
+            LR => write!(f, "LR"),
+            SP => write!(f, "SP"),
+            PC => write!(f, "PC"),
+            CPSR => write!(f, "CPSR"),
+            _ => write!(f, "R{}", self.register),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceLocation {
     pub line: usize,
     pub column: usize,
 }
 
-impl fmt::Display for SourceLocation {
+impl Display for SourceLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.line, self.column)
     }
@@ -49,6 +67,8 @@ pub enum Opcode {
     EOR,
     MVN,
     CMP,
+    TST,
+    TEQ,
     BEQ,
     BNE,
     BLE,
@@ -91,6 +111,8 @@ pub(crate) fn mnemonic(opcode: Opcode) -> &'static str {
         Opcode::BGE => "BGE",
         Opcode::BGT => "BGT",
         Opcode::DSB => "DSB",
+        Opcode::TST => "TST",
+        Opcode::TEQ => "TEQ",
     }
 }
 
@@ -130,273 +152,226 @@ pub(crate) fn get_opcode(mnemonic: &str) -> Option<Opcode> {
         "BGE" => Some(Opcode::BGE),
         "BGT" => Some(Opcode::BGT),
         "DSB" => Some(Opcode::DSB),
+        "TST" => Some(Opcode::TST),
+        "TEQ" => Some(Opcode::TEQ),
         _ => None,
     }
 }
 
+pub(crate) const NOP: Instr = Instr::Synchronization(
+    Synchronization {
+        opcode: Opcode::NOP,
+        loc: None,
+    }
+);
 
-pub(crate) fn create_instr(
-    opcode: Opcode,
-    operands: &Vec<Operand>,
-    loc: SourceLocation,
-) -> Result<Instr, String> {
-    let mut instr = Instr {
-        cycles: 1,
-        opcode,
-        source_cnt: 0,
-        source: [Unused, Unused, Unused],
-        sink_cnt: 0,
-        sink: [Unused, Unused],
-        loc: Some(loc),
-        mem_stores: 0,
-        flags: 0,
-        condition_code: ConditionCode::AL,
-    };
+pub(crate) const EXIT: Instr = Instr::Synchronization(
+    Synchronization {
+        opcode: Opcode::EXIT,
+        loc: None,
+    }
+);
 
-    match opcode {
-        Opcode::SUB |
-        Opcode::MUL |
-        Opcode::SDIV |
-        Opcode::AND |
-        Opcode::ORR |
-        Opcode::EOR |
-        Opcode::RSB |
-        Opcode::ADD => {
-            validate_operand_count(3, operands, opcode, loc)?;
+#[derive(Clone, Copy, Debug)]
+pub enum Operand2 {
+    Immediate {
+        value: DWordType,
+    },
+    Register {
+        reg_id: RegisterType,
+    },
+    Unused(),
+}
 
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(2, operands, opcode, &[Register(0), Immediate(0)])?;
-        }
-        Opcode::ADR => { panic!() }
-        Opcode::LDR => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?
-        }
-        Opcode::STR => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.mem_stores = 1;
-
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(1, operands, opcode, &[MemRegisterIndirect(0)])?;
-        }
-        Opcode::NOP => {
-            validate_operand_count(0, operands, opcode, loc)?;
-        }
-        Opcode::PRINTR => {
-            validate_operand_count(1, operands, opcode, loc)?;
-
-            instr.sink_cnt = 0;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-        }
-        Opcode::MOV => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?
-        }
-        Opcode::B => {
-            validate_operand_count(1, operands, opcode, loc)?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
-        }
-        Opcode::RET => {
-            if operands.len() > 1 {
-                return Err(format!("Operand count mismatch. {:?} expects 0 or 1 argument, but {} are provided at {}:{}",
-                                   opcode, operands.len(), loc.line, loc.column));
-            }
-
-            instr.source_cnt = 1;
-            instr.source[0] = if operands.len() == 0 {
-                Register(LR)
-            } else {
-                validate_operand(0, operands, opcode, &[Register(0)])?
-            };
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
-        }
-        Opcode::BX => {
-            validate_operand_count(1, operands, opcode, loc)?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
-        }
-        Opcode::BL => {
-            validate_operand_count(1, operands, opcode, loc)?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(LR);
-            instr.set_branch();
-        }
-        Opcode::CBZ |
-        Opcode::CBNZ => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(1, operands, opcode, &[Code(0)])?;
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
-        }
-        Opcode::EXIT => {
-            validate_operand_count(0, operands, opcode, loc)?;
-            instr.set_branch();
-        }
-        Opcode::DSB => {
-            validate_operand_count(0, operands, opcode, loc)?;
-            instr.set_rob_sync();
-            instr.set_sb_sync();
-        }
-        Opcode::NEG => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Register(0)])?;
-        }
-        Opcode::MVN => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-
-            instr.source_cnt = 1;
-            instr.source[0] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
-        }
-        Opcode::CMP => {
-            validate_operand_count(2, operands, opcode, loc)?;
-
-            instr.source_cnt = 3;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Register(0)])?;
-            instr.source[1] = validate_operand(1, operands, opcode, &[Immediate(0), Register(0)])?;
-            instr.source[2] = Register(CPSR);
-
-            instr.sink_cnt = 1;
-            instr.sink[0] = Register(CPSR);
-        }
-        Opcode::BEQ |
-        Opcode::BNE |
-        Opcode::BLT |
-        Opcode::BLE |
-        Opcode::BGT |
-        Opcode::BGE => {
-            validate_operand_count(1, operands, opcode, loc)?;
-
-            instr.source_cnt = 2;
-            instr.source[0] = validate_operand(0, operands, opcode, &[Code(0)])?;
-            instr.source[1] = Register(CPSR);
-
-            instr.sink_cnt = 0;
-            instr.set_branch();
+impl Display for Operand2 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Operand2::Immediate { value } => write!(f, "{}", *value),
+            Operand2::Register { reg_id } => write!(f, "{}", RegisterTypeDisplay { register: *reg_id }),
+            Operand2::Unused() => write!(f, "Unused"),
         }
     }
-
-    // todo: handling of instructions with control like modifying the IP need to be detected.
-    //
-    // if !instr.is_branch() && has_control_operands(&instr) {
-    //     instr.set_branch();
-    // }
-
-    return Ok(instr);
 }
 
-fn validate_operand_count(expected: usize,
-                          operands: &Vec<Operand>,
-                          opcode: Opcode,
-                          loc: SourceLocation) -> Result<(), String> {
-    if operands.len() != expected {
-        return Err(format!("Operand count mismatch. {:?} expects {} arguments, but {} are provided at {}:{}",
-                           opcode, expected, operands.len(), loc.line, loc.column));
-    }
-    Ok(())
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ConditionCode {
+    EQ, // Equal
+    NE, // Not Equal
+    CS, // Carry Set
+    CC, // Carry Clear
+    MI, // Minus/Negative
+    PL, // Plus/Positive or Zero
+    VS, // Overflow
+    VC, // No Overflow
+    HI, // Unsigned Higher
+    LS, // Unsigned Lower or Same
+    GE, // Signed Greater Than or Equal
+    LT, // Signed Less Than
+    GT, // Signed Greater Than
+    LE, // Signed Less Than or Equal
+    AL, // Always (unconditional)
 }
 
-fn validate_operand(
-    op_index: usize,
-    operands: &Vec<Operand>,
-    opcode: Opcode,
-    acceptable_types: &[Operand],
-) -> Result<Operand, String> {
-    let operand = operands[op_index];
+#[derive(Clone, Copy, Debug)]
+pub struct DataProcessing {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub loc: SourceLocation,
+    // First operand register.
+    pub rn: Option<RegisterType>,
+    // Destination register
+    pub rd: RegisterType,
+    // Second operand, which can be an immediate value or a shifted register.
+    pub operand2: Operand2,
+    // If the destination register should be read before it is written to
+    pub rd_read: bool,
+}
 
-    for &typ in acceptable_types {
-        if std::mem::discriminant(&operand) == std::mem::discriminant(&typ) {
-            return Ok(operand);
+impl Display for DataProcessing {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.opcode {
+            Opcode::SUB |
+            Opcode::MUL |
+            Opcode::SDIV |
+            Opcode::AND |
+            Opcode::ORR |
+            Opcode::EOR |
+            Opcode::RSB |
+            Opcode::ADD => write!(f, "{:?} {}, {}, {}",
+                                  self.opcode,
+                                  RegisterTypeDisplay { register: self.rd },
+                                  RegisterTypeDisplay { register: self.rn.unwrap() },
+                                  self.operand2),
+            Opcode::NEG|
+            Opcode::MOV => write!(f, "{:?} {}, {}",
+                                  self.opcode, RegisterTypeDisplay { register: self.rd }, self.operand2),
+            Opcode::MVN => write!(f, "{:?} {}, {}",
+                                  self.opcode, RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay{register:self.rn.unwrap()}),
+            Opcode::TEQ |
+            Opcode::TST |
+            Opcode::CMP => write!(f, "{:?} {}, {}",
+                                  self.opcode,
+                                  RegisterTypeDisplay { register: self.rn.unwrap() },
+                                  self.operand2),
+            _ => unreachable!("Unknown opcode {:?}", self.opcode),
         }
     }
-    let acceptable_names: Vec<&str> = acceptable_types.iter().map(|t| t.base_name()).collect();
-    let acceptable_names_str = acceptable_names.join(", ");
-
-    Err(format!("Operand type mismatch. {:?} expects {} as argument nr {}, but {} was provided",
-                opcode, acceptable_names_str, op_index + 1, operand.base_name()))
 }
 
-fn has_control_operands(instr: &Instr) -> bool {
-    instr.source.iter().any(|op| is_control_operand(op)) ||
-        instr.sink.iter().any(|op| is_control_operand(op))
+#[derive(Clone, Copy, Debug)]
+pub enum BranchTarget {
+    Immediate {
+        offset: u32,
+    },
+    Register {
+        register: RegisterType,
+    },
 }
 
-fn is_control_operand(op: &Operand) -> bool {
-    matches!(op, Register(register) if *register == PC)
+impl Display for BranchTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BranchTarget::Immediate { offset } => write!(f, "{}", offset),
+            BranchTarget::Register { register } => write!(f, "{}", RegisterTypeDisplay { register: *register }),
+        }
+    }
 }
 
-pub(crate) const NOP: Instr = Instr {
-    cycles: 1,
-    opcode: Opcode::NOP,
-    source_cnt: 0,
-    source: [Operand::Unused, Operand::Unused, Operand::Unused],
-    sink_cnt: 0,
-    sink: [Operand::Unused, Operand::Unused],
-    loc: None,
-    mem_stores: 0,
-    flags: 0,
-    condition_code: ConditionCode::AL,
-};
+#[derive(Clone, Copy, Debug)]
+pub struct Branch {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub loc: SourceLocation,
+    pub link_bit: bool,
+    pub target: BranchTarget,
+    // the register to test against.
+    pub rt: Option<RegisterType>,
+}
 
-pub(crate) const EXIT: Instr = Instr {
-    cycles: 1,
-    opcode: Opcode::EXIT,
-    source_cnt: 0,
-    source: [Unused, Unused, Unused],
-    sink_cnt: 0,
-    sink: [Unused, Unused],
-    loc: None,
-    mem_stores: 0,
-    flags: 0,
-    condition_code: ConditionCode::AL,
-};
+impl Display for Branch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.opcode {
+            Opcode::RET |
+            Opcode::B |
+            Opcode::BX |
+            Opcode::BL => write!(f, "{:?} {}", self.opcode, self.target),
+            Opcode::CBZ |
+            Opcode::CBNZ => write!(f, "{:?} {}, {}", self.opcode, self.rt.unwrap(), self.target),
+            Opcode::BEQ |
+            Opcode::BNE |
+            Opcode::BLT |
+            Opcode::BLE |
+            Opcode::BGT |
+            Opcode::BGE => write!(f, "{:?} {}", self.opcode, self.target),
+            _ => unreachable!("Unknown opcode {:?}", self.opcode),
+        }
+    }
+}
 
-pub(crate) type RegisterType = u16;
-pub(crate) type DWordType = u64;
+#[derive(Clone, Copy, Debug)]
+pub struct LoadStore {
+    pub opcode: Opcode,
+    pub condition: ConditionCode,
+    pub loc: SourceLocation,
+    pub rn: RegisterType,
+    pub rd: RegisterType,
+    pub offset: u16,
+}
+
+impl Display for LoadStore {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.opcode {
+            Opcode::LDR => write!(f, "LDR {}, [{}]", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
+            Opcode::STR => write!(f, "STR {}, [{}]", RegisterTypeDisplay { register: self.rd }, RegisterTypeDisplay { register: self.rn }),
+            _ => unreachable!("Unknown opcode {:?}", self.opcode),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Synchronization {
+    pub opcode: Opcode,
+    pub loc: Option<SourceLocation>,
+}
+
+impl Display for Synchronization {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.opcode)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Printr {
+    pub loc: Option<SourceLocation>,
+    pub rn: RegisterType,
+}
+
+impl Display for Printr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PRINTR {}", RegisterTypeDisplay { register: self.rn })
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Instr {
+    DataProcessing(DataProcessing),
+    Branch(Branch),
+    LoadStore(LoadStore),
+    Synchronization(Synchronization),
+    Printr(Printr),
+}
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Instr::DataProcessing(dp) => Display::fmt(dp, f),
+            Instr::Branch(branch) => Display::fmt(branch, f),
+            Instr::LoadStore(load_store) => Display::fmt(load_store, f),
+            Instr::Synchronization(synchronization) => Display::fmt(synchronization, f),
+            Instr::Printr(printr) => Display::fmt(printr, f),
+        }
+    }
+}
 
 pub(crate) struct InstrQueueSlot {
     pub(crate) instr: Rc<Instr>,
@@ -467,206 +442,12 @@ impl InstrQueue {
     }
 }
 
-// The maximum number of source (input) operands for an instruction.
-pub(crate) const MAX_SOURCE_COUNT: u8 = 3;
-pub(crate) const MAX_SINK_COUNT: u8 = 2;
-
 // True if the instruction is a control instruction; so a partly serializing instruction (no other instructions)
 // A control instruction gets issued into the rob, but it will prevent the next instruction to be issued, so
 // That the branch condition can be determined.
 pub(crate) const INSTR_FLAG_IS_BRANCH: u8 = 0;
 pub(crate) const INSTR_FLAG_SB_SYNC: u8 = 1;
 pub(crate) const INSTR_FLAG_ROB_SYNC: u8 = 2;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ConditionCode {
-    EQ, // Equal
-    NE, // Not Equal
-    CS, // Carry Set
-    CC, // Carry Clear
-    MI, // Minus/Negative
-    PL, // Plus/Positive or Zero
-    VS, // Overflow
-    VC, // No Overflow
-    HI, // Unsigned Higher
-    LS, // Unsigned Lower or Same
-    GE, // Signed Greater Than or Equal
-    LT, // Signed Less Than
-    GT, // Signed Greater Than
-    LE, // Signed Less Than or Equal
-    AL, // Always (unconditional)
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Instr {
-    pub cycles: u8,
-    pub opcode: Opcode,
-    pub source_cnt: u8,
-    pub source: [Operand; MAX_SOURCE_COUNT as usize],
-    pub sink_cnt: u8,
-    pub sink: [Operand; MAX_SINK_COUNT as usize],
-    pub loc: Option<SourceLocation>,
-    pub mem_stores: u8,
-    pub flags: u8,
-    pub condition_code: ConditionCode,
-}
-
-impl Instr {
-    pub(crate) fn is_branch(&self) -> bool {
-        (self.flags & (1 << INSTR_FLAG_IS_BRANCH)) != 0
-    }
-
-    pub(crate) fn set_branch(&mut self) {
-        self.flags |= 1 << INSTR_FLAG_IS_BRANCH;
-    }
-
-    pub(crate) fn rob_sync(&self) -> bool {
-        (self.flags & (1 << INSTR_FLAG_ROB_SYNC)) != 0
-    }
-
-    pub(crate) fn set_rob_sync(&mut self) {
-        self.flags |= 1 << INSTR_FLAG_ROB_SYNC;
-    }
-
-    pub(crate) fn sb_sync(&self) -> bool {
-        (self.flags & (1 << INSTR_FLAG_SB_SYNC)) != 0
-    }
-
-    pub(crate) fn set_sb_sync(&mut self) {
-        self.flags |= 1 << INSTR_FLAG_SB_SYNC;
-    }
-}
-
-impl fmt::Display for Instr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ", mnemonic(self.opcode))?;
-
-        match self.opcode {
-            Opcode::ADD |
-            Opcode::SUB |
-            Opcode::RSB |
-            Opcode::MUL |
-            Opcode::SDIV |
-            Opcode::AND |
-            Opcode::ORR |
-            Opcode::EOR => write!(f, "{}, {}, {}", self.sink[0], self.source[0], self.source[1])?,
-            Opcode::LDR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-            Opcode::STR => write!(f, "{}, {}", self.source[0], self.sink[0])?,
-            Opcode::MOV => write!(f, "{}, {}", self.sink[0], self.source[1])?,
-            Opcode::NOP => {}
-            Opcode::ADR => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-            Opcode::PRINTR => write!(f, "{}", self.source[0])?,
-            Opcode::RET |
-            Opcode::B |
-            Opcode::BX |
-            Opcode::BL => write!(f, "{}", self.source[0])?,
-            Opcode::CBZ |
-            Opcode::CBNZ => write!(f, "{}, {}", self.source[0], self.source[1])?,
-            Opcode::NEG => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-            Opcode::MVN => write!(f, "{}, {}", self.sink[0], self.source[0])?,
-            Opcode::CMP => write!(f, "{}, {}", self.source[0], self.source[1])?,
-            Opcode::EXIT => {}
-            Opcode::DSB => {}
-            Opcode::BEQ |
-            Opcode::BNE |
-            Opcode::BLT |
-            Opcode::BLE |
-            Opcode::BGT |
-            Opcode::BGE => write!(f, "{}", self.source[0])?,
-        }
-
-        if let Some(loc) = self.loc {
-            write!(f, " ; {}:{}", loc.line, loc.column)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum Operand {
-    Register(RegisterType),
-    // The operand is directly specified in the instruction itself.
-    Immediate(DWordType),
-
-    // todo: rename to direct?
-    Memory(DWordType),
-
-    Code(DWordType),
-
-    MemRegisterIndirect(RegisterType),
-
-    Unused,
-}
-
-impl Operand {
-    pub fn base_name(&self) -> &str {
-        match self {
-            Register(_) => "Register",
-            Immediate(_) => "Immediate",
-            Memory(_) => "Memory",
-            Code(_) => "Code",
-            Unused => "Unused",
-            MemRegisterIndirect(_) => "MemRegisterIndirect",
-        }
-    }
-}
-
-impl fmt::Display for Operand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Register(reg) => {
-                match *reg as u16 {
-                    FP => write!(f, "FP"),
-                    LR => write!(f, "LR"),
-                    SP => write!(f, "SP"),
-                    PC => write!(f, "PC"),
-                    CPSR => write!(f, "CPSR"),
-                    _ => write!(f, "R{}", reg),
-                }
-            }  // Add a comma here
-            Immediate(val) => write!(f, "#{}", val),
-            Memory(addr) => write!(f, "[{}]", addr),
-            Code(addr) => write!(f, "[{}]", addr),
-            Memory(addr) => write!(f, "[{}]", addr),
-            Unused => write!(f, "Unused"),
-            MemRegisterIndirect(reg) => write!(f, "[{}]", Register(*reg)),
-        }
-    }
-}
-
-//Indexed(u8, i16),   // Indexed addressing mode (base register and offset).
-//Indirect(u8),
-
-impl Operand {
-    pub(crate) fn get_register(&self) -> RegisterType {
-        match *self {
-            Operand::Register(reg) => reg,
-            _ => panic!("Operation is not a Register but of type {:?}", self),
-        }
-    }
-
-    pub(crate) fn get_immediate(&self) -> DWordType {
-        match self {
-            Operand::Immediate(constant) => *constant,
-            _ => panic!("Operand is not a Constant but of type {:?}", self),
-        }
-    }
-
-    pub(crate) fn get_code_address(&self) -> DWordType {
-        match self {
-            Operand::Code(constant) => *constant,
-            _ => panic!("Operand is not a Code but of type {:?}", self),
-        }
-    }
-
-    pub(crate) fn get_memory_addr(&self) -> DWordType {
-        match self {
-            Memory(addr) => *addr,
-            _ => panic!("Operand is not a Memory but of type {:?}", self),
-        }
-    }
-}
 
 pub struct Data {
     pub value: DWordType,

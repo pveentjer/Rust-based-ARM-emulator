@@ -31,11 +31,18 @@ impl RAT {
         }
     }
 
-    pub(crate) fn get(&self, arch_reg: RegisterType) -> &RATEntry {
-        return self.table.get(arch_reg as usize).unwrap();
+    pub(crate) fn update(&mut self, reg_a: RegisterType, reg_p: RegisterType) {
+        // update the RAT entry to point to the newest phys_reg
+        let rat_entry = self.get_mut(reg_a);
+        rat_entry.phys_reg = reg_p;
+        rat_entry.valid = true;
     }
 
-    pub(crate) fn get_mut(&mut self, arch_reg: RegisterType) -> &mut RATEntry {
-        return self.table.get_mut(arch_reg as usize).unwrap();
+    pub(crate) fn get(&self, reg_a: RegisterType) -> &RATEntry {
+        return self.table.get(reg_a as usize).unwrap();
+    }
+
+    pub(crate) fn get_mut(&mut self, reg_a: RegisterType) -> &mut RATEntry {
+        return self.table.get_mut(reg_a as usize).unwrap();
     }
 }

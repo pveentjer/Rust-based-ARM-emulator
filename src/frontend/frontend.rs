@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::cpu::{ArgRegFile, CPUConfig, PC, PerfCounters, Trace};
-use crate::instructions::instructions::{DWordType, EXIT, Instr, InstrQueue, Opcode, Program};
+use crate::instructions::instructions::{Branch, BranchTarget, DWordType, EXIT, Instr, InstrQueue, Opcode, Program};
 
 pub(crate) struct FrontendControl {
     pub(crate) halted: bool,
@@ -83,19 +83,22 @@ impl Frontend {
                         println!("Frontend: pc: {}  '{}'", pc, instr);
                     }
 
-                    if instr.opcode == Opcode::EXIT {
-                        self.exit = true;
+                    if let Instr::Synchronization (synchronization ) = instr.as_ref() {
+                        if synchronization.opcode == Opcode::EXIT {
+                            self.exit = true;
+                        }
                     }
 
                     let tail_index = instr_queue.tail_index();
                     let slot = instr_queue.get_mut(tail_index);
 
-                    let pc_value_next = if instr.is_branch() {
-                        slot.branch_target_predicted = Self::predict(pc, &instr);
-                        //println!("Frontend branch predicted={}", slot.branch_target_predicted);
-                        slot.branch_target_predicted
-                    } else {
-                        pc + 1
+                    let pc_value_next = match instr.as_ref() {
+                        Instr::Branch (branch ) => {
+                            slot.branch_target_predicted = Self::predict(pc, branch);
+                            //println!("Frontend branch predicted={}", slot.branch_target_predicted);
+                            slot.branch_target_predicted
+                        }
+                        _ => pc + 1,
                     };
                     arch_reg_file.set_value(PC, pc_value_next as DWordType);
 
@@ -110,28 +113,35 @@ impl Frontend {
 
     // A static branch predictor that will speculate that backwards branches are taken.
     // In the future better branch predictors can be added.
-    fn predict(ip: usize, instr: &Instr) -> usize {
-        let branch_target = match instr.opcode {
+    fn predict(ip: usize, branch: &Branch) -> usize {
+        let branch_target = match branch.opcode {
             Opcode::B |
-            Opcode::BL => {
-                return instr.source[0].get_code_address() as usize;
+            Opcode::BL => if let BranchTarget::Immediate { offset } = branch.target {
+                // unconditional branches can be predicted with 100% certainty
+                return offset as usize;
+            } else {
+                panic!();
             }
             Opcode::RET => 0,
             Opcode::BX => 0,
             Opcode::CBNZ |
-            Opcode::CBZ => instr.source[1].get_code_address() as usize,
+            Opcode::CBZ |
             Opcode::BNE |
             Opcode::BLE |
             Opcode::BLT |
             Opcode::BGE |
             Opcode::BGT |
-            Opcode::BEQ => instr.source[0].get_code_address() as usize,
+            Opcode::BEQ => if let BranchTarget::Immediate { offset } = branch.target {
+                offset as usize
+            } else {
+                panic!();
+            },
             _ => unreachable!(),
         };
 
-        if branch_target < ip {
+        if (branch_target as usize) < ip {
             // backwards branches are always taken
-            branch_target
+            branch_target as usize
         } else {
             ip + 1
         }
