@@ -6,14 +6,14 @@ for the ARM instruction set.
 
 The goal is to offer insights into how modern processors might work. 
 
-This project does not aim to provide a super fast implementation; for that, code generation 
+This project does not aim to provide a fast implementation; for that, code generation 
 using binary translation would be significantly faster.
 
 ## Warning
 
-This project is toy project. I want to upgrade my Rust skills and I needed a serious
+This is a toy project. I want to upgrade my Rust skills and I needed a serious
 enough challenge to work on. Also, the challenge should initially be without the need 
-for concurrency control so that I get a better understanding of ownership. 
+for concurrency control so that I get a better understanding of ownership.
 
 ### CPU features 
 
@@ -26,7 +26,7 @@ for concurrency control so that I get a better understanding of ownership.
 * Performance monitor although not exposed through model specific registers.
 
 ### Planned CPU features
-* Support for different data types
+* Support for different data types (currently only dword)
 * One-way fences like LDAR, STLR, LDAPR. 
 * Two-way fences like DMB
 * Serializing instructions like DSB
@@ -60,27 +60,28 @@ for concurrency control so that I get a better understanding of ownership.
 * STR
 
 ### Miscellaneous instructions:
-* NOP
 * MOV
+
+### Synchronization instructions;
+* NOP
 * DSB
 
 ### Branch & control instructions:
+* CMP
+* TST
+* TEQ
 * B
 * BX
 * BL
 * RET
 * CBZ
 * CBNZ
-* CMP
 * BEQ
 * BNE
 * BLE
 * BLT
 * BGE
 * BGT
-
-### Memory barrier instructions:
-* DSB (SY)
 
 ### Unofficial instructions
 * PRINTR: prints the value of a register.
