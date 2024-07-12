@@ -13,6 +13,7 @@ Integer: u64 = {
     Decimal,
     Hexadecimal,
     Binary,
+    Octal,
 };
 
 Decimal: u64 = {
@@ -27,6 +28,11 @@ Hexadecimal: u64 = {
 Binary: u64 = {
     r"0b[01]+" => u64::from_str_radix(&<>[2..], 2).unwrap(),
     r"0B[01]+" => u64::from_str_radix(&<>[2..], 2).unwrap(),
+};
+
+Octal: u64 = {
+    r"0o[0-7]+" => u64::from_str_radix(&<>[2..], 8).unwrap(),
+    r"0O[0-7]+" => u64::from_str_radix(&<>[2..], 8).unwrap(),
 };
 
 Mnemonic: String = {

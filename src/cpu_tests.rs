@@ -577,7 +577,6 @@ _start:
         harness.assert_reg_value(2, 16);
     }
 
-    // Add test for binary values
     #[test]
     fn test_binary_value() {
         let src = r#"
@@ -593,7 +592,6 @@ _start:
         harness.assert_reg_value(2, 22);
     }
 
-    // Add test for hexadecimal values
     #[test]
     fn test_hexadecimal_value() {
         let src = r#"
@@ -607,6 +605,21 @@ _start:
         harness.assert_reg_value(0, 10);
         harness.assert_reg_value(1, 12);
         harness.assert_reg_value(2, 22);
+    }
+
+    #[test]
+    fn test_octal_values() {
+        let src = r#"
+.text
+    MOV r0, #0o10;
+    MOV r1, #0o20;
+    ADD r2, r0, r1;
+"#;
+        let mut harness = TestHarness::default();
+        harness.run(src);
+        harness.assert_reg_value(0, 8);   // Check r0 for 8
+        harness.assert_reg_value(1, 16);  // Check r1 for 16
+        harness.assert_reg_value(2, 24);  // Check r2 for 24 (8 + 16)
     }
 
     struct TestHarness {
