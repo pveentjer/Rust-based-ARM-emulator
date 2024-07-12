@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::backend::backend::CDBBroadcast;
 
+use crate::backend::backend::CDBBroadcast;
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::reorder_buffer::ROBSlot;
 use crate::backend::reservation_station::{RS, RSBranch, RSDataProcessing, RSInstr, RSLoadStore, RSPrintr};
 use crate::cpu::{CARRY_FLAG, CPUConfig, NEGATIVE_FLAG, OVERFLOW_FLAG, PerfCounters, ZERO_FLAG};
-use crate::instructions::instructions::{DWordType, Opcode, RegisterTypeDisplay};
+use crate::instructions::instructions::{ConditionCode, DWordType, Opcode, RegisterTypeDisplay};
 use crate::instructions::instructions::Opcode::LDR;
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
 
@@ -16,7 +16,7 @@ pub(crate) struct EU {
     pub(crate) rs_index: Option<u16>,
     pub(crate) cycles_remaining: u8,
     pub(crate) state: EUState,
-    pub(crate) broadcast_buffer:  Rc<RefCell<Vec<CDBBroadcast>>>,
+    pub(crate) broadcast_buffer: Rc<RefCell<Vec<CDBBroadcast>>>,
     memory_subsystem: Rc<RefCell<MemorySubsystem>>,
     perf_counters: Rc<RefCell<PerfCounters>>,
     phys_reg_file: Rc<RefCell<PhysRegFile>>,
@@ -71,46 +71,76 @@ impl EU {
     }
 
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
-
-        // todo: here the conditional execution can be added
-
-        let result = match &data_processing.opcode {
-            Opcode::ADD => self.execute_ADD(data_processing),
-            Opcode::SUB => self.execute_SUB(data_processing),
-            Opcode::RSB => self.execute_RSB(data_processing),
-            Opcode::MUL => self.execute_MUL(data_processing),
-            Opcode::MOV => self.execute_MOV(data_processing),
-            Opcode::CMP => self.execute_CMP(data_processing),
-            Opcode::SDIV => self.execute_SDIV(data_processing),
-            Opcode::AND => self.execute_AND(data_processing),
-            Opcode::ORR => self.execute_ORR(data_processing),
-            Opcode::EOR => self.execute_EOR(data_processing),
-            Opcode::NEG => self.execute_NEG(data_processing),
-            Opcode::MVN => self.execute_MVN(data_processing),
-            Opcode::TST => self.execute_TST(data_processing),
-            Opcode::TEQ => self.execute_TEQ(data_processing),
-            _ => unreachable!()
+        let should_execute = if data_processing.condition != ConditionCode::AL {
+            let cpsr = data_processing.cpsr.as_ref().unwrap().value.unwrap();
+            match data_processing.condition {
+                ConditionCode::EQ =>
+                    (cpsr >> ZERO_FLAG) & 0x1 == 1,
+                ConditionCode::NE =>
+                    (cpsr >> ZERO_FLAG) & 0x1 == 0,
+                ConditionCode::CS =>
+                    (cpsr >> CARRY_FLAG) & 0x1 == 1,
+                ConditionCode::CC =>
+                    (cpsr >> CARRY_FLAG) & 0x1 == 0,
+                ConditionCode::MI =>
+                    (cpsr >> NEGATIVE_FLAG) & 0x1 == 1,
+                ConditionCode::PL =>
+                    (cpsr >> NEGATIVE_FLAG) & 0x1 == 0,
+                ConditionCode::VS =>
+                    (cpsr >> OVERFLOW_FLAG) & 0x1 == 1,
+                ConditionCode::VC =>
+                    (cpsr >> OVERFLOW_FLAG) & 0x1 == 0,
+                ConditionCode::HI =>
+                    (cpsr >> CARRY_FLAG) & 0x1 == 1 && (cpsr >> ZERO_FLAG) & 0x1 == 0,
+                ConditionCode::LS =>
+                    (cpsr >> CARRY_FLAG) & 0x1 == 0 || (cpsr >> ZERO_FLAG) & 0x1 == 1,
+                ConditionCode::GE =>
+                    ((cpsr >> NEGATIVE_FLAG) & 0x1 == (cpsr >> OVERFLOW_FLAG) & 0x1),
+                ConditionCode::LT =>
+                    ((cpsr >> NEGATIVE_FLAG) & 0x1 != (cpsr >> OVERFLOW_FLAG) & 0x1),
+                ConditionCode::GT =>
+                    (cpsr >> ZERO_FLAG) & 0x1 == 0 && ((cpsr >> NEGATIVE_FLAG) & 0x1 == (cpsr >> OVERFLOW_FLAG) & 0x1),
+                ConditionCode::LE =>
+                    (cpsr >> ZERO_FLAG) & 0x1 == 1 || ((cpsr >> NEGATIVE_FLAG) & 0x1 != (cpsr >> OVERFLOW_FLAG) & 0x1),
+                _ => false,
+            }
+        } else {
+            true
         };
 
-        // todo: replace by assert
-        if data_processing.rd.value.is_some() {
-            panic!();
-        }
+        let result = if should_execute {
+            match &data_processing.opcode {
+                Opcode::ADD => self.execute_ADD(data_processing),
+                Opcode::SUB => self.execute_SUB(data_processing),
+                Opcode::RSB => self.execute_RSB(data_processing),
+                Opcode::MUL => self.execute_MUL(data_processing),
+                Opcode::MOV => self.execute_MOV(data_processing),
+                Opcode::CMP => self.execute_CMP(data_processing),
+                Opcode::SDIV => self.execute_SDIV(data_processing),
+                Opcode::AND => self.execute_AND(data_processing),
+                Opcode::ORR => self.execute_ORR(data_processing),
+                Opcode::EOR => self.execute_EOR(data_processing),
+                Opcode::NEG => self.execute_NEG(data_processing),
+                Opcode::MVN => self.execute_MVN(data_processing),
+                Opcode::TST => self.execute_TST(data_processing),
+                Opcode::TEQ => self.execute_TEQ(data_processing),
+                _ => unreachable!()
+            }
+        } else {
+            // if the instruction should not be executed, the original value of the rd register will
+            // be written (this is needed because otherwise register renaming doesn't work)
+            data_processing.rd_src.as_ref().unwrap().value.unwrap()
+        };
 
         data_processing.rd.value = Some(result);
         self.phys_reg_file.borrow_mut().set_value(data_processing.rd.phys_reg.unwrap(), result);
 
         rob_slot.renamed_registers.push(data_processing.rd.clone());
 
-        if data_processing.opcode == Opcode::SUB {
-            println!("renamed_registers.len {}", rob_slot.renamed_registers.len());
-        }
-
         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
         let rd = data_processing.rd.phys_reg.unwrap();
         let phys_reg_entry = phys_reg_file.get_mut(rd);
         self.broadcast_buffer.borrow_mut().push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
-
     }
 
     fn execute_CMP(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
@@ -155,6 +185,7 @@ impl EU {
 
         rd_update
     }
+
     fn execute_TST(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
         let operand2_value = data_processing.operand2.value();
@@ -267,7 +298,6 @@ impl EU {
 
     fn execute_NEG(&mut self, data_processing: &mut RSDataProcessing) -> DWordType {
         let rn_value = data_processing.rn.as_ref().unwrap().value.unwrap();
-
         rn_value.wrapping_neg()
     }
 

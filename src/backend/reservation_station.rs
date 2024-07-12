@@ -41,7 +41,10 @@ pub struct RSDataProcessing {
     pub condition: ConditionCode,
     pub rn: Option<RenamedRegister>,
     pub rd: RenamedRegister,
+    // the original value of the rd register (needed for condition codes)
     pub rd_src: Option<RenamedRegister>,
+    // the cpsr for condition codes
+    pub cpsr: Option<RenamedRegister>,
     pub operand2: RSOperand2,
 }
 

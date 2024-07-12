@@ -6,7 +6,7 @@ use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
 use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
-use crate::cpu::{ArgRegFile, CPUConfig, LR, PC, PerfCounters, Trace};
+use crate::cpu::{ArgRegFile, CPSR, CPUConfig, LR, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
 use crate::instructions::instructions::{BranchTarget, ConditionCode, DWordType, Instr, InstrQueue, Opcode, Operand2, RegisterType};
 use crate::memory_subsystem::memory_subsystem::MemorySubsystem;
@@ -182,6 +182,11 @@ impl Backend {
                                 Some(register_rename_src(data_processing.rd, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
                             } else {
                                 None
+                            },
+                            cpsr: if data_processing.condition == ConditionCode::AL{
+                                None
+                            }else{
+                                Some(register_rename_src(CPSR, rs,&mut self.rat, &arch_reg_file, &mut phys_reg_file))
                             },
                             rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
                             operand2: match data_processing.operand2 {
@@ -396,6 +401,17 @@ impl Backend {
                             if let Some(r) = rd_src.phys_reg {
                                 if r == broadcast.phys_reg {
                                     rd_src.value = Some(broadcast.value);
+                                    at_least_one_resolved = true;
+                                    rs.pending_cnt -= 1;
+                                }
+                            };
+                        };
+
+
+                        if let Some(cpsr) = &mut data_processing.cpsr {
+                            if let Some(r) = cpsr.phys_reg {
+                                if r == broadcast.phys_reg {
+                                    cpsr.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
                                 }
