@@ -73,7 +73,6 @@ impl PhysRegFile {
             debug_assert!(entry.state == PhysRegEntryState::IDLE);
             debug_assert!(!entry.has_value, " The allocated physical register {} should not have a value", reg);
             entry.state = PhysRegEntryState::BUSY;
-            //println!("Phys Register: allocate {}",reg);
             return reg;
         } else {
             panic!("No free PhysReg")
@@ -92,8 +91,6 @@ impl PhysRegFile {
     }
 
     pub(crate) fn deallocate(&mut self, reg: RegisterType) {
-        // println!("Phys Register: deallocate {}",reg);
-
         debug_assert!(!self.free_stack.contains(&reg), "Phys register {} can't be deallocated while it is also on the free stack", reg);
 
         let entry = self.get_mut(reg);
