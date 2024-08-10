@@ -5,7 +5,6 @@ use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
-use crate::backend::reorder_buffer::ROBSlotState::STAGED;
 use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPSR, CPUConfig, LR, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
@@ -264,11 +263,6 @@ impl Backend {
                             rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
                         },
                     };
-                    match &rs.instr {
-                        RSInstr::Printr { printr } => {
-                        }
-                        _ => {}
-                    }
                 }
                 Instr::Synchronization { .. } => {}
             }

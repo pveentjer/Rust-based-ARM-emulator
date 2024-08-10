@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use structopt::clap::value_t;
 
 use crate::backend::backend::CDBBroadcast;
 use crate::backend::physical_register::PhysRegFile;
@@ -96,9 +95,9 @@ impl EU {
                 ConditionCode::LS =>
                     (cpsr >> CARRY_FLAG) & 0x1 == 0 || (cpsr >> ZERO_FLAG) & 0x1 == 1,
                 ConditionCode::GE =>
-                    ((cpsr >> NEGATIVE_FLAG) & 0x1 == (cpsr >> OVERFLOW_FLAG) & 0x1),
+                    (cpsr >> NEGATIVE_FLAG) & 0x1 == (cpsr >> OVERFLOW_FLAG) & 0x1,
                 ConditionCode::LT =>
-                    ((cpsr >> NEGATIVE_FLAG) & 0x1 != (cpsr >> OVERFLOW_FLAG) & 0x1),
+                    (cpsr >> NEGATIVE_FLAG) & 0x1 != (cpsr >> OVERFLOW_FLAG) & 0x1,
                 ConditionCode::GT =>
                     (cpsr >> ZERO_FLAG) & 0x1 == 0 && ((cpsr >> NEGATIVE_FLAG) & 0x1 == (cpsr >> OVERFLOW_FLAG) & 0x1),
                 ConditionCode::LE =>
@@ -366,11 +365,11 @@ impl EU {
         }
     }
 
-    fn execute_B(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) -> usize {
+    fn execute_B(&mut self, branch: &RSBranch, _rob_slot: &mut ROBSlot) -> usize {
         branch.target.value() as usize
     }
 
-    fn execute_BX(&mut self, branch: &RSBranch, rob_slot: &mut ROBSlot) -> usize {
+    fn execute_BX(&mut self, branch: &RSBranch, _rob_slot: &mut ROBSlot) -> usize {
         branch.target.value() as usize
     }
 
@@ -500,7 +499,7 @@ impl EU {
         pc_update as usize
     }
 
-    fn execute_RET(&mut self, branch: &mut RSBranch, rob_slot: &mut ROBSlot) -> usize {
+    fn execute_RET(&mut self, branch: &mut RSBranch, _rob_slot: &mut ROBSlot) -> usize {
         // update the PC
         let branch_target = branch.target.value();
         branch_target as usize
