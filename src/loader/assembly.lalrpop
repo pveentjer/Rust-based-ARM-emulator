@@ -6,6 +6,7 @@ use crate::loader::ast::{
         ASTLabel,  ASTPreamble, ASTMemRegisterIndirectOperand};
 use crate::cpu::{SP,FP,LR,PC};
 // https://gist.github.com/brendanzab/4c5e5e1836ecc3a46afd05ed046c695c
+use lalrpop_util::ParseError;
 
 grammar;
 
@@ -17,22 +18,29 @@ Integer: u64 = {
 };
 
 Decimal: u64 = {
-    r"[0-9]+" => u64::from_str(<>).unwrap()
+    r"[0-9]+" =>? u64::from_str(<>)
+        .map_err(|_| ParseError::User {error: "decimal literal is too large"})
 };
 
 Hexadecimal: u64 = {
-    r"0x[0-9A-Fa-f]+" => u64::from_str_radix(&<>[2..], 16).unwrap(),
-    r"0X[0-9A-Fa-f]+" => u64::from_str_radix(&<>[2..], 16).unwrap(),
+    r"0x[0-9A-Fa-f]+" =>? u64::from_str_radix(&<>[2..], 16)
+        .map_err(|_| ParseError::User {error: "hexidecimal literal is too large"}),
+    r"0X[0-9A-Fa-f]+" =>? u64::from_str_radix(&<>[2..], 16)
+        .map_err(|_| ParseError::User {error: "hexidecimal literal is too large"}),
 };
 
 Binary: u64 = {
-    r"0b[01]+" => u64::from_str_radix(&<>[2..], 2).unwrap(),
-    r"0B[01]+" => u64::from_str_radix(&<>[2..], 2).unwrap(),
+    r"0b[01]+" =>? u64::from_str_radix(&<>[2..], 2)
+        .map_err(|_| ParseError::User {error: "binary literal is too large"}),
+    r"0B[01]+" =>? u64::from_str_radix(&<>[2..], 2)
+        .map_err(|_| ParseError::User {error: "binary literal is too large"}),
 };
 
 Octal: u64 = {
-    r"0o[0-7]+" => u64::from_str_radix(&<>[2..], 8).unwrap(),
-    r"0O[0-7]+" => u64::from_str_radix(&<>[2..], 8).unwrap(),
+    r"0o[0-7]+" =>? u64::from_str_radix(&<>[2..], 8)
+        .map_err(|_| ParseError::User {error: "octal literal is too large"}),
+    r"0O[0-7]+" =>? u64::from_str_radix(&<>[2..], 8)
+        .map_err(|_| ParseError::User {error: "octal literal is too large"}),
 };
 
 Mnemonic: String = {
