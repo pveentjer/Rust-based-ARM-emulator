@@ -7,8 +7,10 @@ use crate::instructions::instructions::Instr;
 pub(crate) enum ROBSlotState {
     // the initial state
     IDLE,
-    // the instruction is issued into the rob
+    // the instruction is issued into the rob where it is waiting for its operands.
     ISSUED,
+    // todo: better name, the rob slot has all operands ready but isn't dispatched yet
+    STAGED,
     // the instruction is dispatched to an EU where it will be processed
     DISPATCHED,
     // the instruction has executed

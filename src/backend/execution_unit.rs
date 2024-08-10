@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use structopt::clap::value_t;
 
 use crate::backend::backend::CDBBroadcast;
 use crate::backend::physical_register::PhysRegFile;
@@ -54,7 +55,7 @@ impl EU {
 
         if self.trace {
             let instr = rob_slot.instr.as_ref().unwrap();
-            println!("Executing {}", instr);
+            println!("Executing [{}]", instr);
         }
 
         match &mut rs.instr {
@@ -67,7 +68,7 @@ impl EU {
     }
 
     fn execute_printr(&mut self, printr: &mut RSPrintr) {
-        println!("PRINTR {}={}", RegisterTypeDisplay { register: printr.rn.arch_reg }, printr.rn.value.unwrap())
+        println!("PRINTR {}={}", RegisterTypeDisplay { register: printr.rn.arch_reg }, printr.rn.value.unwrap());
     }
 
     fn execute_data_processing(&mut self, data_processing: &mut RSDataProcessing, rob_slot: &mut ROBSlot) {
@@ -140,6 +141,7 @@ impl EU {
         let mut phys_reg_file = self.phys_reg_file.borrow_mut();
         let rd = data_processing.rd.phys_reg.unwrap();
         let phys_reg_entry = phys_reg_file.get_mut(rd);
+
         self.broadcast_buffer.borrow_mut().push(CDBBroadcast { phys_reg: rd, value: phys_reg_entry.value });
     }
 

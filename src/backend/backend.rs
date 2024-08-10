@@ -5,6 +5,7 @@ use crate::backend::execution_unit::{EUState, EUTable};
 use crate::backend::physical_register::PhysRegFile;
 use crate::backend::register_alias_table::RAT;
 use crate::backend::reorder_buffer::{ROB, ROBSlotState};
+use crate::backend::reorder_buffer::ROBSlotState::STAGED;
 use crate::backend::reservation_station::{RenamedRegister, RS, RSBranch, RSBranchTarget, RSDataProcessing, RSInstr, RSLoadStore, RSOperand2, RSPrintr, RSState, RSTable};
 use crate::cpu::{ArgRegFile, CPSR, CPUConfig, LR, PC, PerfCounters, Trace};
 use crate::frontend::frontend::FrontendControl;
@@ -159,6 +160,10 @@ impl Backend {
                 }
             }
 
+            if self.trace.allocate_rs {
+                println!("Allocate RS [{}]", instr);
+            }
+
             let rs_index = self.rs_table.allocate();
             let rs = self.rs_table.get_mut(rs_index);
             debug_assert!(rs.state == RSState::BUSY);
@@ -166,6 +171,7 @@ impl Backend {
             rob_slot.rs_index = Some(rs_index);
 
             rs.rob_slot_index = Some(rob_slot_index);
+
 
             match instr.as_ref() {
                 Instr::DataProcessing(data_processing) => {
@@ -183,10 +189,10 @@ impl Backend {
                             } else {
                                 None
                             },
-                            cpsr: if data_processing.condition == ConditionCode::AL{
+                            cpsr: if data_processing.condition == ConditionCode::AL {
                                 None
-                            }else{
-                                Some(register_rename_src(CPSR, rs,&mut self.rat, &arch_reg_file, &mut phys_reg_file))
+                            } else {
+                                Some(register_rename_src(CPSR, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file))
                             },
                             rd: register_rename_sink(data_processing.rd, &mut phys_reg_file, &mut self.rat),
                             operand2: match data_processing.operand2 {
@@ -252,20 +258,25 @@ impl Backend {
                         _ => unreachable!(),
                     }
                 }
-                Instr::Printr(printr) => rs.instr = RSInstr::Printr {
-                    printr: RSPrintr {
-                        rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
-                    },
-                },
+                Instr::Printr(printr) => {
+                    rs.instr = RSInstr::Printr {
+                        printr: RSPrintr {
+                            rn: register_rename_src(printr.rn, rs, &mut self.rat, &arch_reg_file, &mut phys_reg_file)
+                        },
+                    };
+                    match &rs.instr {
+                        RSInstr::Printr { printr } => {
+                        }
+                        _ => {}
+                    }
+                }
                 Instr::Synchronization { .. } => {}
             }
 
             if rs.pending_cnt == 0 {
+                //println!("rs_table enqueue ready");
+                rob_slot.state = ROBSlotState::STAGED;
                 self.rs_table.enqueue_ready(rs_index);
-            }
-
-            if self.trace.allocate_rs {
-                println!("Allocate RS [{}]", instr);
             }
 
             rob.seq_rs_allocated += 1;
@@ -288,6 +299,8 @@ impl Backend {
 
             let rob_slot_index = rs.rob_slot_index.unwrap();
             let rob_slot = rob.get_mut(rob_slot_index);
+            //println!("{:?}",rob_slot.state);
+            debug_assert!(rob_slot.state == ROBSlotState::STAGED);
 
             let eu_index = self.eu_table.allocate();
             let eu = self.eu_table.get_mut(eu_index);
@@ -357,7 +370,10 @@ impl Backend {
         let rs_table_capacity = self.rs_table.capacity;
         let mut rob = self.rob.borrow_mut();
 
+
+        //println!("Broadcast");
         for broadcast in &mut *self.cdb_broadcast_buffer.borrow_mut() {
+            //println!("\t\tBroadcasting value for phys_reg {}", broadcast.phys_reg);
             // Iterate over all RS and replace every matching physical register, by the value
             for rs_index in 0..rs_table_capacity {
                 let rs = self.rs_table.get_mut(rs_index);
@@ -372,6 +388,8 @@ impl Backend {
                 }
 
                 let mut rs = self.rs_table.get_mut(rob_slot.rs_index.unwrap());
+                //println!("\t\trs.index={} rs.state={:?}", rs.index, rs.state);
+
                 let mut at_least_one_resolved = false;
 
                 // todo: lot of copy paste code
@@ -379,7 +397,7 @@ impl Backend {
                     RSInstr::DataProcessing { data_processing } => {
                         if let Some(rn) = &mut data_processing.rn {
                             if let Some(r) = rn.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && rn.value.is_none(){
                                     rn.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -389,7 +407,7 @@ impl Backend {
 
                         if let RSOperand2::Register { ref mut register } = &mut data_processing.operand2 {
                             if let Some(r) = register.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && register.value.is_none(){
                                     register.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -399,7 +417,7 @@ impl Backend {
 
                         if let Some(rd_src) = &mut data_processing.rd_src {
                             if let Some(r) = rd_src.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && rd_src.value.is_none() {
                                     rd_src.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -410,7 +428,7 @@ impl Backend {
 
                         if let Some(cpsr) = &mut data_processing.cpsr {
                             if let Some(r) = cpsr.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && cpsr.value.is_none(){
                                     cpsr.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -421,7 +439,7 @@ impl Backend {
                     RSInstr::Branch { branch } => {
                         if let RSBranchTarget::Register { register } = &mut branch.target {
                             if let Some(r) = register.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && register.value.is_none(){
                                     register.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -431,7 +449,7 @@ impl Backend {
 
                         if let Some(register) = &mut branch.rt {
                             if let Some(r) = register.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && register.value.is_none(){
                                     register.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -441,7 +459,7 @@ impl Backend {
                     }
                     RSInstr::LoadStore { load_store } => {
                         if let Some(r) = load_store.rn.phys_reg {
-                            if r == broadcast.phys_reg {
+                            if r == broadcast.phys_reg && load_store.rn.value.is_none(){
                                 load_store.rn.value = Some(broadcast.value);
                                 at_least_one_resolved = true;
                                 rs.pending_cnt -= 1;
@@ -450,7 +468,7 @@ impl Backend {
 
                         if load_store.opcode == Opcode::STR {
                             if let Some(r) = load_store.rd.phys_reg {
-                                if r == broadcast.phys_reg {
+                                if r == broadcast.phys_reg && load_store.rd.value.is_none(){
                                     load_store.rd.value = Some(broadcast.value);
                                     at_least_one_resolved = true;
                                     rs.pending_cnt -= 1;
@@ -460,10 +478,7 @@ impl Backend {
                     }
                     RSInstr::Printr { printr } => {
                         if let Some(r) = printr.rn.phys_reg {
-                            if r == broadcast.phys_reg {
-                                if printr.rn.value.is_some() {
-                                    println!("Value set again! ");
-                                }
+                            if r == broadcast.phys_reg && printr.rn.value.is_none(){
                                 printr.rn.value = Some(broadcast.value);
                                 at_least_one_resolved = true;
                                 rs.pending_cnt -= 1;
@@ -474,6 +489,7 @@ impl Backend {
                 }
 
                 if at_least_one_resolved && rs.pending_cnt == 0 {
+                    rob_slot.state = ROBSlotState::STAGED;
                     self.rs_table.enqueue_ready(rob_slot.rs_index.unwrap());
                 }
             }
@@ -512,7 +528,7 @@ impl Backend {
                 }
 
                 if self.trace.retire {
-                    println!("Retiring {}", instr);
+                    println!("Retiring [{}]", instr);
                 }
 
                 // Update the architectural registers
@@ -602,16 +618,24 @@ fn register_rename_src(arch_reg: RegisterType,
     let rat_entry = rat.get(arch_reg);
     if rat_entry.valid {
         let phys_reg_entry = phys_reg_file.get(rat_entry.phys_reg);
+        //println!("    register_rename_src valid=true arch_reg={} phys_reg={}", arch_reg, rat_entry.phys_reg);
+
         if phys_reg_entry.has_value {
+            //println!("       has value {}", phys_reg_entry.value);
             //we got lucky, there is a value in the physical register.
             value = Some(phys_reg_entry.value);
         } else {
+            //println!("       has no value");
             rs.pending_cnt += 1;
+            //println!("       rs.pending_count {}", rs.pending_cnt);
+
             // cdb broadcast will update
             phys_reg = Some(rat_entry.phys_reg);
         }
     } else {
+        //println!("    register_rename_src valid=false arch_reg={}", arch_reg);
         value = Some(arch_reg_file.get_value(arch_reg));
+        //println!("\t\t\t value={}", value.unwrap());
     }
 
     RenamedRegister { arch_reg, phys_reg, value }
@@ -621,6 +645,7 @@ fn register_rename_sink(arch_reg: RegisterType,
                         phys_reg_file: &mut PhysRegFile,
                         rat: &mut RAT,
 ) -> RenamedRegister {
+    //println!("    register_rename_sink arch_reg={}", arch_reg);
     let phys_reg = phys_reg_file.allocate();
     rat.update(arch_reg, phys_reg);
 
